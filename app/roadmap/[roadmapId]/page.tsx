@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+import { SubHeader } from '@/components/layout/SubHeader';
 import { useRoadmap } from '@/hooks/useRoadmap';
 import { useRoadmapStore } from '@/store/roadmapStore';
 import { useUIStore } from '@/store/uiStore';
@@ -109,6 +110,17 @@ export default function RoadmapPage() {
 
   return (
     <div className="flex flex-1 flex-col h-full">
+      <SubHeader
+        backUrl="/"
+        title={roadmap.title}
+        subtitle={roadmap.description}
+        showActionButton={true}
+        actionButtonLabel="Add Objective"
+        actionButtonIcon={<Plus className="h-4 w-4 mr-2" />}
+        onActionClick={() => openCreateObjectiveModal()}
+        actionButtonDisabled={!selectedMonthKey}
+      />
+      
       {/* Timeline Container */}
       <div className="container mx-auto flex-1 px-4 py-8 overflow-hidden flex flex-col">
         <div className="flex flex-col h-full">

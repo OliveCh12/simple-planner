@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SubHeader } from '@/components/layout/SubHeader';
 import { RoadmapCard } from '@/components/roadmap/RoadmapCard';
 import { CreateRoadmapModal } from '@/components/roadmap/CreateRoadmapModal';
 import { getAllRoadmaps, deleteRoadmap } from '@/lib/db';
@@ -48,21 +49,16 @@ export default function Home() {
 
   return (
     <div>
+      <SubHeader
+        title="Timeline Planner"
+        subtitle="Plan and track your goals across time"
+        showActionButton={true}
+        actionButtonLabel="New Roadmap"
+        actionButtonIcon={<Plus className="h-4 w-4 mr-2" />}
+        onActionClick={() => setIsCreateModalOpen(true)}
+      />
+      
       <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight mb-2">
-              Timeline Planner
-            </h1>
-            <p className="text-muted-foreground">
-              Plan and track your goals across time
-            </p>
-          </div>
-          <Button onClick={() => setIsCreateModalOpen(true)} size="lg">
-            <Plus className="h-5 w-5 mr-2" />
-            New Roadmap
-          </Button>
-        </div>
 
         {isLoading ? (
           <div className="flex items-center justify-center py-12">

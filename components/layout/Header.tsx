@@ -1,10 +1,11 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { Calendar, Moon, Sun, Menu } from 'lucide-react';
+import { Calendar, Moon, Sun, Menu, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUIStore } from '@/store/uiStore';
 import { useEffect, useState } from 'react';
+import { exportData } from '@/lib/db';
 
 export function Header() {
   const router = useRouter();
@@ -35,6 +36,24 @@ export function Header() {
       }
     }
   }, [theme, mounted]);
+
+    const handleExport = async () => {
+      try {
+        const data = await exportData();
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `timeline-planner-backup-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error('Export failed:', error);
+        alert('Failed to export data. Please try again.');
+      }
+    };
 
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
@@ -72,14 +91,15 @@ export function Header() {
 
         {/* Navigation */}
         <nav className="flex items-center gap-2">
-          {!isHomePage && (
-            <Button
-              variant="ghost"
-              onClick={() => router.push('/')}
-            >
-              Dashboard
-            </Button>
-          )}
+
+          <Button
+            variant="outline"
+            onClick={handleExport}
+          >
+            Export Data
+
+            <ExternalLink className="h-4 w-4" />
+          </Button>
 
           {/* Theme Toggle */}
           <Button
