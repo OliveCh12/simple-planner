@@ -113,7 +113,7 @@ export default function RoadmapPage() {
       <SubHeader
         backUrl="/"
         title={roadmap.title}
-        subtitle={roadmap.description}
+        subtitle={roadmap.description + (roadmap.description ? ` • ${roadmap.startYear} - ${roadmap.endYear}` : ` ${roadmap.startYear} - ${roadmap.endYear}`)}
         showActionButton={true}
         actionButtonLabel="Add Objective"
         actionButtonIcon={<Plus className="h-4 w-4 mr-2" />}
@@ -122,18 +122,10 @@ export default function RoadmapPage() {
       />
       
       {/* Timeline Container */}
-      <div className="container mx-auto flex-1 px-4 py-8 overflow-hidden flex flex-col">
-        <div className="flex flex-col h-full">
-          {/* <div className="flex-shrink-0">
-            <h2 className="text-lg font-semibold mb-2">Timeline</h2>
-            <p className="text-sm text-muted-foreground">
-              {roadmap.startYear} - {roadmap.endYear}
-            </p>
-          </div> */}
-
+      <div className="container mx-auto flex-1 px-4 py-8 overflow-hidden flex flex-col h-full">
           {/* Horizontal Scrollable Timeline */}
-          <ScrollArea className="p-6" >
-            <div className="flex flex-1 gap-4 p-4 overflow-x-auto snap-x snap-mandatory">
+          <ScrollArea className="flex-1" >
+            <div className="flex h-full gap-4 p-4 overflow-x-auto">
               {monthKeys.map((monthKey) => {
                 const [year, month] = monthKey.split('-').map(Number);
                 const monthData = roadmap.months[monthKey];
@@ -145,9 +137,9 @@ export default function RoadmapPage() {
                   <div
                     key={monthKey}
                     className={`
-                      min-w-[280px] w-[280px] snap-start
+                      min-w-[280px] w-[280px] h-full snap-start
                       border rounded-lg p-4 bg-card
-                      transition-all cursor-pointer
+                      transition-all cursor-pointer flex flex-col
                       ${isSelected ? 'ring-2 ring-primary shadow-lg' : 'hover:shadow-md'}
                       ${isCurrentMonth ? 'border-primary' : ''}
                     `}
@@ -164,7 +156,7 @@ export default function RoadmapPage() {
                       )}
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 flex-1 overflow-y-auto">
                       {objectiveCount === 0 ? (
                         <p className="text-sm text-muted-foreground">
                           No objectives yet
@@ -215,52 +207,6 @@ export default function RoadmapPage() {
               <ScrollBar orientation="horizontal" />
             </div>
           </ScrollArea>
-
-          {/* Selected Month Details
-          {selectedMonthKey && roadmap.months[selectedMonthKey] && (
-            <div className="flex-1 overflow-y-auto min-h-0">
-              <h3 className="text-xl font-semibold mb-4">
-                {formatMonthDisplay(
-                  ...selectedMonthKey.split('-').map(Number) as [number, number]
-                )}
-              </h3>
-              <div className="space-y-3 pb-4">
-                {roadmap.months[selectedMonthKey].objectives.map((objective) => (
-                  <div
-                    key={objective.id}
-                    className="border rounded-lg p-4 bg-card hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => router.push(`/roadmap/${roadmapId}/objective/${objective.id}`)}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-semibold">{objective.title}</h4>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        objective.status === 'completed'
-                          ? 'bg-green-100 text-green-700'
-                          : objective.status === 'in-progress'
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'bg-gray-100 text-gray-700'
-                      }`}>
-                        {objective.status}
-                      </span>
-                    </div>
-                    {objective.description && (
-                      <p className="text-sm text-muted-foreground mb-2">
-                        {objective.description}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <span>Energy: {objective.energyLevel}</span>
-                      <span>Priority: {objective.priority}</span>
-                      {objective.duration && (
-                        <span>{objective.duration} days</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )} */}
-        </div>
       </div>
 
       {/* Create Objective Modal */}

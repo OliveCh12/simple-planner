@@ -1,14 +1,15 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { SubHeader } from '@/components/layout/SubHeader';
-import { RoadmapCard } from '@/components/roadmap/RoadmapCard';
-import { CreateRoadmapModal } from '@/components/roadmap/CreateRoadmapModal';
-import { getAllRoadmaps, deleteRoadmap } from '@/lib/db';
-import type { Roadmap } from '@/types';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { SubHeader } from "@/components/layout/SubHeader";
+import { RoadmapCard } from "@/components/roadmap/RoadmapCard";
+import { CreateRoadmapModal } from "@/components/roadmap/CreateRoadmapModal";
+import { getAllRoadmaps, deleteRoadmap } from "@/lib/db";
+import type { Roadmap } from "@/types";
+import RoadmapCardNew from "@/components/roadmap/RoadmapCardNew";
 
 export default function Home() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function Home() {
       const allRoadmaps = await getAllRoadmaps();
       setRoadmaps(allRoadmaps);
     } catch (error) {
-      console.error('Failed to load roadmaps:', error);
+      console.error("Failed to load roadmaps:", error);
     } finally {
       setIsLoading(false);
     }
@@ -35,10 +36,10 @@ export default function Home() {
   async function handleDelete(id: string) {
     try {
       await deleteRoadmap(id);
-      setRoadmaps(roadmaps.filter(r => r.id !== id));
+      setRoadmaps(roadmaps.filter((r) => r.id !== id));
     } catch (error) {
-      console.error('Failed to delete roadmap:', error);
-      alert('Failed to delete roadmap. Please try again.');
+      console.error("Failed to delete roadmap:", error);
+      alert("Failed to delete roadmap. Please try again.");
     }
   }
 
@@ -57,9 +58,8 @@ export default function Home() {
         actionButtonIcon={<Plus className="h-4 w-4 mr-2" />}
         onActionClick={() => setIsCreateModalOpen(true)}
       />
-      
-      <div className="container mx-auto px-4 py-8">
 
+      <div className="container mx-auto px-4 py-8">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <p className="text-muted-foreground">Loading roadmaps...</p>
@@ -83,6 +83,7 @@ export default function Home() {
                 onDelete={handleDelete}
               />
             ))}
+            <RoadmapCardNew onClick={() => setIsCreateModalOpen(true)} ariaLabel="Create new roadmap" />
           </div>
         )}
       </div>

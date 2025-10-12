@@ -40,9 +40,9 @@ export default function RootLayout({
       <body
         className={`${ubuntu.variable} antialiased`}
       >
-        <div className="flex min-h-screen flex-col">
+        <div className="flex h-screen flex-col">
           <Header />
-          <main className="flex-1">
+          <main className="flex flex-1 flex-col overflow-hidden">
             {children}
           </main>
           <Footer />

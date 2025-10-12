@@ -9,6 +9,7 @@ import type { Roadmap } from '@/types';
 import { formatDateDisplay } from '@/lib/date-utils';
 
 interface RoadmapCardProps {
+  isNewCard?: boolean;
   roadmap: Roadmap;
   onDelete?: (id: string) => void;
 }
@@ -35,6 +36,7 @@ export function RoadmapCard({ roadmap, onDelete }: RoadmapCardProps) {
   };
 
   return (
+    
     <Link href={`/roadmap/${roadmap.id}`}>
       <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
         <CardHeader>

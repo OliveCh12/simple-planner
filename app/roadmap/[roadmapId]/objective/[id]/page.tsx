@@ -2,43 +2,72 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar, Clock, Flag, Zap, Trash2, Save, Edit2, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  Calendar,
+  Clock,
+  Flag,
+  Zap,
+  Trash2,
+  Save,
+  Edit2,
+  X,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { SubHeader } from '@/components/layout/SubHeader';
 import { useRoadmap } from '@/hooks/useRoadmap';
 import { useRoadmapStore } from '@/store/roadmapStore';
 import { saveRoadmap } from '@/lib/db';
 import { formatDateDisplay } from '@/lib/date-utils';
 import { ENERGY_LEVELS, PRIORITIES, STATUSES } from '@/lib/constants';
-import type { Objective, EnergyLevel, Priority, ObjectiveStatus } from '@/types';
+import type {
+  Objective,
+  EnergyLevel,
+  Priority,
+  ObjectiveStatus,
+} from '@/types';
 
 export default function ObjectivePage() {
   const params = useParams();
   const router = useRouter();
   const roadmapId = params.roadmapId as string;
   const objectiveId = params.id as string;
-  
+
   const { roadmap, isLoading } = useRoadmap(roadmapId);
-  const { updateObjective: updateObjectiveInStore, deleteObjective: deleteObjectiveFromStore } = useRoadmapStore();
-  
+  const {
+    updateObjective: updateObjectiveInStore,
+    deleteObjective: deleteObjectiveFromStore,
+  } = useRoadmapStore();
+
   const [objective, setObjective] = useState<Objective | null>(null);
   const [monthKey, setMonthKey] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedObjective, setEditedObjective] = useState<Objective | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Find the objective in the roadmap
   useEffect(() => {
     if (roadmap) {
       for (const [key, month] of Object.entries(roadmap.months)) {
-        const found = month.objectives.find(obj => obj.id === objectiveId);
+        const found = month.objectives.find((obj) => obj.id === objectiveId);
         if (found) {
           setObjective(found);
           setEditedObjective(found);
@@ -51,15 +80,11 @@ export default function ObjectivePage() {
 
   const handleSave = async () => {
     if (!editedObjective || !monthKey || !roadmap) return;
-    
+
     setIsSaving(true);
     try {
-      // Update in store
       updateObjectiveInStore(monthKey, objectiveId, editedObjective);
-      
-      // Save to database
       await saveRoadmap(roadmap);
-      
       setObjective(editedObjective);
       setIsEditing(false);
     } catch (error) {
@@ -77,8 +102,11 @@ export default function ObjectivePage() {
 
   const handleDelete = async () => {
     if (!monthKey || !roadmap) return;
-    
-    if (confirm('Are you sure you want to delete this objective? This action cannot be undone.')) {
+    if (
+      confirm(
+        'Are you sure you want to delete this objective? This action cannot be undone.'
+      )
+    ) {
       try {
         deleteObjectiveFromStore(monthKey, objectiveId);
         await saveRoadmap(roadmap);
@@ -90,10 +118,11 @@ export default function ObjectivePage() {
     }
   };
 
-  const updateField = <K extends keyof Objective>(field: K, value: Objective[K]) => {
-    if (editedObjective) {
-      setEditedObjective({ ...editedObjective, [field]: value });
-    }
+  const updateField = <K extends keyof Objective>(
+    field: K,
+    value: Objective[K]
+  ) => {
+    setEditedObjective((prev) => (prev ? { ...prev, [field]: value } : null));
   };
 
   if (isLoading) {
@@ -139,7 +168,12 @@ export default function ObjectivePage() {
             </Button>
             {isEditing ? (
               <>
-                <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSaving}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCancel}
+                  disabled={isSaving}
+                >
                   <X className="h-4 w-4 mr-2" />
                   Cancel
                 </Button>
@@ -160,85 +194,103 @@ export default function ObjectivePage() {
 
       {/* Content */}
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="space-y-6">
+        <div className="space-y-8">
           {/* Title */}
           <Card>
-            <CardHeader>
-              <CardTitle>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-2xl font-bold">
                 {isEditing ? (
                   <Input
-                    value={editedObjective?.title}
+                    value={editedObjective?.title || ''}
                     onChange={(e) => updateField('title', e.target.value)}
-                    className="text-2xl font-bold"
                     placeholder="Objective title"
                   />
                 ) : (
-                  <span className="text-2xl">{objective.title}</span>
+                  objective.title
                 )}
               </CardTitle>
             </CardHeader>
           </Card>
 
-          {/* Status and Progress */}
+          {/* Status & Progress */}
           <Card>
             <CardHeader>
               <CardTitle>Status & Progress</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label>Status</Label>
-                {isEditing ? (
-                  <Select
-                    value={editedObjective?.status}
-                    onValueChange={(value) => updateField('status', value as ObjectiveStatus)}
-                  >
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {STATUSES.map((status) => (
-                        <SelectItem key={status.value} value={status.value}>
-                          {status.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Badge className={STATUSES.find(s => s.value === objective.status)?.color}>
-                    {STATUSES.find(s => s.value === objective.status)?.label}
-                  </Badge>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Progress</Label>
-                  <span className="text-sm text-muted-foreground">
-                    {isEditing ? editedObjective?.progress : objective.progress}%
-                  </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Status</Label>
+                  {isEditing ? (
+                    <Select
+                      value={editedObjective?.status}
+                      onValueChange={(v) =>
+                        updateField('status', v as ObjectiveStatus)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUSES.map((status) => (
+                          <SelectItem key={status.value} value={status.value}>
+                            {status.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Badge
+                      className={
+                        STATUSES.find((s) => s.value === objective.status)
+                          ?.color
+                      }
+                    >
+                      {
+                        STATUSES.find((s) => s.value === objective.status)
+                          ?.label
+                      }
+                    </Badge>
+                  )}
                 </div>
-                {isEditing ? (
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={editedObjective?.progress}
-                      onChange={(e) => updateField('progress', parseInt(e.target.value))}
-                      className="flex-1"
-                    />
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={editedObjective?.progress}
-                      onChange={(e) => updateField('progress', parseInt(e.target.value))}
-                      className="w-20"
-                    />
-                  </div>
-                ) : (
-                  <Progress value={objective.progress} className="h-3" />
-                )}
+
+                <div>
+                  <Label className="flex justify-between items-center">
+                    Progress
+                    <span className="text-sm font-normal text-muted-foreground">
+                      {isEditing
+                        ? editedObjective?.progress
+                        : objective.progress}
+                      %
+                    </span>
+                  </Label>
+                  {isEditing ? (
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={editedObjective?.progress}
+                        onChange={(e) =>
+                          updateField('progress', Number(e.target.value))
+                        }
+                        className="flex-1"
+                      />
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={editedObjective?.progress}
+                        onChange={(e) =>
+                          updateField('progress', Number(e.target.value))
+                        }
+                        className="w-20"
+                      />
+                    </div>
+                  ) : (
+                    <Progress value={objective.progress} className="h-2.5" />
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -251,9 +303,9 @@ export default function ObjectivePage() {
             <CardContent>
               {isEditing ? (
                 <Textarea
-                  value={editedObjective?.description}
+                  value={editedObjective?.description || ''}
                   onChange={(e) => updateField('description', e.target.value)}
-                  rows={6}
+                  rows={5}
                   placeholder="Add a description..."
                 />
               ) : (
@@ -264,54 +316,44 @@ export default function ObjectivePage() {
             </CardContent>
           </Card>
 
-          {/* Details */}
+          {/* Details Grid */}
           <Card>
             <CardHeader>
               <CardTitle>Details</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-2 gap-6">
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {/* Date Range */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Date Range
-                  </Label>
-                  <div className="text-sm space-y-1">
-                    <p>{formatDateDisplay(objective.startDate, 'MMM d, yyyy')}</p>
-                    <p className="text-muted-foreground">to</p>
-                    <p>{formatDateDisplay(objective.endDate, 'MMM d, yyyy')}</p>
-                  </div>
-                </div>
+                <DetailSection icon={<Calendar className="h-4 w-4" />} label="Date Range">
+                  <p>{formatDateDisplay(objective.startDate, 'MMM d, yyyy')}</p>
+                  <p className="text-muted-foreground">to</p>
+                  <p>{formatDateDisplay(objective.endDate, 'MMM d, yyyy')}</p>
+                </DetailSection>
 
                 {/* Duration */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Duration
-                  </Label>
+                <DetailSection icon={<Clock className="h-4 w-4" />} label="Duration">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm">
+                    <span>
                       {objective.duration} day{objective.duration !== 1 ? 's' : ''}
-                    </p>
+                    </span>
                     {objective.isPinned && (
                       <Badge variant="secondary">Pinned</Badge>
                     )}
                   </div>
-                </div>
+                </DetailSection>
 
                 {/* Priority */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Flag className="h-4 w-4" />
-                    Priority
-                  </Label>
+                <DetailSection icon={<Flag className="h-4 w-4" />} label="Priority">
                   {isEditing ? (
                     <div className="flex flex-wrap gap-2">
                       {PRIORITIES.map((p) => (
                         <Badge
                           key={p.value}
-                          variant={editedObjective?.priority === p.value ? 'default' : 'outline'}
+                          variant={
+                            editedObjective?.priority === p.value
+                              ? 'default'
+                              : 'outline'
+                          }
                           className="cursor-pointer"
                           onClick={() => updateField('priority', p.value)}
                         >
@@ -320,26 +362,37 @@ export default function ObjectivePage() {
                       ))}
                     </div>
                   ) : (
-                    <Badge variant="outline" className={PRIORITIES.find(p => p.value === objective.priority)?.color}>
-                      {PRIORITIES.find(p => p.value === objective.priority)?.label}
+                    <Badge
+                      variant="outline"
+                      className={
+                        PRIORITIES.find((p) => p.value === objective.priority)
+                          ?.color
+                      }
+                    >
+                      {
+                        PRIORITIES.find((p) => p.value === objective.priority)
+                          ?.label
+                      }
                     </Badge>
                   )}
-                </div>
+                </DetailSection>
 
                 {/* Energy Level */}
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Zap className="h-4 w-4" />
-                    Energy Level
-                  </Label>
+                <DetailSection icon={<Zap className="h-4 w-4" />} label="Energy Level">
                   {isEditing ? (
                     <div className="flex flex-wrap gap-2">
                       {ENERGY_LEVELS.map((level) => (
                         <Badge
                           key={level.value}
-                          variant={editedObjective?.energyLevel === level.value ? 'default' : 'outline'}
+                          variant={
+                            editedObjective?.energyLevel === level.value
+                              ? 'default'
+                              : 'outline'
+                          }
                           className="cursor-pointer"
-                          onClick={() => updateField('energyLevel', level.value)}
+                          onClick={() =>
+                            updateField('energyLevel', level.value)
+                          }
                         >
                           {level.label}
                         </Badge>
@@ -347,15 +400,19 @@ export default function ObjectivePage() {
                     </div>
                   ) : (
                     <Badge variant="outline">
-                      {ENERGY_LEVELS.find(e => e.value === objective.energyLevel)?.label}
+                      {
+                        ENERGY_LEVELS.find(
+                          (e) => e.value === objective.energyLevel
+                        )?.label
+                      }
                     </Badge>
                   )}
-                </div>
+                </DetailSection>
               </div>
 
               {/* Category */}
               {(objective.category || isEditing) && (
-                <div className="space-y-2">
+                <div className="mt-6">
                   <Label>Category</Label>
                   {isEditing ? (
                     <Input
@@ -371,34 +428,17 @@ export default function ObjectivePage() {
 
               {/* Tags */}
               {(objective.tags.length > 0 || isEditing) && (
-                <div className="space-y-2">
+                <div className="mt-6">
                   <Label>Tags</Label>
                   {isEditing ? (
-                    <div className="space-y-2">
-                      <Input
-                        value={editedObjective?.tags.join(', ')}
-                        onChange={(e) => updateField('tags', e.target.value.split(',').map(t => t.trim()).filter(Boolean))}
-                        placeholder="Comma-separated tags"
-                      />
-                      <div className="flex flex-wrap gap-2">
-                        {editedObjective?.tags.map((tag, index) => (
-                          <Badge key={index} variant="secondary">
-                            {tag}
-                            <X
-                              className="ml-1 h-3 w-3 cursor-pointer"
-                              onClick={() => {
-                                const newTags = editedObjective.tags.filter((_, i) => i !== index);
-                                updateField('tags', newTags);
-                              }}
-                            />
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
+                    <TagEditor
+                      tags={editedObjective?.tags || []}
+                      onUpdate={(newTags) => updateField('tags', newTags)}
+                    />
                   ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {objective.tags.map((tag, index) => (
-                        <Badge key={index} variant="secondary">
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {objective.tags.map((tag, i) => (
+                        <Badge key={i} variant="secondary">
                           {tag}
                         </Badge>
                       ))}
@@ -432,29 +472,104 @@ export default function ObjectivePage() {
             </Card>
           )}
 
-          {/* Timestamps */}
+          {/* Timeline */}
           <Card>
             <CardHeader>
               <CardTitle>Timeline</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <CardContent className="text-sm text-muted-foreground space-y-1">
               <div className="flex justify-between">
                 <span>Created:</span>
-                <span>{formatDateDisplay(objective.createdAt, 'MMM d, yyyy HH:mm')}</span>
+                <time dateTime={objective.createdAt}>
+                  {formatDateDisplay(objective.createdAt, 'MMM d, yyyy HH:mm')}
+                </time>
               </div>
               <div className="flex justify-between">
                 <span>Last Updated:</span>
-                <span>{formatDateDisplay(objective.updatedAt, 'MMM d, yyyy HH:mm')}</span>
+                <time dateTime={objective.updatedAt}>
+                  {formatDateDisplay(objective.updatedAt, 'MMM d, yyyy HH:mm')}
+                </time>
               </div>
               {objective.completedAt && (
                 <div className="flex justify-between text-green-600">
                   <span>Completed:</span>
-                  <span>{formatDateDisplay(objective.completedAt, 'MMM d, yyyy HH:mm')}</span>
+                  <time dateTime={objective.completedAt}>
+                    {formatDateDisplay(objective.completedAt, 'MMM d, yyyy HH:mm')}
+                  </time>
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Helper Components ---
+
+interface DetailSectionProps {
+  icon: React.ReactNode;
+  label: string;
+  children: React.ReactNode;
+}
+
+function DetailSection({ icon, label, children }: DetailSectionProps) {
+  return (
+    <div className="space-y-2">
+      <Label className="flex items-center gap-2 font-medium">
+        {icon}
+        {label}
+      </Label>
+      <div className="text-sm">{children}</div>
+    </div>
+  );
+}
+
+interface TagEditorProps {
+  tags: string[];
+  onUpdate: (tags: string[]) => void;
+}
+
+function TagEditor({ tags, onUpdate }: TagEditorProps) {
+  const addTag = (input: string) => {
+    const newTags = [...new Set([...tags, ...input.split(',').map(t => t.trim()).filter(Boolean)])];
+    onUpdate(newTags);
+  };
+
+  const removeTag = (index: number) => {
+    const newTags = tags.filter((_, i) => i !== index);
+    onUpdate(newTags);
+  };
+
+  return (
+    <div className="space-y-2">
+      <Input
+        placeholder="Type tags, separated by commas"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            addTag(e.currentTarget.value);
+            e.currentTarget.value = '';
+          }
+        }}
+        onBlur={(e) => {
+          if (e.target.value.trim()) {
+            addTag(e.target.value);
+            e.target.value = '';
+          }
+        }}
+      />
+      <div className="flex flex-wrap gap-2">
+        {tags.map((tag, i) => (
+          <Badge key={i} variant="secondary">
+            {tag}
+            <X
+              className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive"
+              onClick={() => removeTag(i)}
+            />
+          </Badge>
+        ))}
       </div>
     </div>
   );
