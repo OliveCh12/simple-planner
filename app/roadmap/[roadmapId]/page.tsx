@@ -109,7 +109,7 @@ export default function RoadmapPage() {
   const monthKeys = generateMonthKeys(roadmap.startYear, roadmap.endYear);
 
   return (
-    <div className="flex flex-1 flex-col h-full">
+    <div className="flex flex-1 flex-col h-screen overflow-hidden">
       <SubHeader
         backUrl="/"
         title={roadmap.title}
@@ -122,10 +122,10 @@ export default function RoadmapPage() {
       />
       
       {/* Timeline Container */}
-      <div className="container mx-auto flex-1 px-4 py-8 overflow-hidden flex flex-col h-full">
-          {/* Horizontal Scrollable Timeline */}
-          <ScrollArea className="flex-1" >
-            <div className="flex h-full gap-4 p-4 overflow-x-auto">
+      <div className="flex-1 overflow-hidden">
+        <ScrollArea className="h-full w-full">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex gap-4">
               {monthKeys.map((monthKey) => {
                 const [year, month] = monthKey.split('-').map(Number);
                 const monthData = roadmap.months[monthKey];
@@ -137,16 +137,17 @@ export default function RoadmapPage() {
                   <div
                     key={monthKey}
                     className={`
-                      min-w-[280px] w-[280px] h-full snap-start
-                      border rounded-lg p-4 bg-card
+                      min-w-[320px] w-[320px]
+                      border rounded-lg bg-card
                       transition-all cursor-pointer flex flex-col
                       ${isSelected ? 'ring-2 ring-primary shadow-lg' : 'hover:shadow-md'}
                       ${isCurrentMonth ? 'border-primary' : ''}
                     `}
+                    style={{ height: 'calc(100vh - 300px)' }}
                     onClick={() => setSelectedMonthKey(monthKey)}
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold">
+                    <div className="flex items-center justify-between p-4 border-b">
+                      <h3 className="font-semibold text-lg">
                         {formatMonthDisplay(year, month)}
                       </h3>
                       {isCurrentMonth && (
@@ -156,38 +157,33 @@ export default function RoadmapPage() {
                       )}
                     </div>
 
-                    <div className="space-y-2 flex-1 overflow-y-auto">
-                      {objectiveCount === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                          No objectives yet
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          {monthData?.objectives.slice(0, 3).map((objective) => (
+                    <ScrollArea className="flex-1">
+                      <div className="p-4 space-y-2">
+                        {objectiveCount === 0 ? (
+                          <p className="text-sm text-muted-foreground">
+                            No objectives yet
+                          </p>
+                        ) : (
+                          monthData?.objectives.map((objective) => (
                             <div
                               key={objective.id}
-                              className="text-sm p-2 rounded bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
+                              className="text-sm p-3 rounded bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 router.push(`/roadmap/${roadmapId}/objective/${objective.id}`);
                               }}
                             >
-                              <p className="font-medium truncate">{objective.title}</p>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="font-medium">{objective.title}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
                                 {objective.status}
                               </p>
                             </div>
-                          ))}
-                          {objectiveCount > 3 && (
-                            <p className="text-xs text-muted-foreground text-center">
-                              +{objectiveCount - 3} more
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                          ))
+                        )}
+                      </div>
+                    </ScrollArea>
 
-                    <div className="mt-3 pt-3 border-t">
+                    <div className="p-4 border-t">
                       <Button
                         variant="outline"
                         size="sm"
@@ -204,9 +200,10 @@ export default function RoadmapPage() {
                   </div>
                 );
               })}
-              <ScrollBar orientation="horizontal" />
             </div>
-          </ScrollArea>
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
       </div>
 
       {/* Create Objective Modal */}
