@@ -4,20 +4,7 @@ import "./globals.css";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const bricolageGrotesque = Bricolage_Grotesque({
-  variable: "--font-bricolage-grotesque",
-  subsets: ["latin"],
-});
+import { containerClasses } from "@/lib/utils";
 
 const ubuntu = Ubuntu({
   variable: "--font-ubuntu",
@@ -42,7 +29,7 @@ export default function RootLayout({
       >
         <div className="flex h-screen flex-col">
           <Header />
-          <main className="flex flex-1 flex-col overflow-hidden">
+          <main className={`flex flex-1 flex-col overflow-hidden `}>
             {children}
           </main>
           <Footer />

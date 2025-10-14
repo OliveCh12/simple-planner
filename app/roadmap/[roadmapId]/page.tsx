@@ -14,6 +14,8 @@ import { generateMonthKeys, formatMonthDisplay, getCurrentMonthKey } from '@/lib
 import { saveRoadmap } from '@/lib/db';
 import type { Objective } from '@/types';
 
+import { containerClasses } from '@/lib/utils';
+
 export default function RoadmapPage() {
   const params = useParams();
   const router = useRouter();
@@ -111,7 +113,7 @@ export default function RoadmapPage() {
   return (
     <div className="flex flex-1 flex-col h-screen overflow-hidden">
       <SubHeader
-        backUrl="/"
+        // backUrl="/"
         title={roadmap.title}
         subtitle={roadmap.description + (roadmap.description ? ` • ${roadmap.startYear} - ${roadmap.endYear}` : ` ${roadmap.startYear} - ${roadmap.endYear}`)}
         showActionButton={true}
@@ -122,9 +124,8 @@ export default function RoadmapPage() {
       />
       
       {/* Timeline Container */}
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full w-full">
-          <div className="container mx-auto px-4 py-4">
+      <div className={`flex-1 overflow-hidden py-4 ${containerClasses()}`}>
+        <ScrollArea className="h-full">
             <div className="flex gap-4">
               {monthKeys.map((monthKey) => {
                 const [year, month] = monthKey.split('-').map(Number);
@@ -143,7 +144,7 @@ export default function RoadmapPage() {
                       ${isSelected ? 'ring-2 ring-primary shadow-lg' : 'hover:shadow-md'}
                       ${isCurrentMonth ? 'border-primary' : ''}
                     `}
-                    style={{ height: 'calc(100vh - 300px)' }}
+                    // style={{ height: 'calc(100vh - 300px)' }}
                     onClick={() => setSelectedMonthKey(monthKey)}
                   >
                     <div className="flex items-center justify-between p-4 border-b">
@@ -201,7 +202,6 @@ export default function RoadmapPage() {
                 );
               })}
             </div>
-          </div>
           <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </div>

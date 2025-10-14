@@ -14,6 +14,8 @@ import { useUIStore } from '@/store/uiStore';
 import { useEffect, useState } from 'react';
 import { exportData } from '@/lib/db';
 
+import { containerClasses } from '@/lib/utils';
+
 export function Header() {
   const router = useRouter();
   const pathname = usePathname();
@@ -69,24 +71,24 @@ export function Header() {
   const isDarkMode = mounted && settings.theme === 'dark';
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+    <header className="sticky top-0 z-50 w-full  border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className={`flex items-center justify-between py-4 ${containerClasses()}`}>
         {/* Logo and Title */}
         <div className="flex items-center gap-3">
-          <Button
+          {/* <Button
             variant="ghost"
             size="icon"
             onClick={() => router.push('/')}
             aria-label="Go to homepage"
           >
             <Calendar className="h-6 w-6" />
-          </Button>
+          </Button> */}
           <div className="hidden sm:block">
             <button
               onClick={() => router.push('/')}
               className="font-bold text-xl hover:opacity-80 transition-opacity"
             >
-              Timeline Planner
+              Planner
             </button>
             <p className="text-xs text-muted-foreground">
               Plan your goals across time

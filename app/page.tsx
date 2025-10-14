@@ -10,6 +10,7 @@ import { CreateRoadmapModal } from "@/components/roadmap/CreateRoadmapModal";
 import { getAllRoadmaps, deleteRoadmap } from "@/lib/db";
 import type { Roadmap } from "@/types";
 import RoadmapCardNew from "@/components/roadmap/RoadmapCardNew";
+import { containerClasses } from "@/lib/utils";
 
 export default function Home() {
   const router = useRouter();
@@ -59,7 +60,7 @@ export default function Home() {
         onActionClick={() => setIsCreateModalOpen(true)}
       />
 
-      <div className="container mx-auto px-4 py-8">
+      <div className={`${containerClasses()} py-4`}>
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <p className="text-muted-foreground">Loading roadmaps...</p>

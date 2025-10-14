@@ -3,6 +3,7 @@
 import { Github, Heart, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { exportData } from '@/lib/db';
+import { containerClasses } from '@/lib/utils';
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -27,7 +28,7 @@ export function Footer() {
 
   return (
     <footer className="w-full border-t bg-card flex-shrink-0">
-      <div className="container mx-auto px-4 py-4">
+      <div className={`${containerClasses()} py-4`}>
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           {/* Left side - Copyright */}
           <div className="flex items-center gap-2 text-sm text-muted-foreground">

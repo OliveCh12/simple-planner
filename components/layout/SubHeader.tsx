@@ -5,6 +5,8 @@ import { ArrowLeft, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 
+import { containerClasses } from "@/lib/utils"
+
 interface SubHeaderProps {
   // Navigation
   backUrl?: string
@@ -47,7 +49,7 @@ export function SubHeader({
 
   return (
     <div className="border-b bg-card flex-shrink-0">
-      <div className="container mx-auto px-4 py-4">
+      <div className={`${containerClasses()} py-4`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {(backUrl || onBack) && (
