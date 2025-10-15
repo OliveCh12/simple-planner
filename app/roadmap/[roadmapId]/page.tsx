@@ -152,11 +152,8 @@ export default function RoadmapPage() {
   return (
     <div className="flex flex-1 flex-col h-screen overflow-hidden">
       <SubHeader
-        // backUrl="/"
         title={roadmap.title}
         subtitle={roadmap.description + (roadmap.description ? ` • ${roadmap.startYear} - ${roadmap.endYear}` : ` ${roadmap.startYear} - ${roadmap.endYear}`)}
-        showActionButton={true}
-        actionButtonLabel="Add Objective"
         actionButtonIcon={<Plus className="h-4 w-4 mr-2" />}
         onActionClick={() => openCreateObjectiveModal()}
         actionButtonDisabled={!selectedMonthKey}
@@ -165,7 +162,7 @@ export default function RoadmapPage() {
       />
       
       {/* Timeline Container */}
-      <div className={`flex-1 overflow-hidden py-4 ${containerClasses()}`}>
+      <div className={`flex-1 overflow-hidden py-4 ${containerClasses()} relative`}>
         <ScrollArea className="h-full">
             <div className="flex gap-4">
               {monthKeys.map((monthKey) => {
@@ -240,6 +237,28 @@ export default function RoadmapPage() {
             </div>
           <ScrollBar orientation="horizontal" />
         </ScrollArea>
+        {/* Blur overlays */}
+        <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-background via-background/80 to-transparent pointer-events-none z-20"></div>
+        <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-background via-background/80 to-transparent pointer-events-none z-20"></div>
+      </div>
+
+      {/* Footer */}
+      <div className="border-t bg-card px-4 py-3 flex-shrink-0">
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div className="flex items-center gap-4">
+            <span>
+              {monthKeys.length} months • {Object.values(roadmap.months).reduce((total, month) => total + (month?.objectives?.length || 0), 0)} objectives
+            </span>
+            {selectedMonthKey && (
+              <span>
+                Selected: {formatMonthDisplay(...selectedMonthKey.split('-').map(Number) as [number, number])}
+              </span>
+            )}
+          </div>
+          <div className="text-xs">
+            Last updated: {new Date(roadmap.updatedAt || roadmap.createdAt).toLocaleDateString()}
+          </div>
+        </div>
       </div>
 
       {/* Create Objective Modal */}
