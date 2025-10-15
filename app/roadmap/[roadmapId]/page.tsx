@@ -9,7 +9,7 @@ import { SubHeader } from '@/components/layout/SubHeader';
 import { useRoadmap } from '@/hooks/useRoadmap';
 import { useRoadmapStore } from '@/store/roadmapStore';
 import { useUIStore } from '@/store/uiStore';
-import { CreateObjectiveModal } from '@/components/objective/CreateObjectiveModal';
+import { CreateObjectiveSheet } from '@/components/objective/CreateObjectiveSheet';
 import { generateMonthKeys, formatMonthDisplay, getCurrentMonthKey } from '@/lib/date-utils';
 import { saveRoadmap } from '@/lib/db';
 import type { Objective } from '@/types';
@@ -208,7 +208,7 @@ export default function RoadmapPage() {
 
       {/* Create Objective Modal */}
       {targetMonthKey && (
-        <CreateObjectiveModal
+        <CreateObjectiveSheet
           open={isCreateObjectiveModalOpen}
           onClose={() => {
             closeCreateObjectiveModal();

@@ -1,13 +1,16 @@
 import React from "react";
+import { containerClasses } from "@/lib/utils";
 
 type Props = {};
 
 const page = (props: Props) => {
   return (
-    <div className="container mx-auto flex-1 px-4 py-8 overflow-hidden flex flex-col h-full">
-      settings
+    <div className={containerClasses()}>
+      <h1 className="text-2xl font-bold">Settings</h1>
+      <p className="text-muted-foreground">
+        Manage your application settings here.
+      </p>
     </div>
   );
 };
-
 export default page;

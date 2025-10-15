@@ -74,7 +74,7 @@ export function CreateRoadmapSheet({ open, onClose, onCreated }: CreateRoadmapSh
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent>
+      <SheetContent className="p-4">
         <SheetHeader>
           <SheetTitle>Create New Roadmap</SheetTitle>
           <SheetDescription>
@@ -82,7 +82,7 @@ export function CreateRoadmapSheet({ open, onClose, onCreated }: CreateRoadmapSh
           </SheetDescription>
         </SheetHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4 p-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="title" className="block text-sm font-medium mb-1">
               Title *

@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
+import { useState } from "react";
+import { v4 as uuidv4 } from "uuid";
 import {
   Sheet,
   SheetContent,
@@ -10,15 +10,15 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet"
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import type { Objective, EnergyLevel, Priority } from '@/types';
-import { ENERGY_LEVELS, PRIORITIES } from '@/lib/constants';
-import { createISODate, getDaysInMonthForDate } from '@/lib/date-utils';
+} from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import type { Objective, EnergyLevel, Priority } from "@/types";
+import { ENERGY_LEVELS, PRIORITIES } from "@/lib/constants";
+import { createISODate, getDaysInMonthForDate } from "@/lib/date-utils";
 
 interface CreateObjectiveSheetProps {
   open: boolean;
@@ -27,34 +27,39 @@ interface CreateObjectiveSheetProps {
   monthKey: string; // Format: "2025-10"
 }
 
-export function CreateObjectiveSheet({ open, onClose, onCreated, monthKey }: CreateObjectiveSheetProps) {
-  const [year, month] = monthKey.split('-').map(Number);
+export function CreateObjectiveSheet({
+  open,
+  onClose,
+  onCreated,
+  monthKey,
+}: CreateObjectiveSheetProps) {
+  const [year, month] = monthKey.split("-").map(Number);
   const daysInMonth = getDaysInMonthForDate(year, month);
-  
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [startDay, setStartDay] = useState(1);
   const [endDay, setEndDay] = useState(daysInMonth);
-  const [energyLevel, setEnergyLevel] = useState<EnergyLevel>('medium');
-  const [priority, setPriority] = useState<Priority>('medium');
-  const [category, setCategory] = useState('');
-  const [tags, setTags] = useState('');
-  const [notes, setNotes] = useState('');
+  const [energyLevel, setEnergyLevel] = useState<EnergyLevel>("medium");
+  const [priority, setPriority] = useState<Priority>("medium");
+  const [category, setCategory] = useState("");
+  const [tags, setTags] = useState("");
+  const [notes, setNotes] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!title.trim()) return;
-    
+
     setIsLoading(true);
-    
+
     try {
       const startDate = createISODate(year, month, startDay);
       const endDate = createISODate(year, month, endDay);
       const duration = endDay - startDay + 1;
       const isPinned = duration >= 28; // Pin if it spans most/all of the month
-      
+
       const now = new Date().toISOString();
       const newObjective: Objective = {
         id: uuidv4(),
@@ -65,35 +70,38 @@ export function CreateObjectiveSheet({ open, onClose, onCreated, monthKey }: Cre
         duration,
         energyLevel,
         priority,
-        status: 'pending',
-        tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+        status: "pending",
+        tags: tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
         category: category.trim() || undefined,
         notes: notes.trim() || undefined,
         progress: 0,
         isPinned,
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
       };
-      
+
       if (onCreated) {
         onCreated(newObjective);
       }
-      
+
       // Reset form
-      setTitle('');
-      setDescription('');
+      setTitle("");
+      setDescription("");
       setStartDay(1);
       setEndDay(daysInMonth);
-      setEnergyLevel('medium');
-      setPriority('medium');
-      setCategory('');
-      setTags('');
-      setNotes('');
-      
+      setEnergyLevel("medium");
+      setPriority("medium");
+      setCategory("");
+      setTags("");
+      setNotes("");
+
       onClose();
     } catch (error) {
-      console.error('Failed to create objective:', error);
-      alert('Failed to create objective. Please try again.');
+      console.error("Failed to create objective:", error);
+      alert("Failed to create objective. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -107,20 +115,22 @@ export function CreateObjectiveSheet({ open, onClose, onCreated, monthKey }: Cre
 
   return (
     <Sheet open={open} onOpenChange={handleClose}>
-      <SheetContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <SheetContent>
         <SheetHeader>
           <SheetTitle>Create New Objective</SheetTitle>
           <SheetDescription>
-            Add a new objective for {new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            Add a new objective for{" "}
+            {new Date(year, month - 1).toLocaleDateString("en-US", {
+              month: "long",
+              year: "numeric",
+            })}
           </SheetDescription>
         </SheetHeader>
-        
-                <form onSubmit={handleSubmit} className="space-y-4">
+
+        <form onSubmit={handleSubmit} className="space-y-4 p-4">
           {/* Title */}
           <div className="space-y-2">
-            <Label htmlFor="title">
-              Title *
-            </Label>
+            <Label htmlFor="title">Title *</Label>
             <Input
               id="title"
               value={title}
@@ -130,12 +140,10 @@ export function CreateObjectiveSheet({ open, onClose, onCreated, monthKey }: Cre
               autoFocus
             />
           </div>
-          
+
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description">
-              Description
-            </Label>
+            <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
               value={description}
@@ -144,13 +152,11 @@ export function CreateObjectiveSheet({ open, onClose, onCreated, monthKey }: Cre
               rows={4}
             />
           </div>
-          
+
           {/* Date Range */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="startDay">
-                Start Day *
-              </Label>
+              <Label htmlFor="startDay">Start Day *</Label>
               <Input
                 id="startDay"
                 type="number"
@@ -164,11 +170,9 @@ export function CreateObjectiveSheet({ open, onClose, onCreated, monthKey }: Cre
                 required
               />
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="endDay">
-                End Day *
-              </Label>
+              <Label htmlFor="endDay">End Day *</Label>
               <Input
                 id="endDay"
                 type="number"
@@ -183,22 +187,20 @@ export function CreateObjectiveSheet({ open, onClose, onCreated, monthKey }: Cre
               />
             </div>
           </div>
-          
+
           <div className="text-xs text-muted-foreground">
             Duration: {endDay - startDay + 1} day(s)
-            {endDay - startDay + 1 >= 28 && ' (Will be pinned to top)'}
+            {endDay - startDay + 1 >= 28 && " (Will be pinned to top)"}
           </div>
-          
+
           {/* Energy Level */}
           <div className="space-y-2">
-            <Label>
-              Energy Level *
-            </Label>
+            <Label>Energy Level *</Label>
             <div className="flex gap-2 flex-wrap">
               {ENERGY_LEVELS.map((level) => (
                 <Badge
                   key={level.value}
-                  variant={energyLevel === level.value ? 'default' : 'outline'}
+                  variant={energyLevel === level.value ? "default" : "outline"}
                   className="cursor-pointer"
                   onClick={() => setEnergyLevel(level.value)}
                 >
@@ -207,17 +209,15 @@ export function CreateObjectiveSheet({ open, onClose, onCreated, monthKey }: Cre
               ))}
             </div>
           </div>
-          
+
           {/* Priority */}
           <div className="space-y-2">
-            <Label>
-              Priority *
-            </Label>
+            <Label>Priority *</Label>
             <div className="flex gap-2 flex-wrap">
               {PRIORITIES.map((p) => (
                 <Badge
                   key={p.value}
-                  variant={priority === p.value ? 'default' : 'outline'}
+                  variant={priority === p.value ? "default" : "outline"}
                   className="cursor-pointer"
                   onClick={() => setPriority(p.value)}
                 >
@@ -226,12 +226,10 @@ export function CreateObjectiveSheet({ open, onClose, onCreated, monthKey }: Cre
               ))}
             </div>
           </div>
-          
+
           {/* Category */}
           <div className="space-y-2">
-            <Label htmlFor="category">
-              Category
-            </Label>
+            <Label htmlFor="category">Category</Label>
             <Input
               id="category"
               value={category}
@@ -239,12 +237,10 @@ export function CreateObjectiveSheet({ open, onClose, onCreated, monthKey }: Cre
               placeholder="e.g., Work, Personal, Health"
             />
           </div>
-          
+
           {/* Tags */}
           <div className="space-y-2">
-            <Label htmlFor="tags">
-              Tags
-            </Label>
+            <Label htmlFor="tags">Tags</Label>
             <Input
               id="tags"
               value={tags}
@@ -253,7 +249,7 @@ export function CreateObjectiveSheet({ open, onClose, onCreated, monthKey }: Cre
             />
             {tags && (
               <div className="flex gap-1 flex-wrap mt-2">
-                {tags.split(',').map((tag, i) => {
+                {tags.split(",").map((tag, i) => {
                   const trimmed = tag.trim();
                   return trimmed ? (
                     <Badge key={i} variant="secondary" className="text-xs">
@@ -264,12 +260,10 @@ export function CreateObjectiveSheet({ open, onClose, onCreated, monthKey }: Cre
               </div>
             )}
           </div>
-          
+
           {/* Notes */}
           <div className="space-y-2">
-            <Label htmlFor="notes">
-              Notes
-            </Label>
+            <Label htmlFor="notes">Notes</Label>
             <Textarea
               id="notes"
               value={notes}
@@ -278,13 +272,18 @@ export function CreateObjectiveSheet({ open, onClose, onCreated, monthKey }: Cre
               rows={2}
             />
           </div>
-          
+
           <SheetFooter>
-            <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClose}
+              disabled={isLoading}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading || !title.trim()}>
-              {isLoading ? 'Creating...' : 'Create Objective'}
+              {isLoading ? "Creating..." : "Create Objective"}
             </Button>
           </SheetFooter>
         </form>

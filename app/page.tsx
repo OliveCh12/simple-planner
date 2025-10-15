@@ -2,15 +2,24 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Folder, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SubHeader } from "@/components/layout/SubHeader";
 import { RoadmapCard } from "@/components/roadmap/RoadmapCard";
-import { CreateRoadmapModal } from "@/components/roadmap/CreateRoadmapModal";
-import { getAllRoadmaps, deleteRoadmap } from "@/lib/db";
+import { CreateRoadmapSheet } from "@/components/roadmap/CreateRoadmapSheet";
+import { getAllRoadmaps, deleteRoadmap, importSampleData } from "@/lib/db";
 import type { Roadmap } from "@/types";
 import RoadmapCardNew from "@/components/roadmap/RoadmapCardNew";
 import { containerClasses } from "@/lib/utils";
+
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 export default function Home() {
   const router = useRouter();
@@ -44,6 +53,17 @@ export default function Home() {
     }
   }
 
+  async function handleImportSampleData() {
+    try {
+      await importSampleData();
+      await loadRoadmaps(); // Reload the roadmaps after import
+      alert("Sample data imported successfully!");
+    } catch (error) {
+      console.error("Failed to import sample data:", error);
+      alert("Failed to import sample data. Please try again.");
+    }
+  }
+
   function handleRoadmapCreated(roadmap: Roadmap) {
     setRoadmaps([roadmap, ...roadmaps]);
     router.push(`/roadmap/${roadmap.id}`);
@@ -66,15 +86,28 @@ export default function Home() {
             <p className="text-muted-foreground">Loading roadmaps...</p>
           </div>
         ) : roadmaps.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-muted-foreground mb-4">
-              No roadmaps yet. Create your first one to get started!
-            </p>
-            <Button onClick={() => setIsCreateModalOpen(true)}>
-              <Plus className="h-5 w-5 mr-2" />
-              Create Your First Roadmap
-            </Button>
-          </div>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Folder className="h-12 w-12 text-muted-foreground" />
+              </EmptyMedia>
+              <EmptyTitle>
+                No roadmaps yet. Create your first one to get started!
+              </EmptyTitle>
+              <EmptyDescription>No roadmaps found</EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <div className="flex flex-col gap-4">
+                <Button onClick={() => setIsCreateModalOpen(true)}>
+                  <Plus className="h-5 w-5 mr-2" />
+                  Create Your First Roadmap
+                </Button>
+                <Button variant="outline" onClick={handleImportSampleData}>
+                  Load Sample Data
+                </Button>
+              </div>
+            </EmptyContent>
+          </Empty>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {roadmaps.map((roadmap) => (
@@ -84,12 +117,15 @@ export default function Home() {
                 onDelete={handleDelete}
               />
             ))}
-            <RoadmapCardNew onClick={() => setIsCreateModalOpen(true)} ariaLabel="Create new roadmap" />
+            <RoadmapCardNew
+              onClick={() => setIsCreateModalOpen(true)}
+              ariaLabel="Create new roadmap"
+            />
           </div>
         )}
       </div>
 
-      <CreateRoadmapModal
+      <CreateRoadmapSheet
         open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onCreated={handleRoadmapCreated}

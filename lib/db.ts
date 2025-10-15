@@ -150,10 +150,19 @@ export async function importData(jsonString: string): Promise<void> {
 }
 
 /**
- * Clears all data from the database.
- * Use with caution!
+ * Imports sample data for testing and demonstration purposes.
+ * This loads the sample-data.json file and imports it into the database.
  */
-export async function clearAllData(): Promise<void> {
-  await db.roadmaps.clear();
-  await db.appSettings.clear();
+export async function importSampleData(): Promise<void> {
+  try {
+    const response = await fetch('/sample-data.json');
+    if (!response.ok) {
+      throw new Error(`Failed to load sample data: ${response.status}`);
+    }
+    const jsonString = await response.text();
+    await importData(jsonString);
+  } catch (error) {
+    console.error('Failed to import sample data:', error);
+    throw error;
+  }
 }
