@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import {
   Sheet,
@@ -34,7 +34,15 @@ export function CreateObjectiveSheet({
   monthKey,
 }: CreateObjectiveSheetProps) {
   const [year, month] = monthKey.split("-").map(Number);
-  const daysInMonth = getDaysInMonthForDate(year, month);
+  
+  // Validate monthKey parsing - fallback to current month if invalid
+  const isValidMonthKey = !isNaN(year) && !isNaN(month) && month >= 1 && month <= 12;
+  const fallbackYear = new Date().getFullYear();
+  const fallbackMonth = new Date().getMonth() + 1;
+  const validYear = isValidMonthKey ? year : fallbackYear;
+  const validMonth = isValidMonthKey ? month : fallbackMonth;
+  
+  const daysInMonth = getDaysInMonthForDate(validYear, validMonth);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -47,6 +55,12 @@ export function CreateObjectiveSheet({
   const [notes, setNotes] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Update endDay when month changes
+  useEffect(() => {
+    setEndDay(daysInMonth);
+    setStartDay(1);
+  }, [daysInMonth]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -55,8 +69,8 @@ export function CreateObjectiveSheet({
     setIsLoading(true);
 
     try {
-      const startDate = createISODate(year, month, startDay);
-      const endDate = createISODate(year, month, endDay);
+      const startDate = createISODate(validYear, validMonth, startDay);
+      const endDate = createISODate(validYear, validMonth, endDay);
       const duration = endDay - startDay + 1;
       const isPinned = duration >= 28; // Pin if it spans most/all of the month
 
@@ -120,7 +134,7 @@ export function CreateObjectiveSheet({
           <SheetTitle>Create New Objective</SheetTitle>
           <SheetDescription>
             Add a new objective for{" "}
-            {new Date(year, month - 1).toLocaleDateString("en-US", {
+            {new Date(validYear, validMonth - 1).toLocaleDateString("en-US", {
               month: "long",
               year: "numeric",
             })}

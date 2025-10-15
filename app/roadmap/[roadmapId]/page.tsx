@@ -47,6 +47,19 @@ export default function RoadmapPage() {
       }
     }
   }, [roadmap, selectedMonthKey]);
+
+  // Auto-scroll to selected month
+  useEffect(() => {
+    if (selectedMonthKey) {
+      // Use setTimeout to ensure DOM is updated
+      setTimeout(() => {
+        const element = document.querySelector(`[data-month-key="${selectedMonthKey}"]`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', inline: 'center' });
+        }
+      }, 100);
+    }
+  }, [selectedMonthKey]);
   
   // When modal is opened from SubHeader, set the target month
   useEffect(() => {
@@ -137,6 +150,7 @@ export default function RoadmapPage() {
                 return (
                   <div
                     key={monthKey}
+                    data-month-key={monthKey}
                     className={`
                       min-w-[320px] w-[320px]
                       border rounded-lg bg-card

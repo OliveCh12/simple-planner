@@ -1,9 +1,7 @@
 import React from "react";
 import { containerClasses } from "@/lib/utils";
 
-type Props = {};
-
-const page = (props: Props) => {
+const page = () => {
   return (
     <div className={containerClasses()}>
       <h1 className="text-2xl font-bold">Settings</h1>
