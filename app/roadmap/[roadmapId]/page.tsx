@@ -10,7 +10,7 @@ import { useRoadmap } from '@/hooks/useRoadmap';
 import { useRoadmapStore } from '@/store/roadmapStore';
 import { useUIStore } from '@/store/uiStore';
 import { CreateObjectiveSheet } from '@/components/objective/CreateObjectiveSheet';
-import { generateMonthKeys, formatMonthDisplay, getCurrentMonthKey } from '@/lib/date-utils';
+import { generateMonthKeys, formatMonthDisplay, getCurrentMonthKey, isMonthPast } from '@/lib/date-utils';
 import { saveRoadmap } from '@/lib/db';
 import type { Objective } from '@/types';
 
@@ -71,6 +71,31 @@ export default function RoadmapPage() {
   const handleOpenCreateModal = (monthKey: string) => {
     setTargetMonthKey(monthKey);
     openCreateObjectiveModal();
+  };
+
+  const handleScrollToCurrentMonth = () => {
+    if (roadmap) {
+      const currentMonthKey = getCurrentMonthKey();
+      const [year] = currentMonthKey.split('-').map(Number);
+
+      let targetMonthKey: string;
+      if (year >= roadmap.startYear && year <= roadmap.endYear) {
+        targetMonthKey = currentMonthKey;
+      } else {
+        // If current month is not in roadmap, scroll to the first month
+        targetMonthKey = `${roadmap.startYear}-01`;
+      }
+
+      setSelectedMonthKey(targetMonthKey);
+
+      // Scroll to the target month immediately
+      setTimeout(() => {
+        const element = document.querySelector(`[data-month-key="${targetMonthKey}"]`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', inline: 'center' });
+        }
+      }, 100);
+    }
   };
 
   const handleObjectiveCreated = async (objective: Objective) => {
@@ -134,6 +159,8 @@ export default function RoadmapPage() {
         actionButtonIcon={<Plus className="h-4 w-4 mr-2" />}
         onActionClick={() => openCreateObjectiveModal()}
         actionButtonDisabled={!selectedMonthKey}
+        showScrollToCurrentButton={true}
+        onScrollToCurrentClick={handleScrollToCurrentMonth}
       />
       
       {/* Timeline Container */}
@@ -146,6 +173,7 @@ export default function RoadmapPage() {
                 const objectiveCount = monthData?.objectives.length || 0;
                 const isCurrentMonth = monthKey === getCurrentMonthKey();
                 const isSelected = monthKey === selectedMonthKey;
+                const isPast = isMonthPast(year, month);
 
                 return (
                   <div
@@ -157,6 +185,7 @@ export default function RoadmapPage() {
                       transition-all cursor-pointer flex flex-col
                       ${isSelected ? 'ring-2 ring-primary shadow-lg' : 'hover:shadow-md'}
                       ${isCurrentMonth ? 'border-primary' : ''}
+                      ${isPast ? 'opacity-50 hover:opacity-100' : 'opacity-100'}
                     `}
                     // style={{ height: 'calc(100vh - 300px)' }}
                     onClick={() => setSelectedMonthKey(monthKey)}

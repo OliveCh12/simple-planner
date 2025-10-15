@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { ArrowLeft, Plus } from "lucide-react"
+import { ArrowLeft, FlipHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 
@@ -23,6 +23,10 @@ interface SubHeaderProps {
   actionButtonIcon?: React.ReactNode
   onActionClick?: () => void
   actionButtonDisabled?: boolean
+
+  // Scroll to current month
+  showScrollToCurrentButton?: boolean
+  onScrollToCurrentClick?: () => void
 }
 
 export function SubHeader({
@@ -36,6 +40,8 @@ export function SubHeader({
   actionButtonIcon,
   onActionClick,
   actionButtonDisabled = false,
+  showScrollToCurrentButton = false,
+  onScrollToCurrentClick,
 }: SubHeaderProps) {
   const router = useRouter()
 
@@ -74,15 +80,28 @@ export function SubHeader({
             </div>
           </div>
           
-          {showActionButton && onActionClick && (
-            <Button
-              onClick={onActionClick}
-              disabled={actionButtonDisabled}
-            >
-              {actionButtonIcon}
-              {actionButtonLabel}
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {showScrollToCurrentButton && onScrollToCurrentClick && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onScrollToCurrentClick}
+                title="Scroll to current month"
+              >
+                <FlipHorizontal className="h-4 w-4" />
+              </Button>
+            )}
+            
+            {showActionButton && onActionClick && (
+              <Button
+                onClick={onActionClick}
+                disabled={actionButtonDisabled}
+              >
+                {actionButtonIcon}
+                {actionButtonLabel}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
