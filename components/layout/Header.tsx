@@ -1,7 +1,7 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
-import { Calendar, Moon, Sun, Menu, ExternalLink } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Moon, Sun, Menu, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -18,7 +18,6 @@ import { containerClasses } from '@/lib/utils';
 
 export function Header() {
   const router = useRouter();
-  const pathname = usePathname();
   const { settings, updateSettings } = useUIStore();
   const [mounted, setMounted] = useState(false);
   // State to control the mobile menu sheet

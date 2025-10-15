@@ -2,6 +2,7 @@
 
 import React from "react"
 import { ArrowLeft, FlipHorizontal } from "lucide-react"
+import { format } from "date-fns"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 
@@ -71,7 +72,12 @@ export function SubHeader({
               {breadcrumb && (
                 <p className="text-xs text-muted-foreground">{breadcrumb}</p>
               )}
-              <h1 className="text-xl font-bold">{title}</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-xl font-bold">{title}</h1>
+                <span className="text-sm text-muted-foreground font-medium">
+                  {format(new Date(), 'MMM d, yyyy')}
+                </span>
+              </div>
               {subtitle && (
                 <p className="text-sm text-muted-foreground">
                   {subtitle}

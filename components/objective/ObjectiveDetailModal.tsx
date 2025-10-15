@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Calendar, Clock, Flag, Zap, Trash2, X } from 'lucide-react';
-import type { Objective, EnergyLevel, Priority, ObjectiveStatus } from '@/types';
+import type { Objective, ObjectiveStatus } from '@/types';
 import { ENERGY_LEVELS, PRIORITIES, STATUSES } from '@/lib/constants';
 import { formatDateDisplay } from '@/lib/date-utils';
 

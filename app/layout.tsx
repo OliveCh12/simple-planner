@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Bricolage_Grotesque, Ubuntu} from "next/font/google";
+import { Ubuntu} from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-
-import { containerClasses } from "@/lib/utils";
 
 const ubuntu = Ubuntu({
   variable: "--font-ubuntu",

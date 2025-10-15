@@ -29,7 +29,6 @@ import { Progress } from '@/components/ui/progress';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -41,8 +40,6 @@ import { formatDateDisplay } from '@/lib/date-utils';
 import { ENERGY_LEVELS, PRIORITIES, STATUSES } from '@/lib/constants';
 import type {
   Objective,
-  EnergyLevel,
-  Priority,
   ObjectiveStatus,
 } from '@/types';
 
