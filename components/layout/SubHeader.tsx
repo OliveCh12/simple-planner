@@ -27,6 +27,17 @@ interface SubHeaderProps {
   onActionClick?: () => void
   actionButtonDisabled?: boolean
 
+  // Multiple actions (new)
+  actions?: Array<{
+    label: string
+    icon?: React.ReactNode
+    onClick: () => void
+    variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
+    size?: "default" | "sm" | "lg" | "icon"
+    disabled?: boolean
+    className?: string
+  }>
+
   // Scroll to current month
   showScrollToCurrentButton?: boolean
   onScrollToCurrentClick?: () => void
@@ -43,6 +54,7 @@ export function SubHeader({
   actionButtonIcon,
   onActionClick,
   actionButtonDisabled = false,
+  actions = [],
   showScrollToCurrentButton = false,
   onScrollToCurrentClick,
 }: SubHeaderProps) {
@@ -115,6 +127,20 @@ export function SubHeader({
                 <FlipHorizontal className="h-4 w-4" />
               </Button>
             )}
+            
+            {actions.map((action, index) => (
+              <Button
+                key={index}
+                variant={action.variant || "default"}
+                size={action.size || "default"}
+                onClick={action.onClick}
+                disabled={action.disabled}
+                className={action.className}
+              >
+                {action.icon}
+                {action.label}
+              </Button>
+            ))}
             
             {showActionButton && onActionClick && (
               <Button

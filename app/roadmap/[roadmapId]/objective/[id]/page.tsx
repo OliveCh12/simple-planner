@@ -29,8 +29,6 @@ import { Progress } from '@/components/ui/progress';
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { SubHeader } from '@/components/layout/SubHeader';
@@ -151,46 +149,43 @@ export default function ObjectivePage() {
         backUrl={`/roadmap/${roadmapId}`}
         title={objective.title}
         breadcrumb={roadmap.title}
+        actions={[
+          {
+            label: "Delete",
+            icon: <Trash2 className="h-4 w-4 mr-2" />,
+            onClick: handleDelete,
+            variant: "outline" as const,
+            size: "sm" as const,
+            className: "text-destructive hover:text-destructive",
+          },
+          ...(isEditing ? [
+            {
+              label: "Cancel",
+              icon: <X className="h-4 w-4 mr-2" />,
+              onClick: handleCancel,
+              variant: "outline" as const,
+              size: "sm" as const,
+              disabled: isSaving,
+            },
+            {
+              label: isSaving ? 'Saving...' : 'Save Changes',
+              icon: <Save className="h-4 w-4 mr-2" />,
+              onClick: handleSave,
+              size: "sm" as const,
+              disabled: isSaving,
+            }
+          ] : [
+            {
+              label: "Edit",
+              icon: <Edit2 className="h-4 w-4 mr-2" />,
+              onClick: () => setIsEditing(true),
+              size: "sm" as const,
+            }
+          ])
+        ]}
       />
 
-      {/* Actions Bar */}
-      <div className="border-b bg-card">
-        <div className={`py-4 ${containerClasses()}`}>
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDelete}
-              className="text-destructive hover:text-destructive"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
-            {isEditing ? (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCancel}
-                  disabled={isSaving}
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Cancel
-                </Button>
-                <Button size="sm" onClick={handleSave} disabled={isSaving}>
-                  <Save className="h-4 w-4 mr-2" />
-                  {isSaving ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </>
-            ) : (
-              <Button size="sm" onClick={() => setIsEditing(true)}>
-                <Edit2 className="h-4 w-4 mr-2" />
-                Edit
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
+
 
       {/* Content */}
       <div className="py-8">
