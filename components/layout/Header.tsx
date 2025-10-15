@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Moon, Sun, Menu, ExternalLink, Calendar } from 'lucide-react';
+import { Moon, Sun, Menu, ExternalLink, Calendar, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 // Shadcn UI Components
@@ -89,9 +89,19 @@ const ExportButton = ({ onSuccess }: { onSuccess?: () => void }) => {
   );
 };
 
+// Settings Button Component
+const SettingsButton = () => (
+  <Link href="/settings">
+    <Button variant="secondary" size="icon" aria-label="Settings">
+      <Settings className="h-5 w-5" />
+    </Button>
+  </Link>
+);
+
 // Desktop Navigation
 const DesktopNav = () => (
   <nav className="hidden sm:flex items-center gap-2">
+    <SettingsButton />
     <ExportButton />
     <ThemeToggle />
   </nav>
@@ -116,6 +126,9 @@ const MobileNav = () => {
             <SheetTitle>Menu</SheetTitle>
           </SheetHeader>
           <div className="grid gap-6 py-6">
+            <div className="flex items-center justify-center">
+              <SettingsButton />
+            </div>
             <ExportButton onSuccess={() => setIsOpen(false)} />
             <div className="flex items-center justify-between rounded-lg border p-3">
               <Label htmlFor="theme-switch" className="font-medium">

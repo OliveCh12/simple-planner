@@ -166,3 +166,21 @@ export async function importSampleData(): Promise<void> {
     throw error;
   }
 }
+
+/**
+ * Clears all data from the database.
+ * This is a destructive operation that removes all roadmaps and settings.
+ * Use with extreme caution and always confirm with the user first.
+ */
+export async function clearAllData(): Promise<void> {
+  try {
+    // Clear all tables
+    await db.roadmaps.clear();
+    await db.appSettings.clear();
+    
+    console.log('All data cleared successfully');
+  } catch (error) {
+    console.error('Failed to clear all data:', error);
+    throw error;
+  }
+}
