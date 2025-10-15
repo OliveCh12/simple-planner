@@ -10,6 +10,7 @@ import { useRoadmap } from '@/hooks/useRoadmap';
 import { useRoadmapStore } from '@/store/roadmapStore';
 import { useUIStore } from '@/store/uiStore';
 import { CreateObjectiveSheet } from '@/components/objective/CreateObjectiveSheet';
+import { ObjectiveItem } from '@/components/objective/ObjectiveItem';
 import { generateMonthKeys, formatMonthDisplay, getCurrentMonthKey, isMonthPast } from '@/lib/date-utils';
 import { saveRoadmap } from '@/lib/db';
 import type { Objective } from '@/types';
@@ -209,19 +210,11 @@ export default function RoadmapPage() {
                           </p>
                         ) : (
                           monthData?.objectives.map((objective) => (
-                            <div
+                            <ObjectiveItem
                               key={objective.id}
-                              className="text-sm p-3 rounded bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                router.push(`/roadmap/${roadmapId}/objective/${objective.id}`);
-                              }}
-                            >
-                              <p className="font-medium">{objective.title}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {objective.status}
-                              </p>
-                            </div>
+                              objective={objective}
+                              roadmapId={roadmapId}
+                            />
                           ))
                         )}
                       </div>
