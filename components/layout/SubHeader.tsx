@@ -2,8 +2,10 @@
 
 import React from "react"
 import { ArrowLeft, FlipHorizontal } from "lucide-react"
-import { format } from "date-fns"
+import { format, endOfYear, differenceInDays, startOfYear } from "date-fns"
 import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
+import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 
 import { containerClasses } from "@/lib/utils"
@@ -46,6 +48,14 @@ export function SubHeader({
 }: SubHeaderProps) {
   const router = useRouter()
 
+  const now = new Date()
+  const startOfYearDate = startOfYear(now)
+  const endOfYearDate = endOfYear(now)
+  const totalDaysInYear = differenceInDays(endOfYearDate, startOfYearDate)
+  const daysPassed = differenceInDays(now, startOfYearDate)
+  const yearProgress = (daysPassed / totalDaysInYear) * 100
+  const daysLeft = differenceInDays(endOfYearDate, now)
+
   const handleBackClick = () => {
     if (onBack) {
       onBack()
@@ -74,15 +84,23 @@ export function SubHeader({
               )}
               <div className="flex items-center gap-3">
                 <h1 className="text-xl font-bold">{title}</h1>
-                <span className="text-sm text-muted-foreground font-medium">
+                <Badge variant="outline" className="text-xs">
                   {format(new Date(), 'MMM d, yyyy')}
-                </span>
+                </Badge>
               </div>
               {subtitle && (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground mt-1">
                   {subtitle}
                 </p>
               )}
+              <div className="flex items-center gap-4 mt-3">
+                <div className="flex-1 max-w-xs">
+                  <Progress value={yearProgress} className="h-2" />
+                </div>
+                <Badge variant="secondary" className="text-xs">
+                  {daysLeft} days left in {now.getFullYear()}
+                </Badge>
+              </div>
             </div>
           </div>
           
