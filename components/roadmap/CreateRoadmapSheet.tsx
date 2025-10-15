@@ -12,6 +12,13 @@ import {
 } from "@/components/ui/sheet"
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import { Spinner } from "@/components/ui/spinner";
 import { saveRoadmap } from '@/lib/db';
 import type { Roadmap } from '@/types';
 
@@ -81,11 +88,10 @@ export function CreateRoadmapSheet({ open, onClose, onCreated }: CreateRoadmapSh
           </SheetDescription>
         </SheetHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="title" className="block text-sm font-medium mb-1">
-              Title *
-            </label>
+        <FieldGroup>
+          <form onSubmit={handleSubmit} className="space-y-4">
+          <Field>
+            <FieldLabel htmlFor="title">Title *</FieldLabel>
             <Input
               id="title"
               value={title}
@@ -93,25 +99,24 @@ export function CreateRoadmapSheet({ open, onClose, onCreated }: CreateRoadmapSh
               placeholder="e.g., Career Goals 2025"
               required
             />
-          </div>
+            <FieldDescription>
+              A clear name for your roadmap
+            </FieldDescription>
+          </Field>
           
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium mb-1">
-              Description
-            </label>
+          <Field>
+            <FieldLabel htmlFor="description">Description</FieldLabel>
             <Input
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description"
             />
-          </div>
+          </Field>
           
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="startYear" className="block text-sm font-medium mb-1">
-                Start Year *
-              </label>
+            <Field>
+              <FieldLabel htmlFor="startYear">Start Year *</FieldLabel>
               <Input
                 id="startYear"
                 type="number"
@@ -121,12 +126,10 @@ export function CreateRoadmapSheet({ open, onClose, onCreated }: CreateRoadmapSh
                 max={2100}
                 required
               />
-            </div>
+            </Field>
             
-            <div>
-              <label htmlFor="endYear" className="block text-sm font-medium mb-1">
-                End Year *
-              </label>
+            <Field>
+              <FieldLabel htmlFor="endYear">End Year *</FieldLabel>
               <Input
                 id="endYear"
                 type="number"
@@ -136,7 +139,7 @@ export function CreateRoadmapSheet({ open, onClose, onCreated }: CreateRoadmapSh
                 max={2100}
                 required
               />
-            </div>
+            </Field>
           </div>
           
           <SheetFooter>
@@ -144,10 +147,18 @@ export function CreateRoadmapSheet({ open, onClose, onCreated }: CreateRoadmapSh
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading || !title.trim()}>
-              {isLoading ? 'Creating...' : 'Create Roadmap'}
+              {isLoading ? (
+                <>
+                  <Spinner className="mr-2 h-4 w-4" />
+                  Creating...
+                </>
+              ) : (
+                'Create Roadmap'
+              )}
             </Button>
           </SheetFooter>
         </form>
+        </FieldGroup>
       </SheetContent>
     </Sheet>
   );
