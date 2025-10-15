@@ -15,6 +15,20 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { Objective, EnergyLevel, Priority } from "@/types";
 import { ENERGY_LEVELS, PRIORITIES } from "@/lib/constants";
 import { createISODate, getDaysInMonthForDate } from "@/lib/date-utils";
@@ -140,10 +154,11 @@ export function CreateObjectiveSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 p-4">
+        <FieldGroup>
+          <form onSubmit={handleSubmit} className="space-y-4 p-4">
           {/* Title */}
-          <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
+          <Field>
+            <FieldLabel htmlFor="title">Title *</FieldLabel>
             <Input
               id="title"
               value={title}
@@ -152,11 +167,14 @@ export function CreateObjectiveSheet({
               required
               autoFocus
             />
-          </div>
+            <FieldDescription>
+              A clear, concise name for your objective
+            </FieldDescription>
+          </Field>
 
           {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+          <Field>
+            <FieldLabel htmlFor="description">Description</FieldLabel>
             <Textarea
               id="description"
               value={description}
@@ -164,12 +182,12 @@ export function CreateObjectiveSheet({
               placeholder="Provide more details about this objective..."
               rows={4}
             />
-          </div>
+          </Field>
 
           {/* Date Range */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="startDay">Start Day *</Label>
+            <Field>
+              <FieldLabel htmlFor="startDay">Start Day *</FieldLabel>
               <Input
                 id="startDay"
                 type="number"
@@ -182,10 +200,10 @@ export function CreateObjectiveSheet({
                 max={daysInMonth}
                 required
               />
-            </div>
+            </Field>
 
-            <div className="space-y-2">
-              <Label htmlFor="endDay">End Day *</Label>
+            <Field>
+              <FieldLabel htmlFor="endDay">End Day *</FieldLabel>
               <Input
                 id="endDay"
                 type="number"
@@ -198,7 +216,7 @@ export function CreateObjectiveSheet({
                 max={daysInMonth}
                 required
               />
-            </div>
+            </Field>
           </div>
 
           <div className="text-xs text-muted-foreground">
@@ -207,8 +225,8 @@ export function CreateObjectiveSheet({
           </div>
 
           {/* Energy Level */}
-          <div className="space-y-2">
-            <Label>Energy Level *</Label>
+          <Field>
+            <FieldLabel>Energy Level *</FieldLabel>
             <div className="flex gap-2 flex-wrap">
               {ENERGY_LEVELS.map((level) => (
                 <Badge
@@ -221,11 +239,11 @@ export function CreateObjectiveSheet({
                 </Badge>
               ))}
             </div>
-          </div>
+          </Field>
 
           {/* Priority */}
-          <div className="space-y-2">
-            <Label>Priority *</Label>
+          <Field>
+            <FieldLabel>Priority *</FieldLabel>
             <div className="flex gap-2 flex-wrap">
               {PRIORITIES.map((p) => (
                 <Badge
@@ -238,22 +256,29 @@ export function CreateObjectiveSheet({
                 </Badge>
               ))}
             </div>
-          </div>
+          </Field>
 
           {/* Category */}
-          <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
-            <Input
-              id="category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder="e.g., Work, Personal, Health"
-            />
-          </div>
+          <Field>
+            <FieldLabel htmlFor="category">Category</FieldLabel>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Work">Work</SelectItem>
+                <SelectItem value="Personal">Personal</SelectItem>
+                <SelectItem value="Health">Health</SelectItem>
+                <SelectItem value="Finance">Finance</SelectItem>
+                <SelectItem value="Education">Education</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
 
           {/* Tags */}
-          <div className="space-y-2">
-            <Label htmlFor="tags">Tags</Label>
+          <Field>
+            <FieldLabel htmlFor="tags">Tags</FieldLabel>
             <Input
               id="tags"
               value={tags}
@@ -272,11 +297,11 @@ export function CreateObjectiveSheet({
                 })}
               </div>
             )}
-          </div>
+          </Field>
 
           {/* Notes */}
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
+          <Field>
+            <FieldLabel htmlFor="notes">Notes</FieldLabel>
             <Textarea
               id="notes"
               value={notes}
@@ -284,7 +309,7 @@ export function CreateObjectiveSheet({
               placeholder="Additional notes or context..."
               rows={2}
             />
-          </div>
+          </Field>
 
           <SheetFooter>
             <Button
@@ -296,10 +321,18 @@ export function CreateObjectiveSheet({
               Cancel
             </Button>
             <Button type="submit" disabled={isLoading || !title.trim()}>
-              {isLoading ? "Creating..." : "Create Objective"}
+              {isLoading ? (
+                <>
+                  <Spinner className="mr-2 h-4 w-4" />
+                  Creating...
+                </>
+              ) : (
+                "Create Objective"
+              )}
             </Button>
           </SheetFooter>
         </form>
+        </FieldGroup>
       </SheetContent>
     </Sheet>
   );

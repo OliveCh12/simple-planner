@@ -43,6 +43,8 @@ import type {
   ObjectiveStatus,
 } from '@/types';
 
+import { containerClasses } from '@/lib/utils';
+
 export default function ObjectivePage() {
   const params = useParams();
   const router = useRouter();
@@ -152,7 +154,7 @@ export default function ObjectivePage() {
 
       {/* Actions Bar */}
       <div className="border-b bg-card">
-        <div className="container mx-auto px-4 py-3">
+        <div className={`py-4 ${containerClasses()}`}>
           <div className="flex items-center justify-end gap-2">
             <Button
               variant="outline"
@@ -190,8 +192,8 @@ export default function ObjectivePage() {
       </div>
 
       {/* Content */}
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="space-y-8">
+      <div className={`py-4 ${containerClasses()}`}>
+        <div className="space-y-4">
           {/* Title */}
           <Card>
             <CardHeader className="pb-2">
