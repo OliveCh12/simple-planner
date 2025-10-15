@@ -2,8 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Moon, Sun, Menu, ExternalLink, Calendar, Settings } from 'lucide-react';
+import { Moon, Sun, Menu, ExternalLink, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 // Shadcn UI Components
