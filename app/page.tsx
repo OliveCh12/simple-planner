@@ -70,7 +70,7 @@ export default function Home() {
   }
 
   return (
-    <div>
+    <div className="flex flex-col h-full">
       <SubHeader
         title="Timeline Planner"
         subtitle="Plan and track your goals across time"
@@ -80,34 +80,35 @@ export default function Home() {
         onActionClick={() => setIsCreateModalOpen(true)}
       />
 
-      <div className={`${containerClasses()} py-4`}>
+      <div className={`${containerClasses()} py-4 flex-1 w-full`}>
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <p className="text-muted-foreground">Loading roadmaps...</p>
           </div>
         ) : roadmaps.length === 0 ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Folder className="h-12 w-12 text-muted-foreground" />
-              </EmptyMedia>
-              <EmptyTitle>
-                No roadmaps yet. Create your first one to get started!
-              </EmptyTitle>
-              <EmptyDescription>No roadmaps found</EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <div className="flex flex-col gap-4">
-                <Button onClick={() => setIsCreateModalOpen(true)}>
-                  <Plus className="h-5 w-5 mr-2" />
-                  Create Your First Roadmap
-                </Button>
-                <Button variant="outline" onClick={handleImportSampleData}>
-                  Load Sample Data
-                </Button>
-              </div>
-            </EmptyContent>
-          </Empty>
+          <div className="flex items-center justify-center h-full">
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Folder className="h-12 w-12 text-muted-foreground" />
+                </EmptyMedia>
+                <EmptyTitle>
+                  No roadmaps yet. Create your first one to get started!
+                </EmptyTitle>
+                <EmptyDescription>
+                  Timeline Planner helps you organize and track your goals across time. Create roadmaps to break down your objectives into manageable steps and monitor your progress towards achieving them.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <div className="flex flex-col gap-4">
+                  <Button onClick={() => setIsCreateModalOpen(true)} size={"lg"}>
+                    <Plus className="h-5 w-5 mr-2" />
+                    Create Your First Roadmap
+                  </Button>
+                </div>
+              </EmptyContent>
+            </Empty>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {roadmaps.map((roadmap) => (

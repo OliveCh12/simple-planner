@@ -55,8 +55,8 @@ export function ObjectiveItem({ objective, roadmapId }: ObjectiveItemProps) {
   return (
     <div
       ref={ref}
-      className={`group text-sm space-y-4 p-3 rounded-lg bg-muted/30 hover:bg-muted/60 cursor-pointer transition-all duration-200 border border-transparent hover:border-muted-foreground/20 hover:shadow-sm ${
-        isDragging ? 'opacity-50' : ''
+      className={`group text-sm space-y-4 p-3 rounded-lg bg-muted cursor-pointer transition-all duration-200 border border-transparent  hover:shadow-sm ${
+        isDragging ? "scale-110" : ''
       }`}
       onClick={handleClick}
     >

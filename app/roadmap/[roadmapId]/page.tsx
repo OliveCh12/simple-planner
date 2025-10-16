@@ -17,6 +17,7 @@ import { saveRoadmap } from '@/lib/db';
 import type { Objective, Roadmap } from '@/types';
 import { useDroppable } from '@dnd-kit/react';
 import { useAutoCenter } from '@/hooks/useAutoCenter';
+import { containerClasses } from '@/lib/utils';
 
 interface MonthColumnProps {
   monthKey: string;
@@ -306,16 +307,16 @@ export default function RoadmapPage() {
       </div>
 
       {/* Footer */}
-      <div className="border-t bg-card px-4 py-3 flex-shrink-0">
+      <div className={`${containerClasses()} w-full py-3 flex-shrink-0`}>
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <div className="flex items-center gap-4">
             <span>
               {monthKeys.length} months • {Object.values(roadmap.months).reduce((total, month) => total + (month?.objectives?.length || 0), 0)} objectives
             </span>
             {selectedMonthKey && (
-              <span>
-                Selected: {formatMonthDisplay(...selectedMonthKey.split('-').map(Number) as [number, number])}
-              </span>
+              <div>
+                Selected: <span className="text-primary">{formatMonthDisplay(...selectedMonthKey.split('-').map(Number) as [number, number])}</span>
+              </div>
             )}
           </div>
           <div className="text-xs">
