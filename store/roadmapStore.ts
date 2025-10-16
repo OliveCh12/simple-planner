@@ -85,8 +85,32 @@ export const useRoadmapStore = create<RoadmapStore>((set) => ({
     if (!state.currentRoadmap) return state;
     
     const month = state.currentRoadmap.months[monthKey];
-    if (!month) return state;
+    const [year, monthNum] = monthKey.split('-').map(Number);
     
+    // If month doesn't exist, create it
+    if (!month) {
+      const newMonth = {
+        id: `${monthKey}-${Date.now()}`,
+        year,
+        month: monthNum,
+        objectives: [objective],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      return {
+        currentRoadmap: {
+          ...state.currentRoadmap,
+          months: {
+            ...state.currentRoadmap.months,
+            [monthKey]: newMonth
+          },
+          updatedAt: new Date().toISOString()
+        }
+      };
+    }
+    
+    // If month exists, add objective to it
     return {
       currentRoadmap: {
         ...state.currentRoadmap,

@@ -213,36 +213,56 @@ export default function RoadmapPage() {
   const handleDragEnd = (event: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!roadmap || !currentRoadmap) return;
     
+    const dragData = extractDragData(event);
+    if (!dragData) return;
+    
+    const { objective, sourceMonthKey, targetMonthKey } = dragData;
+    
+    if (sourceMonthKey === targetMonthKey) return;
+    
+    moveObjectiveBetweenMonths(objective, sourceMonthKey, targetMonthKey);
+    saveUpdatedRoadmap();
+  };
+
+  const extractDragData = (event: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
     const { source, target } = event.operation;
+    if (!source || !target) return null;
     
-    if (!source || !target) return;
-    
-    // Get the objective data from the source
     const objective = source.data?.objective;
     const sourceRoadmapId = source.data?.roadmapId;
     
-    if (!objective || sourceRoadmapId !== roadmapId) return;
+    if (!objective || sourceRoadmapId !== roadmapId) return null;
     
-    // Find the source month by looking through all months for this objective
-    let sourceMonthKey: string | null = null;
+    const sourceMonthKey = findObjectiveMonth(objective.id);
+    if (!sourceMonthKey) return null;
+    
+    return {
+      objective,
+      sourceMonthKey,
+      targetMonthKey: target.id
+    };
+  };
+
+  const findObjectiveMonth = (objectiveId: string): string | null => {
+    if (!roadmap) return null;
+    
     for (const [monthKey, monthData] of Object.entries(roadmap.months)) {
-      if (monthData?.objectives.some(obj => obj.id === objective.id)) {
-        sourceMonthKey = monthKey;
-        break;
+      if (monthData?.objectives.some(obj => obj.id === objectiveId)) {
+        return monthKey;
       }
     }
-    
-    if (!sourceMonthKey) return;
-    
-    // If dropped on the same month, do nothing
-    if (target.id === sourceMonthKey) return;
-    
-    // Move objective from source month to target month
-    deleteObjective(sourceMonthKey, objective.id);
-    addObjective(target.id, objective);
-    
-    // Save to database
-    saveRoadmap(currentRoadmap);
+    return null;
+  };
+
+  const moveObjectiveBetweenMonths = (objective: Objective, fromMonth: string, toMonth: string) => {
+    deleteObjective(fromMonth, objective.id);
+    addObjective(toMonth, objective);
+  };
+
+  const saveUpdatedRoadmap = () => {
+    if (currentRoadmap) {
+      saveRoadmap(currentRoadmap);
+    }
   };
 
   if (isLoading) {
