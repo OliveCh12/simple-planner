@@ -48,7 +48,7 @@ function MonthColumn({ monthKey, roadmap, selectedMonthKey, onMonthClick, onAddO
         min-w-[320px] w-[320px]
         border rounded-lg bg-card
         transition-all cursor-pointer flex flex-col
-        ${isSelected ? 'ring-2 ring-primary shadow-lg' : 'hover:shadow-md'}
+        ${isSelected ? 'ring-2 ring-primary shadow-lg bg-primary/10' : 'hover:shadow-md'}
         ${isCurrentMonth ? 'border-primary' : ''}
         ${isPast ? 'opacity-50 hover:opacity-100' : 'opacity-100'}
         ${isDropTarget ? 'ring-2 ring-blue-500 bg-blue-50' : ''}
@@ -289,7 +289,7 @@ export default function RoadmapPage() {
       <div className={`flex-1 overflow-hidden py-4 relative`}>
         <DragDropProvider onDragEnd={handleDragEnd}>
           <ScrollArea className="h-full">
-              <div className="flex gap-4">
+              <div className="flex gap-4 px-[calc(50vw-160px)]">
                 {monthKeys.map((monthKey) => (
                   <MonthColumn
                     key={monthKey}
@@ -304,6 +304,10 @@ export default function RoadmapPage() {
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
         </DragDropProvider>
+
+        {/* Blur overlays for cool effect */}
+        <div className="absolute left-0 top-0 bottom-0 w-64 bg-gradient-to-r from-background to-transparent pointer-events-none z-20"></div>
+        <div className="absolute right-0 top-0 bottom-0 w-64 bg-gradient-to-l from-background to-transparent pointer-events-none z-20"></div>
       </div>
 
       {/* Footer */}
