@@ -16,6 +16,7 @@ import { generateMonthKeys, formatMonthDisplay, getCurrentMonthKey, isMonthPast 
 import { saveRoadmap } from '@/lib/db';
 import type { Objective, Roadmap } from '@/types';
 import { useDroppable } from '@dnd-kit/react';
+import { useAutoCenter } from '@/hooks/useAutoCenter';
 
 interface MonthColumnProps {
   monthKey: string;
@@ -132,18 +133,8 @@ export default function RoadmapPage() {
     }
   }, [roadmap, selectedMonthKey]);
 
-  // Auto-scroll to selected month
-  useEffect(() => {
-    if (selectedMonthKey) {
-      // Use setTimeout to ensure DOM is updated
-      setTimeout(() => {
-        const element = document.querySelector(`[data-month-key="${selectedMonthKey}"]`);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', inline: 'center' });
-        }
-      }, 100);
-    }
-  }, [selectedMonthKey]);
+  // Auto-center selected month (handles both selection changes and window resize)
+  const { centerElement } = useAutoCenter(selectedMonthKey);
   
   // When modal is opened from SubHeader, set the target month
   useEffect(() => {
@@ -171,14 +162,8 @@ export default function RoadmapPage() {
       }
 
       setSelectedMonthKey(targetMonthKey);
-
-      // Scroll to the target month immediately
-      setTimeout(() => {
-        const element = document.querySelector(`[data-month-key="${targetMonthKey}"]`);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', inline: 'center' });
-        }
-      }, 100);
+      // Force centering even if month is already selected
+      setTimeout(() => centerElement(targetMonthKey), 0);
     }
   };
 
