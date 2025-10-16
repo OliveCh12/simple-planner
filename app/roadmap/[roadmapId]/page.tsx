@@ -306,8 +306,8 @@ export default function RoadmapPage() {
         </DragDropProvider>
 
         {/* Blur overlays for cool effect */}
-        <div className="absolute left-0 top-0 bottom-0 w-64 bg-gradient-to-r from-background to-transparent pointer-events-none z-20"></div>
-        <div className="absolute right-0 top-0 bottom-0 w-64 bg-gradient-to-l from-background to-transparent pointer-events-none z-20"></div>
+        <div className="absolute left-0 top-0 bottom-0 w-16 md:w-64 bg-gradient-to-r from-background to-transparent pointer-events-none z-20"></div>
+        <div className="absolute right-0 top-0 bottom-0 w-16 md:w-64 bg-gradient-to-l from-background to-transparent pointer-events-none z-20"></div>
       </div>
 
       {/* Footer */}
