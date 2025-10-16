@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useDraggable } from '@dnd-kit/react';
 import { Badge } from '@/components/ui/badge';
 import { Clock, Target, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import type { Objective } from '@/types';
@@ -38,6 +39,14 @@ export function ObjectiveItem({ objective, roadmapId }: ObjectiveItemProps) {
   const status = statusConfig[objective.status];
   const StatusIcon = status.icon;
 
+  const { ref, isDragging } = useDraggable({
+    id: objective.id,
+    data: {
+      objective,
+      roadmapId,
+    },
+  });
+
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     router.push(`/roadmap/${roadmapId}/objective/${objective.id}`);
@@ -45,7 +54,10 @@ export function ObjectiveItem({ objective, roadmapId }: ObjectiveItemProps) {
 
   return (
     <div
-      className="group text-sm space-y-4 p-3 rounded-lg bg-muted/30 hover:bg-muted/60 cursor-pointer transition-all duration-200 border border-transparent hover:border-muted-foreground/20 hover:shadow-sm"
+      ref={ref}
+      className={`group text-sm space-y-4 p-3 rounded-lg bg-muted/30 hover:bg-muted/60 cursor-pointer transition-all duration-200 border border-transparent hover:border-muted-foreground/20 hover:shadow-sm ${
+        isDragging ? 'opacity-50' : ''
+      }`}
       onClick={handleClick}
     >
 
