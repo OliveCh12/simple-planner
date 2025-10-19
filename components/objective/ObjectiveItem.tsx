@@ -16,27 +16,32 @@ const statusConfig = {
   pending: {
     icon: Clock,
     className: 'text-muted-foreground',
-    label: 'Pending'
+    label: 'Pending',
+    bgClass: 'bg-background/40 hover:bg-card/50'
   },
   'in-progress': {
     icon: Target,
     className: 'text-primary',
-    label: 'In Progress'
+    label: 'In Progress',
+    bgClass: 'bg-background/40 hover:bg-card/50'
   },
   completed: {
     icon: CheckCircle,
     className: 'text-green-600',
-    label: 'Completed'
+    label: 'Completed',
+    bgClass: 'bg-green-50/80 dark:bg-green-950/30 hover:bg-green-100/90 dark:hover:bg-green-900/40 border-green-200/50 dark:border-green-800/30'
   },
   cancelled: {
     icon: XCircle,
     className: 'text-destructive',
-    label: 'Cancelled'
+    label: 'Cancelled',
+    bgClass: 'bg-red-50/80 dark:bg-red-950/30 hover:bg-red-100/90 dark:hover:bg-red-900/40 border-red-200/50 dark:border-red-800/30'
   },
   blocked: {
     icon: AlertTriangle,
     className: 'text-orange-600',
-    label: 'Blocked'
+    label: 'Blocked',
+    bgClass: 'bg-orange-50/80 dark:bg-orange-950/30 hover:bg-orange-100/90 dark:hover:bg-orange-900/40 border-orange-200/50 dark:border-orange-800/30'
   },
 };
 
@@ -61,7 +66,9 @@ export function ObjectiveItem({ objective, roadmapId, compact = false }: Objecti
   return (
     <div
       ref={ref}
-      className={`group relative cursor-pointer transition-all duration-200 rounded-lg border border-border/40 bg-background/40 hover:bg-card/50 hover:border-border hover:shadow-sm backdrop-blur-sm ${
+      className={`group relative cursor-pointer transition-all duration-200 rounded-lg border backdrop-blur-sm ${
+        status.bgClass
+      } ${
         isDragging ? "scale-105 shadow-lg rotate-2" : ''
       } ${compact ? 'p-2.5' : 'p-3'}`}
       onClick={handleClick}
@@ -85,7 +92,7 @@ export function ObjectiveItem({ objective, roadmapId, compact = false }: Objecti
 
         {/* Description - only show in non-compact mode */}
         {objective.description && !compact && (
-          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
             {objective.description}
           </p>
         )}
