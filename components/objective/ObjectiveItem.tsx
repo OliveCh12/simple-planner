@@ -69,8 +69,8 @@ export function ObjectiveItem({ objective, roadmapId, compact = false }: Objecti
       <div className="space-y-2.5">
         {/* Header with title and status */}
         <div className="flex items-start justify-between gap-3">
-          <h4 className={`font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2 flex-1 ${
-            compact ? 'text-sm leading-tight' : 'text-base leading-snug'
+          <h4 className={`text-sm font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2 flex-1 ${
+            compact ? 'leading-tight' : 'text-base leading-snug'
           }`}>
             {objective.title}
           </h4>
