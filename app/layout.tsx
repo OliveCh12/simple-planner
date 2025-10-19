@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Ubuntu} from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
 
 const ubuntu = Ubuntu({
   variable: "--font-ubuntu",
@@ -30,7 +29,6 @@ export default function RootLayout({
           <main className={`flex flex-1 flex-col overflow-hidden `}>
             {children}
           </main>
-          <Footer />
         </div>
       </body>
     </html>

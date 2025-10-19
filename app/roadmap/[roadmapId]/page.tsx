@@ -211,8 +211,8 @@ export default function RoadmapPage() {
       {/* Timeline Container */}
       <div className={`flex-1 overflow-hidden relative`}>
         <DragDropProvider onDragEnd={handleDragEnd}>
-          <div className="w-full h-full overflow-x-scroll overflow-y-hidden" >
-              <div className="flex gap-4 px-[calc(50vw-160px)] py-4 min-h-full w-full">
+          <div className="w-full h-full overflow-x-scroll overflow-y-hidden p-4" >
+              <div className="flex gap-4 px-[calc(50vw-160px)] min-h-full w-full">
                 {monthKeys.map((monthKey) => (
                   <MonthColumn
                     key={monthKey}
@@ -230,8 +230,8 @@ export default function RoadmapPage() {
         </DragDropProvider>
 
         {/* Blur overlays for cool effect */}
-        <div className="absolute left-0 top-0 bottom-0 w-16 md:w-64 bg-gradient-to-r from-background to-transparent pointer-events-none z-20"></div>
-        <div className="absolute right-0 top-0 bottom-0 w-16 md:w-64 bg-gradient-to-l from-background to-transparent pointer-events-none z-20"></div>
+        <div className="absolute left-0 top-0 bottom-0 w-16 md:w-100 bg-gradient-to-r from-background to-transparent/10 pointer-events-none z-20"></div>
+        <div className="absolute right-0 top-0 bottom-0 w-16 md:w-100 bg-gradient-to-l from-background to-transparent/10 pointer-events-none z-20"></div>
       </div>
 
       {/* Create Objective Modal */}

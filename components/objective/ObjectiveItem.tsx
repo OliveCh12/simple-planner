@@ -15,23 +15,28 @@ interface ObjectiveItemProps {
 const statusConfig = {
   pending: {
     icon: Clock,
-    className: 'text-muted-foreground'
+    className: 'text-muted-foreground',
+    label: 'Pending'
   },
   'in-progress': {
     icon: Target,
-    className: 'text-primary'
+    className: 'text-primary',
+    label: 'In Progress'
   },
   completed: {
     icon: CheckCircle,
-    className: 'text-chart-2'
+    className: 'text-green-600',
+    label: 'Completed'
   },
   cancelled: {
     icon: XCircle,
-    className: 'text-destructive'
+    className: 'text-destructive',
+    label: 'Cancelled'
   },
   blocked: {
     icon: AlertTriangle,
-    className: 'text-chart-3'
+    className: 'text-orange-600',
+    label: 'Blocked'
   },
 };
 
@@ -56,35 +61,63 @@ export function ObjectiveItem({ objective, roadmapId, compact = false }: Objecti
   return (
     <div
       ref={ref}
-      className={`group text-sm space-y-2 ${compact ? 'p-2' : 'p-3'} rounded-lg bg-muted cursor-pointer transition-all duration-200 border border-transparent hover:shadow-sm ${
-        isDragging ? "scale-110" : ''
-      }`}
+      className={`group relative cursor-pointer transition-all duration-200 rounded-lg border border-border/40 bg-background/40 hover:bg-card/50 hover:border-border hover:shadow-sm backdrop-blur-sm ${
+        isDragging ? "scale-105 shadow-lg rotate-2" : ''
+      } ${compact ? 'p-2.5' : 'p-3'}`}
       onClick={handleClick}
     >
+      <div className="space-y-2.5">
+        {/* Header with title and status */}
+        <div className="flex items-start justify-between gap-3">
+          <h4 className={`font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2 flex-1 ${
+            compact ? 'text-sm leading-tight' : 'text-base leading-snug'
+          }`}>
+            {objective.title}
+          </h4>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <StatusIcon
+              className={`${
+                compact ? 'h-3.5 w-3.5' : 'h-4 w-4'
+              } ${status.className} transition-colors`}
+            />
+          </div>
+        </div>
 
-      {/* Title */}
-      <h4 className={`${compact ? 'text-sm' : 'text-base'} font-semibold text-foreground group-hover:text-primary transition-colors ${compact ? 'mb-0.5' : 'mb-1'} line-clamp-2`}>
-        {objective.title}
-      </h4>
-
-      {/* Description */}
-      {objective.description && !compact && (
-        <p className="text-xs text-muted-foreground line-clamp-1">
-          {objective.description}
-        </p>
-      )}
-
-      {/* Footer with status icon and category */}
-      <div className={`flex items-center justify-between ${compact ? 'mb-0' : 'mb-2'}`}>
-        {objective.category && (
-          <Badge variant="outline" className={`${compact ? 'text-xs px-1 py-0' : 'text-xs px-1.5 py-0.5'}`}>
-            {objective.category}
-          </Badge>
+        {/* Description - only show in non-compact mode */}
+        {objective.description && !compact && (
+          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+            {objective.description}
+          </p>
         )}
 
-        <StatusIcon className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} ${status.className}`} />
-      </div>
+        {/* Footer with category */}
+        {objective.category && (
+          <div className="flex items-center justify-between pt-1">
+            <Badge
+              variant="secondary"
+              className={`text-xs font-medium ${
+                compact ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1'
+              }`}
+            >
+              {objective.category}
+            </Badge>
+            {!compact && (
+              <span className="text-xs text-muted-foreground">
+                {status.label}
+              </span>
+            )}
+          </div>
+        )}
 
+        {/* Status label for compact mode without category */}
+        {!objective.category && !compact && (
+          <div className="flex justify-end pt-1">
+            <span className="text-xs text-muted-foreground font-medium">
+              {status.label}
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
