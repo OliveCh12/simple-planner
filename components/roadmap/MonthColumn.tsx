@@ -72,7 +72,7 @@ export function MonthColumn({
       </CardHeader>
 
       <CardContent className="flex-1 p-0">
-          <div className="space-y-2 max-h-[400px] p-4 overflow-y-auto">
+          <div className="space-y-2 p-4 overflow-y-auto h-[400px] md:h-[500px]">
             {objectiveCount === 0 ? (
               <Empty className="text-sm text-muted-foreground h-full">
                 <EmptyMedia variant="icon">
@@ -98,7 +98,7 @@ export function MonthColumn({
 
       </CardContent>
 
-      <CardFooter className="flex-shrink-0 p-4">
+      <CardFooter className="flex-shrink-0">
         <Button
           variant="secondary"
           size="sm"
@@ -108,8 +108,8 @@ export function MonthColumn({
             onAddObjective(monthKey);
           }}
         >
-          <Plus className="h-3 w-3 mr-1" />
           Add
+          <Plus className="h-3 w-3 mr-1" />
         </Button>
       </CardFooter>
     </Card>
