@@ -1,10 +1,9 @@
 "use client"
 
 import React from "react"
-import { ArrowLeft, FlipHorizontal } from "lucide-react"
-import { format, endOfYear, differenceInDays, startOfYear } from "date-fns"
+import { ArrowLeft, FlipHorizontal, Calendar, Target, Clock, Minimize2, Maximize2 } from "lucide-react"
+import { format, endOfYear, differenceInDays } from "date-fns"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 
@@ -41,6 +40,18 @@ interface SubHeaderProps {
   // Scroll to current month
   showScrollToCurrentButton?: boolean
   onScrollToCurrentClick?: () => void
+
+  // Compact mode toggle
+  showCompactToggle?: boolean
+  isCompactMode?: boolean
+  onCompactToggle?: () => void
+
+  // New stats props
+  totalMonths?: number
+  totalObjectives?: number
+  selectedMonth?: string
+  lastUpdated?: string
+  endYear?: number
 }
 
 export function SubHeader({
@@ -57,16 +68,19 @@ export function SubHeader({
   actions = [],
   showScrollToCurrentButton = false,
   onScrollToCurrentClick,
+  showCompactToggle = false,
+  isCompactMode = false,
+  onCompactToggle,
+  totalMonths,
+  totalObjectives,
+  selectedMonth,
+  lastUpdated,
+  endYear,
 }: SubHeaderProps) {
   const router = useRouter()
 
   const now = new Date()
-  const startOfYearDate = startOfYear(now)
-  const endOfYearDate = endOfYear(now)
-  const totalDaysInYear = differenceInDays(endOfYearDate, startOfYearDate)
-  const daysPassed = differenceInDays(now, startOfYearDate)
-  const yearProgress = (daysPassed / totalDaysInYear) * 100
-  const daysLeft = differenceInDays(endOfYearDate, now)
+  const daysLeftInRoadmap = endYear ? differenceInDays(endOfYear(new Date(endYear, 0, 1)), now) : 0
 
   const handleBackClick = () => {
     if (onBack) {
@@ -77,54 +91,97 @@ export function SubHeader({
   }
 
   return (
-    <div className="border-b bg-card flex-shrink-0">
-      <div className={`${containerClasses()} py-4`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+    <div className="border-b bg-card/50 backdrop-blur-sm flex-shrink-0">
+      <div className={`${containerClasses()} py-2 md:py-3`}>
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 md:gap-4">
+          <div className="flex items-start gap-2 md:gap-3 flex-1 min-w-0">
             {(backUrl || onBack) && (
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleBackClick}
+                className="h-8 w-8 md:h-9 md:w-9 hover:bg-muted/50"
               >
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft className="h-4 w-4 md:h-4 md:w-4" />
               </Button>
             )}
-            <div>
+            <div className="flex-1 min-w-0 space-y-1">
               {breadcrumb && (
-                <p className="text-xs text-muted-foreground">{breadcrumb}</p>
+                <p className="text-xs text-muted-foreground/80 font-medium">{breadcrumb}</p>
               )}
-              <div className="flex items-center gap-3">
-                <h1 className="text-xl font-bold">{title}</h1>
-                <Badge variant="outline" className="text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                <h1 className="text-lg md:text-xl font-bold text-foreground truncate">{title}</h1>
+                <Badge variant="outline" className="text-xs w-fit border-muted-foreground/20">
                   {format(new Date(), 'MMM d, yyyy')}
                 </Badge>
               </div>
               {subtitle && (
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   {subtitle}
                 </p>
               )}
-              <div className="flex items-center gap-4 mt-3">
-                <div className="flex-1 max-w-xs">
-                  <Progress value={yearProgress} className="h-2" />
+              {/* Roadmap Timeline Info */}
+              {endYear && daysLeftInRoadmap > 0 && (
+                <div className="flex items-center gap-2 md:gap-3 pt-1">
+                  <Badge variant="secondary" className="text-xs font-medium">
+                    {daysLeftInRoadmap} days left until {endYear}
+                  </Badge>
                 </div>
-                <Badge variant="secondary" className="text-xs">
-                  {daysLeft} days left in {now.getFullYear()}
-                </Badge>
+              )}
+              {/* Stats - Desktop only */}
+              <div className="hidden md:flex items-center gap-4 mt-2 pt-1 border-t border-border/50">
+                {totalMonths !== undefined && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Calendar className="h-3.5 w-3.5 text-primary/60" />
+                    <span className="font-medium">{totalMonths} months</span>
+                  </div>
+                )}
+                {totalObjectives !== undefined && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Target className="h-3.5 w-3.5 text-primary/60" />
+                    <span className="font-medium">{totalObjectives} objectives</span>
+                  </div>
+                )}
+                {selectedMonth && (
+                  <div className="flex items-center gap-1.5 text-xs text-primary font-medium">
+                    <span>Selected: {selectedMonth}</span>
+                  </div>
+                )}
+                {lastUpdated && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5 text-primary/60" />
+                    <span>Updated: {new Date(lastUpdated).toLocaleDateString()}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 md:gap-2">
+            {showCompactToggle && onCompactToggle && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onCompactToggle}
+                title={isCompactMode ? "Expand objectives" : "Compact objectives"}
+                className="h-8 w-8 md:h-9 md:w-9 hover:bg-muted/50"
+              >
+                {isCompactMode ? (
+                  <Maximize2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                ) : (
+                  <Minimize2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                )}
+              </Button>
+            )}
             {showScrollToCurrentButton && onScrollToCurrentClick && (
               <Button
                 variant="outline"
                 size="icon"
                 onClick={onScrollToCurrentClick}
                 title="Scroll to current month"
+                className="h-8 w-8 md:h-9 md:w-9 hover:bg-muted/50"
               >
-                <FlipHorizontal className="h-4 w-4" />
+                <FlipHorizontal className="h-3.5 w-3.5 md:h-4 md:w-4" />
               </Button>
             )}
             
@@ -132,10 +189,10 @@ export function SubHeader({
               <Button
                 key={index}
                 variant={action.variant || "default"}
-                size={action.size || "default"}
+                size={action.size === "icon" ? "icon" : "sm"}
                 onClick={action.onClick}
                 disabled={action.disabled}
-                className={action.className}
+                className={`${action.className} h-8 md:h-9`}
               >
                 {action.icon}
                 {action.label}
@@ -146,10 +203,39 @@ export function SubHeader({
               <Button
                 onClick={onActionClick}
                 disabled={actionButtonDisabled}
+                size="sm"
+                className="h-8 md:h-9 px-3 font-medium"
               >
                 {actionButtonIcon}
                 {actionButtonLabel}
               </Button>
+            )}
+          </div>
+        </div>
+        {/* Mobile Stats */}
+        <div className="flex md:hidden items-center justify-between mt-3 pt-2 border-t border-border/50">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {totalMonths !== undefined && (
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5 text-primary/60" />
+                <span className="font-medium">{totalMonths}</span>
+              </div>
+            )}
+            {totalObjectives !== undefined && (
+              <div className="flex items-center gap-1">
+                <Target className="h-3.5 w-3.5 text-primary/60" />
+                <span className="font-medium">{totalObjectives}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            {selectedMonth && (
+              <span className="text-primary font-medium truncate max-w-20">{selectedMonth}</span>
+            )}
+            {lastUpdated && (
+              <span className="text-muted-foreground">
+                {new Date(lastUpdated).toLocaleDateString()}
+              </span>
             )}
           </div>
         </div>

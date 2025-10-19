@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { DragDropProvider } from '@dnd-kit/react';
 import { Button } from '@/components/ui/button';
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { SubHeader } from '@/components/layout/SubHeader';
 import { useRoadmap } from '@/hooks/useRoadmap';
 import { useRoadmapStore } from '@/store/roadmapStore';
@@ -14,9 +13,8 @@ import { CreateObjectiveSheet } from '@/components/objective/CreateObjectiveShee
 import { MonthColumn } from '@/components/roadmap/MonthColumn';
 import { generateMonthKeys, formatMonthDisplay, getCurrentMonthKey } from '@/lib/date-utils';
 import { saveRoadmap } from '@/lib/db';
-import type { Objective, Roadmap } from '@/types';
+import type { Objective } from '@/types';
 import { useAutoCenter } from '@/hooks/useAutoCenter';
-import { containerClasses } from '@/lib/utils';
 
 export default function RoadmapPage() {
   const params = useParams();
@@ -27,6 +25,7 @@ export default function RoadmapPage() {
   const { isCreateObjectiveModalOpen, openCreateObjectiveModal, closeCreateObjectiveModal } = useUIStore();
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [targetMonthKey, setTargetMonthKey] = useState<string | null>(null);
+  const [isCompactMode, setIsCompactMode] = useState(false);
 
   // Sync local selectedMonthKey with store
   useEffect(() => {
@@ -199,6 +198,14 @@ export default function RoadmapPage() {
         actionButtonDisabled={!selectedMonthKey}
         showScrollToCurrentButton={true}
         onScrollToCurrentClick={handleScrollToCurrentMonth}
+        showCompactToggle={true}
+        isCompactMode={isCompactMode}
+        onCompactToggle={() => setIsCompactMode(!isCompactMode)}
+        totalMonths={monthKeys.length}
+        totalObjectives={Object.values(roadmap.months).reduce((total, month) => total + (month?.objectives?.length || 0), 0)}
+        selectedMonth={selectedMonthKey ? formatMonthDisplay(...selectedMonthKey.split('-').map(Number) as [number, number]) : undefined}
+        lastUpdated={roadmap.updatedAt || roadmap.createdAt}
+        endYear={roadmap.endYear}
       />
       
       {/* Timeline Container */}
@@ -214,6 +221,7 @@ export default function RoadmapPage() {
                     selectedMonthKey={selectedMonthKey}
                     onMonthClick={setSelectedMonthKey}
                     onAddObjective={handleOpenCreateModal}
+                    compact={isCompactMode}
                   />
                 ))}
               </div>
@@ -224,25 +232,6 @@ export default function RoadmapPage() {
         {/* Blur overlays for cool effect */}
         <div className="absolute left-0 top-0 bottom-0 w-16 md:w-64 bg-gradient-to-r from-background to-transparent pointer-events-none z-20"></div>
         <div className="absolute right-0 top-0 bottom-0 w-16 md:w-64 bg-gradient-to-l from-background to-transparent pointer-events-none z-20"></div>
-      </div>
-
-      {/* Footer */}
-      <div className={`${containerClasses()} w-full py-3 flex-shrink-0`}>
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <div className="flex items-center gap-4">
-            <span>
-              {monthKeys.length} months • {Object.values(roadmap.months).reduce((total, month) => total + (month?.objectives?.length || 0), 0)} objectives
-            </span>
-            {selectedMonthKey && (
-              <div>
-                Selected: <span className="text-primary">{formatMonthDisplay(...selectedMonthKey.split('-').map(Number) as [number, number])}</span>
-              </div>
-            )}
-          </div>
-          <div className="text-xs">
-            Last updated: {new Date(roadmap.updatedAt || roadmap.createdAt).toLocaleDateString()}
-          </div>
-        </div>
       </div>
 
       {/* Create Objective Modal */}

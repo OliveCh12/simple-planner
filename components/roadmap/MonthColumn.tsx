@@ -23,6 +23,7 @@ interface MonthColumnProps {
   selectedMonthKey: string | null;
   onMonthClick: (monthKey: string) => void;
   onAddObjective: (monthKey: string) => void;
+  compact?: boolean;
 }
 
 export function MonthColumn({
@@ -30,7 +31,8 @@ export function MonthColumn({
   roadmap,
   selectedMonthKey,
   onMonthClick,
-  onAddObjective
+  onAddObjective,
+  compact = false
 }: MonthColumnProps) {
   const [year, month] = monthKey.split('-').map(Number);
   const monthData = roadmap.months[monthKey];
@@ -88,6 +90,7 @@ export function MonthColumn({
                   key={objective.id}
                   objective={objective}
                   roadmapId={roadmap.id}
+                  compact={compact}
                 />
               ))
             )}
