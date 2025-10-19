@@ -11,96 +11,12 @@ import { useRoadmap } from '@/hooks/useRoadmap';
 import { useRoadmapStore } from '@/store/roadmapStore';
 import { useUIStore } from '@/store/uiStore';
 import { CreateObjectiveSheet } from '@/components/objective/CreateObjectiveSheet';
-import { ObjectiveItem } from '@/components/objective/ObjectiveItem';
-import { generateMonthKeys, formatMonthDisplay, getCurrentMonthKey, isMonthPast } from '@/lib/date-utils';
+import { MonthColumn } from '@/components/roadmap/MonthColumn';
+import { generateMonthKeys, formatMonthDisplay, getCurrentMonthKey } from '@/lib/date-utils';
 import { saveRoadmap } from '@/lib/db';
 import type { Objective, Roadmap } from '@/types';
-import { useDroppable } from '@dnd-kit/react';
 import { useAutoCenter } from '@/hooks/useAutoCenter';
 import { containerClasses } from '@/lib/utils';
-
-interface MonthColumnProps {
-  monthKey: string;
-  roadmap: Roadmap;
-  selectedMonthKey: string | null;
-  onMonthClick: (monthKey: string) => void;
-  onAddObjective: (monthKey: string) => void;
-}
-
-function MonthColumn({ monthKey, roadmap, selectedMonthKey, onMonthClick, onAddObjective }: MonthColumnProps) {
-  const [year, month] = monthKey.split('-').map(Number);
-  const monthData = roadmap.months[monthKey];
-  const objectiveCount = monthData?.objectives.length || 0;
-  const isCurrentMonth = monthKey === getCurrentMonthKey();
-  const isSelected = monthKey === selectedMonthKey;
-  const isPast = isMonthPast(year, month);
-
-  const { ref, isDropTarget } = useDroppable({
-    id: monthKey,
-  });
-
-  return (
-    <div
-      key={monthKey}
-      data-month-key={monthKey}
-      ref={ref}
-      className={`
-        min-w-[320px] w-[320px]
-        border rounded-lg bg-card
-        transition-all cursor-pointer flex flex-col
-        ${isSelected ? 'ring-2 ring-primary shadow-lg bg-primary/10' : 'hover:shadow-md'}
-        ${isCurrentMonth ? 'border-primary' : ''}
-        ${isPast ? 'opacity-50 hover:opacity-100' : 'opacity-100'}
-        ${isDropTarget ? 'ring-2 ring-blue-500 bg-blue-50' : ''}
-      `}
-      onClick={() => onMonthClick(monthKey)}
-    >
-      <div className="flex items-center justify-between p-4 border-b">
-        <h3 className="font-semibold text-lg">
-          {formatMonthDisplay(year, month)}
-        </h3>
-        {isCurrentMonth && (
-          <span className="text-xs font-medium px-2 py-1 rounded-full bg-primary text-primary-foreground">
-            Current
-          </span>
-        )}
-      </div>
-
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-2">
-          {objectiveCount === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No objectives yet
-            </p>
-          ) : (
-            monthData?.objectives.map((objective) => (
-              <ObjectiveItem
-                key={objective.id}
-                objective={objective}
-                roadmapId={roadmap.id}
-              />
-            ))
-          )}
-        </div>
-      </ScrollArea>
-
-      <div className="p-4 border-t">
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full"
-          onClick={(e) => {
-            e.stopPropagation();
-            onAddObjective(monthKey);
-          }}
-        >
-          <Plus className="h-3 w-3 mr-1" />
-          Add Objective
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 export default function RoadmapPage() {
   const params = useParams();
@@ -286,10 +202,10 @@ export default function RoadmapPage() {
       />
       
       {/* Timeline Container */}
-      <div className={`flex-1 overflow-hidden py-4 relative`}>
+      <div className={`flex-1 overflow-hidden relative`}>
         <DragDropProvider onDragEnd={handleDragEnd}>
-          <ScrollArea className="h-full">
-              <div className="flex gap-4 px-[calc(50vw-160px)]">
+          <div className="w-full h-full overflow-x-scroll overflow-y-hidden" >
+              <div className="flex gap-4 px-[calc(50vw-160px)] py-4 min-h-full w-full">
                 {monthKeys.map((monthKey) => (
                   <MonthColumn
                     key={monthKey}
@@ -301,8 +217,8 @@ export default function RoadmapPage() {
                   />
                 ))}
               </div>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+            {/* <ScrollBar orientation="horizontal" /> */}
+          </div>
         </DragDropProvider>
 
         {/* Blur overlays for cool effect */}
