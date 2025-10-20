@@ -26,6 +26,7 @@ export default function RoadmapPage() {
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [targetMonthKey, setTargetMonthKey] = useState<string | null>(null);
   const [isCompactMode, setIsCompactMode] = useState(false);
+  const [editingMonthKey, setEditingMonthKey] = useState<string | null>(null);
 
   // Sync local selectedMonthKey with store
   useEffect(() => {
@@ -58,11 +59,6 @@ export default function RoadmapPage() {
       setTargetMonthKey(selectedMonthKey);
     }
   }, [isCreateObjectiveModalOpen, selectedMonthKey, targetMonthKey]);
-
-  const handleOpenCreateModal = (monthKey: string) => {
-    setTargetMonthKey(monthKey);
-    openCreateObjectiveModal();
-  };
 
   const handleScrollToCurrentMonth = () => {
     if (roadmap) {
@@ -220,7 +216,8 @@ export default function RoadmapPage() {
                     roadmap={roadmap}
                     selectedMonthKey={selectedMonthKey}
                     onMonthClick={setSelectedMonthKey}
-                    onAddObjective={handleOpenCreateModal}
+                    editingMonthKey={editingMonthKey}
+                    onEditingMonthChange={setEditingMonthKey}
                     compact={isCompactMode}
                   />
                 ))}

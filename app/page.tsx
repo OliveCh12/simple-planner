@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { SubHeader } from "@/components/layout/SubHeader";
 import { RoadmapCard } from "@/components/roadmap/RoadmapCard";
 import { CreateRoadmapSheet } from "@/components/roadmap/CreateRoadmapSheet";
-import { getAllRoadmaps, deleteRoadmap, importSampleData } from "@/lib/db";
+import { getAllRoadmaps, deleteRoadmap } from "@/lib/db";
 import type { Roadmap } from "@/types";
 import RoadmapCardNew from "@/components/roadmap/RoadmapCardNew";
 import { containerClasses } from "@/lib/utils";
@@ -50,17 +50,6 @@ export default function Home() {
     } catch (error) {
       console.error("Failed to delete roadmap:", error);
       alert("Failed to delete roadmap. Please try again.");
-    }
-  }
-
-  async function handleImportSampleData() {
-    try {
-      await importSampleData();
-      await loadRoadmaps(); // Reload the roadmaps after import
-      alert("Sample data imported successfully!");
-    } catch (error) {
-      console.error("Failed to import sample data:", error);
-      alert("Failed to import sample data. Please try again.");
     }
   }
 

@@ -1,28 +1,23 @@
 'use client';
 
-import { Target, Plus } from 'lucide-react';
-import { useDroppable } from '@dnd-kit/react';
-import { Button } from '@/components/ui/button';
+import { v4 as uuidv4 } from 'uuid';
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty';
 import { ObjectiveItem } from '@/components/objective/ObjectiveItem';
+import { AddObjectiveItem } from '@/components/objective/AddObjectiveItem';
 import { formatMonthDisplay, getCurrentMonthKey, isMonthPast } from '@/lib/date-utils';
-import type { Roadmap } from '@/types';
-import { Card, CardHeader, CardContent, CardFooter } from '../ui/card';
+import type { Roadmap, Objective } from '@/types';
+import { Card, CardHeader, CardContent } from '../ui/card';
+import { useRoadmapStore } from '@/store/roadmapStore';
+import { createISODate, getDaysInMonthForDate } from '@/lib/date-utils';
+import { useDroppable } from '@dnd-kit/react';
 
 interface MonthColumnProps {
   monthKey: string;
   roadmap: Roadmap;
   selectedMonthKey: string | null;
   onMonthClick: (monthKey: string) => void;
-  onAddObjective: (monthKey: string) => void;
+  editingMonthKey: string | null;
+  onEditingMonthChange: (monthKey: string | null) => void;
   compact?: boolean;
 }
 
@@ -31,12 +26,13 @@ export function MonthColumn({
   roadmap,
   selectedMonthKey,
   onMonthClick,
-  onAddObjective,
+  editingMonthKey,
+  onEditingMonthChange,
   compact = false
 }: MonthColumnProps) {
+  const { addObjective } = useRoadmapStore();
   const [year, month] = monthKey.split('-').map(Number);
   const monthData = roadmap.months[monthKey];
-  const objectiveCount = monthData?.objectives.length || 0;
   const isCurrentMonth = monthKey === getCurrentMonthKey();
   const isSelected = monthKey === selectedMonthKey;
   const isPast = isMonthPast(year, month);
@@ -72,18 +68,9 @@ export function MonthColumn({
       </CardHeader>
 
       <CardContent className="flex-1 p-0">
-          <div className="space-y-2 p-4 overflow-y-auto h-[400px] md:h-[500px]">
-            {objectiveCount === 0 ? (
-              <Empty className="text-sm text-muted-foreground h-full">
-                <EmptyMedia variant="icon">
-                  <Target className="h-8 w-8 text-muted-foreground" />
-                </EmptyMedia>
-                <EmptyTitle>No objectives</EmptyTitle>
-                <EmptyDescription>
-                  Click &quot;Add Objective&quot; to create your first objective for this month.
-                </EmptyDescription>
-                <EmptyContent />
-              </Empty>
+          <div className={`space-y-2 p-4 overflow-y-auto h-[400px] md:h-[500px] ${isSelected ? 'scrollbar-primary' : 'scrollbar-secondary'}`}>
+            {monthData?.objectives.length === 0 ? (
+              ""
             ) : (
               monthData?.objectives.map((objective) => (
                 <ObjectiveItem
@@ -94,24 +81,43 @@ export function MonthColumn({
                 />
               ))
             )}
+            <AddObjectiveItem
+              onCreate={(title: string, description: string) => {
+                const [year, month] = monthKey.split('-').map(Number);
+                const daysInMonth = getDaysInMonthForDate(year, month);
+                const startDate = createISODate(year, month, 1);
+                const endDate = createISODate(year, month, daysInMonth);
+                const duration = daysInMonth;
+                const isPinned = duration >= 28;
+
+                const now = new Date().toISOString();
+                const newObjective: Objective = {
+                  id: uuidv4(),
+                  title,
+                  description,
+                  startDate,
+                  endDate,
+                  duration,
+                  energyLevel: 'medium',
+                  priority: 'medium',
+                  status: 'pending',
+                  tags: [],
+                  progress: 0,
+                  isPinned,
+                  createdAt: now,
+                  updatedAt: now,
+                };
+
+                addObjective(monthKey, newObjective);
+              }}
+              isEditing={editingMonthKey === monthKey}
+              onEditingChange={(isEditing: boolean) => {
+                onEditingMonthChange(isEditing ? monthKey : null);
+              }}
+            />
           </div>
 
       </CardContent>
-
-      <CardFooter className="flex-shrink-0">
-        <Button
-          variant="secondary"
-          size="sm"
-          className="w-full"
-          onClick={(e) => {
-            e.stopPropagation();
-            onAddObjective(monthKey);
-          }}
-        >
-          Add
-          <Plus className="h-3 w-3 mr-1" />
-        </Button>
-      </CardFooter>
     </Card>
   );
 }
