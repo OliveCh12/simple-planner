@@ -11,6 +11,7 @@ import { useRoadmapStore } from '@/store/roadmapStore';
 import { useUIStore } from '@/store/uiStore';
 import { CreateObjectiveSheet } from '@/components/objective/CreateObjectiveSheet';
 import { MonthColumn } from '@/components/roadmap/MonthColumn';
+import { RemoveDropZone } from '@/components/roadmap/RemoveDropZone';
 import { generateMonthKeys, formatMonthDisplay, getCurrentMonthKey } from '@/lib/date-utils';
 import { saveRoadmap } from '@/lib/db';
 import type { Objective } from '@/types';
@@ -27,6 +28,7 @@ export default function RoadmapPage() {
   const [targetMonthKey, setTargetMonthKey] = useState<string | null>(null);
   const [isCompactMode, setIsCompactMode] = useState(false);
   const [editingMonthKey, setEditingMonthKey] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Sync local selectedMonthKey with store
   useEffect(() => {
@@ -107,16 +109,66 @@ export default function RoadmapPage() {
     }
   };
 
+  const handleDragStart = () => {
+    setIsDragging(true);
+  };
+
   const handleDragEnd = (event: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    setIsDragging(false);
+
     if (!roadmap || !currentRoadmap) return;
-    
+
+    const { source, target } = event.operation;
+    // Some sensors or versions may set `event.over` instead of `operation.target`.
+    const overId = event?.over?.id;
+    let targetId = target?.id || overId;
+
+    // Fallback: if we couldn't determine the target via operation or over,
+    // check the pointer position against the RemoveDropZone bounding rect
+    if (!targetId) {
+      try {
+        const pointerEvent = event?.event ?? null;
+        const clientX = pointerEvent?.clientX ?? (pointerEvent?.touches?.[0]?.clientX ?? null);
+        const clientY = pointerEvent?.clientY ?? (pointerEvent?.touches?.[0]?.clientY ?? null);
+
+        if (clientX != null && clientY != null) {
+          const removeEl = document.querySelector('[data-dropzone="remove-zone"]') as HTMLElement | null;
+          if (removeEl) {
+            const rect = removeEl.getBoundingClientRect();
+            if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+              targetId = 'remove-zone';
+            }
+          }
+        }
+      } catch (err) {
+        /* ignore fallback errors */
+      }
+    }
+    if (!source) return;
+
+    const objective = source.data?.objective;
+    const sourceRoadmapId = source.data?.roadmapId;
+
+    if (!objective || sourceRoadmapId !== roadmapId) return;
+
+    // Handle dropping on remove zone
+    if (targetId === 'remove-zone') {
+      const sourceMonthKey = findObjectiveMonth(objective.id);
+      if (sourceMonthKey) {
+        deleteObjective(sourceMonthKey, objective.id);
+        saveUpdatedRoadmap();
+      }
+      return;
+    }
+
+    // Handle moving between months
     const dragData = extractDragData(event);
     if (!dragData) return;
-    
-    const { objective, sourceMonthKey, targetMonthKey } = dragData;
-    
+
+    const { sourceMonthKey, targetMonthKey } = dragData;
+
     if (sourceMonthKey === targetMonthKey) return;
-    
+
     moveObjectiveBetweenMonths(objective, sourceMonthKey, targetMonthKey);
     saveUpdatedRoadmap();
   };
@@ -206,7 +258,7 @@ export default function RoadmapPage() {
       
       {/* Timeline Container */}
       <div className={`flex-1 overflow-hidden relative`}>
-        <DragDropProvider onDragEnd={handleDragEnd}>
+        <DragDropProvider onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div className="w-full h-full overflow-x-scroll overflow-y-hidden p-4" >
               <div className="flex gap-4 px-[calc(50vw-160px)] min-h-full w-full">
                 {monthKeys.map((monthKey) => (
@@ -222,7 +274,6 @@ export default function RoadmapPage() {
                   />
                 ))}
               </div>
-            {/* <ScrollBar orientation="horizontal" /> */}
           </div>
         </DragDropProvider>
 
@@ -243,6 +294,9 @@ export default function RoadmapPage() {
           monthKey={targetMonthKey}
         />
       )}
+
+      {/* Remove Drop Zone */}
+      <RemoveDropZone isDragging={isDragging} />
     </div>
   );
 }

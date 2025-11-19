@@ -67,6 +67,7 @@ export default function Home() {
         actionButtonLabel="New Roadmap"
         actionButtonIcon={<Plus className="h-4 w-4 mr-2" />}
         onActionClick={() => setIsCreateModalOpen(true)}
+        showSeparator={false}
       />
 
       <div className={`${containerClasses()} py-4 flex-1 w-full`}>

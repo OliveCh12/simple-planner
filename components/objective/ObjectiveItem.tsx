@@ -27,21 +27,21 @@ const statusConfig = {
   },
   completed: {
     icon: CheckCircle,
-    className: 'text-green-600',
+    className: 'text-chart-1',
     label: 'Completed',
-    bgClass: 'bg-green-50/80 dark:bg-green-950/30 hover:bg-green-100/90 dark:hover:bg-green-900/40 border-green-200/50 dark:border-green-800/30'
+    bgClass: 'bg-chart-1/10 dark:bg-chart-1/20 hover:bg-chart-1/15 dark:hover:bg-chart-1/25 border-chart-1/30 dark:border-chart-1/40'
   },
   cancelled: {
     icon: XCircle,
     className: 'text-destructive',
     label: 'Cancelled',
-    bgClass: 'bg-red-50/80 dark:bg-red-950/30 hover:bg-red-100/90 dark:hover:bg-red-900/40 border-red-200/50 dark:border-red-800/30'
+    bgClass: 'bg-destructive/10 dark:bg-destructive/20 hover:bg-destructive/15 dark:hover:bg-destructive/25 border-destructive/30 dark:border-destructive/40'
   },
   blocked: {
     icon: AlertTriangle,
-    className: 'text-orange-600',
+    className: 'text-chart-4',
     label: 'Blocked',
-    bgClass: 'bg-orange-50/80 dark:bg-orange-950/30 hover:bg-orange-100/90 dark:hover:bg-orange-900/40 border-orange-200/50 dark:border-orange-800/30'
+    bgClass: 'bg-chart-4/10 dark:bg-chart-4/20 hover:bg-chart-4/15 dark:hover:bg-chart-4/25 border-chart-4/30 dark:border-chart-4/40'
   },
 };
 

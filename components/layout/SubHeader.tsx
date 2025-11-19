@@ -66,6 +66,8 @@ interface SubHeaderProps {
   selectedMonth?: string;
   lastUpdated?: string;
   endYear?: number;
+  // Hide the separator / top border (useful for homepage)
+  showSeparator?: boolean;
 }
 
 export function SubHeader({
@@ -90,6 +92,7 @@ export function SubHeader({
   selectedMonth,
   lastUpdated,
   endYear,
+  showSeparator = true,
 }: SubHeaderProps) {
   const router = useRouter();
 
@@ -110,7 +113,7 @@ export function SubHeader({
     <div className="border-b bg-card/50 backdrop-blur-sm flex-shrink-0">
       <div className={`${containerClasses()} py-4`}>
         <div className="grid grid-cols-1 gap-1 md:gap-2">
-          <div className="flex items-start gap-2 md:gap-3 flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2 md:gap-3 flex-1 min-w-0">
             {(backUrl || onBack) && (
               <Button
                 variant="ghost"
@@ -131,12 +134,6 @@ export function SubHeader({
                 <h1 className="text-lg font-bold text-foreground truncate">
                   {title}
                 </h1>
-                <Badge
-                  variant="outline"
-                  className="text-xs w-fit border-muted-foreground/20"
-                >
-                  {format(new Date(), "MMM d, yyyy")}
-                </Badge>
               </div>
               {subtitle && (
                 <p className="text-xs text-muted-foreground leading-relaxed">
@@ -144,10 +141,8 @@ export function SubHeader({
                 </p>
               )}
             </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-1.5 md:gap-2">
+            {/* Action Buttons and date (aligned to the right) */}
+            <div className="flex items-center justify-end gap-1.5 md:gap-2">
             {showCompactToggle && onCompactToggle && (
               <Button
                 variant="outline"
@@ -202,10 +197,16 @@ export function SubHeader({
                 {actionButtonLabel}
               </Button>
             )}
+            </div>
+
           </div>
 
           {/* Stats Section */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-4 pt-4 border-t border-border/50">
+          <div
+            className={`flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-4 pt-4 ${
+              showSeparator ? "border-t border-border/50" : ""
+            }`}
+          >
             {/* Desktop Stats */}
             <div className="hidden md:flex items-center justify-between flex-1">
               {/* Left */}
