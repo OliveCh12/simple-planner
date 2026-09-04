@@ -1,0 +1,72 @@
+/*
+ * Accent presets. `data-accent` is set on <html> by AppearanceProvider, and can
+ * also be placed on any element (e.g. a swatch) to preview a preset.
+ * The attribute selector is doubled so it outranks the `:root` / `.dark`
+ * declarations in globals.css, which are imported after this file.
+ */
+
+[data-accent="green"][data-accent] {
+  --primary: oklch(0.723 0.219 149.579);
+  --primary-foreground: oklch(0.982 0.018 155.826);
+  --ring: oklch(0.723 0.219 149.579);
+}
+:is(.dark, .dark *)[data-accent="green"][data-accent] {
+  --primary: oklch(0.696 0.17 162.48);
+  --primary-foreground: oklch(0.393 0.095 152.535);
+  --ring: oklch(0.527 0.154 150.069);
+}
+
+[data-accent="blue"][data-accent] {
+  --primary: oklch(0.546 0.245 262.881);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.546 0.245 262.881);
+}
+:is(.dark, .dark *)[data-accent="blue"][data-accent] {
+  --primary: oklch(0.623 0.214 259.815);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.623 0.214 259.815);
+}
+
+[data-accent="violet"][data-accent] {
+  --primary: oklch(0.541 0.281 293.009);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.541 0.281 293.009);
+}
+:is(.dark, .dark *)[data-accent="violet"][data-accent] {
+  --primary: oklch(0.606 0.25 292.717);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.606 0.25 292.717);
+}
+
+[data-accent="rose"][data-accent] {
+  --primary: oklch(0.586 0.253 17.585);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.586 0.253 17.585);
+}
+:is(.dark, .dark *)[data-accent="rose"][data-accent] {
+  --primary: oklch(0.645 0.246 16.439);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.645 0.246 16.439);
+}
+
+[data-accent="orange"][data-accent] {
+  --primary: oklch(0.646 0.222 41.116);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.646 0.222 41.116);
+}
+:is(.dark, .dark *)[data-accent="orange"][data-accent] {
+  --primary: oklch(0.705 0.213 47.604);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.705 0.213 47.604);
+}
+
+[data-accent="neutral"][data-accent] {
+  --primary: oklch(0.21 0.006 285.885);
+  --primary-foreground: oklch(0.985 0 0);
+  --ring: oklch(0.705 0.015 286.067);
+}
+:is(.dark, .dark *)[data-accent="neutral"][data-accent] {
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.21 0.006 285.885);
+  --ring: oklch(0.552 0.016 285.938);
+}
