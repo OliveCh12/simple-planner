@@ -12,6 +12,11 @@ import { Kbd, KbdGroup } from "@/components/ui/kbd";
 
 const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
   {
+    title: "Switch view",
+    description: "Gantt shows each task as a bar on a continuous time axis. Calendar shows a year grid, a month, a week, or a day, using the same Y M W D H zoom.",
+    keys: ["Gantt", "Calendar"],
+  },
+  {
     title: "Zoom in or out",
     description: "Steps through years, months, weeks, days and hours, keeping the time under the cursor in place. Ctrl or ⌘ with the mouse wheel, or a trackpad pinch, does the same.",
     keys: ["-", "+"],

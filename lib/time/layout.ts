@@ -4,11 +4,11 @@ import { columnsFor, type ScaleOptions, type TimeColumn } from "@/lib/time/scale
 
 /** Pixel width of a nominal unit. Real units scale with their elapsed duration. */
 export const PX_PER_UNIT: Record<TimeScale, number> = {
-  year: 96,
-  month: 72,
-  week: 56,
-  day: 48,
-  hour: 56,
+  year: 200,
+  month: 168,
+  week: 140,
+  day: 96,
+  hour: 80,
 };
 
 /** Hard cap on canvas `scrollWidth` so hour scale on long plans stays usable. */
