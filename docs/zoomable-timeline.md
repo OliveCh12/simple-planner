@@ -1,6 +1,8 @@
-# Calendrier zoomable — conception (phase 1)
+# Calendrier zoomable — conception
 
-Refonte du modèle temporel : on abandonne le découpage « roadmap → mois → objectives » pour un conteneur à plage de dates libre, des éléments à début/fin absolus, et une timeline dont les colonnes suivent une échelle de temps zoomable.
+Refonte du modèle temporel : on abandonne le découpage « roadmap → mois → objectives » pour un conteneur à plage de dates libre, des éléments à début/fin absolus, et une timeline zoomable.
+
+Le **rendu en colonnes** (une liste par unité, tâches répétées) a été remplacé par un **lane board** continu. Voir §7. Le modèle de données de §2 est inchangé.
 
 ## 1. Nommage
 
@@ -201,3 +203,59 @@ Branche `feat/zoomable-timeline`. Chaque étape : `pnpm typecheck && pnpm lint &
 4. **Zoom.** `ScaleControl`, `useTimelineZoom`, ancrage, largeurs et en-têtes par échelle, échelle par défaut, regroupement par mois à l'échelle année, Today par échelle, persistance `plan.scale`, tests de `scale.ts`.
 5. **Échelle heure.** `useVirtualColumns`, `AllDayBand`, heures dans `DateRangeChip`, libellés horaires.
 6. **Finition.** Page Shortcuts à jour (`+`, `-`, `T`, `Ctrl+molette`), `firstDayOfWeek` et `showWeekNumbers` honorés, passe mobile, README.
+
+## 7. Lane board (remplace le rendu en colonnes)
+
+Le modèle `Plan`/`Task` est inchangé. Le rendu « une colonne par unité, tâche listée dans chaque colonne intersectée » ne passait pas à l'échelle (une tâche de 3 jours apparaissait 3 fois, 72 fois à l'heure). Il est remplacé par un axe continu et une barre par tâche.
+
+### Mapping temps → pixels
+
+`lib/time/layout.ts` : `x(t) = (t − origin) × pxPerMs`. `origin` = début de la première unité couvrant le plan. `pxPerMs = PX_PER_UNIT[scale] / NOMINAL_MS[scale]`. Les unités ont leur **durée réelle** (février plus étroit que mars ; jour DST 23/24 ou 25/24). Plus de largeur uniforme ni de gap. `columnsFor` ne sert plus qu'à générer les ticks d'en-tête et de grille.
+
+Plafond `MAX_SCROLL_WIDTH = 8_000_000` : au-delà, `pxPerMs` est réduit (plan multi-années à l'heure).
+
+En-tête à deux niveaux : année au-dessus des mois, mois au-dessus des semaines/jours, jour au-dessus des heures. Ancrage au zoom via `xOf` / `instantAt` (proportionnel au temps, pas à l'index).
+
+### Lanes
+
+`lib/lanes.ts` : deux piles indépendantes (all-day / timed). Tri `start` asc, durée desc, `id`. Pastilles (`width < 24 px`) pré-clusterisées sur l'axe, puis packing glouton avec overflow de libellé (`occupiedUntil = max(barre, label) + 4`). Jalon = timed de durée ≤ 1 min, pastille 10 px.
+
+### Composants
+
+```
+lib/time/layout.ts     TimeLayout, xOf, instantAt, PX_PER_UNIT
+lib/time/snap.ts       snap 15 min à l'heure, shiftBySnap, resizeTask
+lib/lanes.ts           layoutLanes
+hooks/useVisibleRange.ts   fenêtre [fromX, toX] + visibleFrom (libellés)
+hooks/useTaskPointer.ts    move / resize / rubber-band create / delete
+
+components/timeline/
+  TimelineBoard.tsx    pan, zoom ancré, clavier, SubHeader + Add a task
+  TimelineHeader.tsx   ticks major/minor, badge Now
+  TimelineGrid.tsx     lignes verticales
+  NowLine.tsx          ligne primary
+  LaneLayer.tsx        all-day (bande haute) + timed (flex-1 à day/hour)
+  TaskBar.tsx          une barre, popover éditeur, poignées de resize
+  ClusterBar.tsx       « N tasks » → liste → éditeur
+  RemoveDropZone.tsx   hit-test, plus de dnd-kit
+components/task/TaskEditor.tsx
+```
+
+Supprimé : `TimeColumn`, `AllDayBand`, `TimelineViewport`, `TaskItem`, `useVirtualColumns`, `tasksInColumn`, `groupTasksByMonth`, `@dnd-kit/react`.
+
+### Interactions
+
+- Clic → `TaskPopover` (titre, notes, Status / Energy / Dates, delete+undo).
+- Drag du corps → `shiftBySnap` (unité de l'échelle ; 15 min à l'heure ; all-day à l'heure → jour).
+- Drag des bords → `resizeTask` avec le même snap.
+- Drag sur une lane vide → création sur la plage balayée.
+- « Add a task » dans le SubHeader → unité au centre du viewport.
+- Pan Espace+drag, `←` `→`, `T`, `+` `-`, Ctrl/⌘+molette avec ancrage : inchangés.
+
+### Étapes (branche `feat/lane-timeline`)
+
+1. `lib/time/layout.ts` + tests (DST, plafond).
+2. `lib/lanes.ts` + tests.
+3. Bascule visuelle (plus de colonnes).
+4. Pointer drag / resize / create ; retrait de dnd-kit.
+5. Shortcuts, README, ce document.

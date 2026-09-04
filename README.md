@@ -6,9 +6,9 @@ personal goals, a web project, a two-week sprint, a single event day.
 - **Plans** have a free start and end date.
 - **Tasks** have an absolute start and end (a date, optionally with a time), so
   they can span months or last an hour.
-- The board is a horizontal timeline whose columns follow the current
-  **scale**: years, months, weeks, days, or hours. Zoom in and out, drag tasks
-  between columns, edit inline.
+- The board is a continuous Gantt-style timeline. Zoom steps through years,
+  months, weeks, days, or hours; each task is a single bar; drag to move or
+  resize.
 
 Everything is stored in the browser (IndexedDB) and can be exported or imported
 as JSON. No account, no server.
@@ -16,7 +16,7 @@ as JSON. No account, no server.
 ## Stack
 
 Next.js (App Router), React, TypeScript, Tailwind CSS v4, shadcn/ui, Zustand,
-Dexie, `@dnd-kit/react`, date-fns, Vitest.
+Dexie, date-fns, Vitest.
 
 ## Development
 

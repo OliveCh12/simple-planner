@@ -54,7 +54,7 @@ export function countCompleted(tasks: Task[]): number {
   return tasks.filter((task) => task.status === "completed").length;
 }
 
-/** Range of a new task created from a column: the whole unit, timed only at hour scale. */
+/** Range of a new task created from a time unit: the whole unit, timed only at hour scale. */
 export function defaultTaskRange(
   column: Pick<TimeColumn, "scale" | "start" | "end">
 ): { start: string; end: string } {

@@ -6,7 +6,7 @@ export type EnergyLevel = 'low' | 'medium' | 'high' | 'critical';
 
 export type TaskStatus = 'pending' | 'in-progress' | 'completed' | 'cancelled' | 'blocked';
 
-/** Zoom level of the timeline: one column per unit of this scale. */
+/** Zoom level of the timeline. */
 export type TimeScale = 'year' | 'month' | 'week' | 'day' | 'hour';
 
 /**

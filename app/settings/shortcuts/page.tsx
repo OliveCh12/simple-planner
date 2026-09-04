@@ -17,13 +17,13 @@ const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
     keys: ["-", "+"],
   },
   {
-    title: "Previous or next column",
-    description: "Scrolls the timeline one column and selects it.",
+    title: "Previous or next unit",
+    description: "Scrolls the timeline by one unit of the current scale (year, month, week, day or hour).",
     keys: ["←", "→"],
   },
   {
     title: "Jump to now",
-    description: "Centres the column that contains the current time.",
+    description: "Centres the current time on the timeline.",
     keys: ["T"],
   },
   {
@@ -32,8 +32,13 @@ const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
     keys: ["Space", "Drag"],
   },
   {
+    title: "Move or resize a task",
+    description: "Drag a bar to translate it by whole units of the current scale (15 minutes at hour scale). Drag the left or right edge to change the start or end. Drop on the delete zone at the bottom to remove it, with undo.",
+    keys: ["Drag"],
+  },
+  {
     title: "Add a task",
-    description: "Type in a column's “Add a task” field, then press Enter.",
+    description: "Type in the SubHeader field to create a task on the unit at the centre of the view, or drag on an empty lane to create one on the swept range.",
     keys: ["Enter"],
   },
   {
