@@ -7,7 +7,7 @@ import { Header } from "@/components/layout/Header";
 export const metadata: Metadata = {
   title: "Timeline Planner",
   description:
-    "A visual roadmap to plan and track goals, projects, and objectives across time.",
+    "A zoomable timeline to plan and track tasks, projects, and events across time.",
 };
 
 export default function RootLayout({

@@ -18,7 +18,7 @@ import { usePlan } from "@/hooks/usePlan";
 
 export default function PlanPage() {
   const params = useParams();
-  const planId = typeof params.roadmapId === "string" ? params.roadmapId : "";
+  const planId = typeof params.planId === "string" ? params.planId : "";
   const { plan, isLoading } = usePlan(planId || null);
 
   if (isLoading) {

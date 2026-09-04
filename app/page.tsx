@@ -71,7 +71,7 @@ export default function Home() {
 
   function handlePlanCreated(plan: Plan) {
     setPlans((prev) => [plan, ...prev]);
-    router.push(`/roadmap/${plan.id}`);
+    router.push(`/plan/${plan.id}`);
   }
 
   const subtitle =

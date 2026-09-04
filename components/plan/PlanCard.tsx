@@ -36,7 +36,7 @@ export function PlanCard({ plan, onDelete }: PlanCardProps) {
       <CardHeader>
         <CardTitle className="text-base">
           <Link
-            href={`/roadmap/${plan.id}`}
+            href={`/plan/${plan.id}`}
             className="outline-none after:absolute after:inset-0 after:rounded-xl"
           >
             {plan.title}

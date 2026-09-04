@@ -27,7 +27,7 @@ const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
     keys: ["Enter"],
   },
   {
-    title: "Save an objective",
+    title: "Save a task",
     description: "While editing a title, saves the changes and closes the editor.",
     keys: ["Enter"],
   },

@@ -3,19 +3,19 @@
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-export default function ObjectiveRedirectPage() {
+/** Legacy `/roadmap/:id` URLs, kept as a redirect to `/plan/:id`. */
+export default function LegacyRoadmapRedirect() {
   const params = useParams();
   const router = useRouter();
-  const roadmapId = typeof params.roadmapId === "string" ? params.roadmapId : "";
+  const roadmapId = Array.isArray(params.slug) ? params.slug[0] : "";
 
   useEffect(() => {
-    if (roadmapId) router.replace(`/roadmap/${roadmapId}`);
-    else router.replace("/");
+    router.replace(roadmapId ? `/plan/${roadmapId}` : "/");
   }, [roadmapId, router]);
 
   return (
     <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-      Opening timeline…
+      Opening plan…
     </div>
   );
 }
