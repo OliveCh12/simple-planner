@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CalendarRange, Waypoints } from "lucide-react";
+import { ArrowLeft, Bot, CalendarRange, StickyNote, Waypoints } from "lucide-react";
 import { CopyForAi } from "@/components/item/CopyForAi";
 import { ItemProperties } from "@/components/item/ItemProperties";
 import { ItemTree, KindBadge } from "@/components/item/ItemTree";
@@ -16,6 +16,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import {
   Empty,
   EmptyContent,
@@ -25,8 +26,12 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupTextarea,
+} from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
 import { itemDocumentForAi } from "@/lib/copy-for-ai";
 import { completeItem, DomainError, reopenItem, updateItem } from "@/lib/domain/items";
 import { expandRecurrence } from "@/lib/time/recurrence";
@@ -109,7 +114,7 @@ export function ItemPage({ plan, item }: ItemPageProps) {
             </BreadcrumbList>
           </Breadcrumb>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <KindBadge kind={item.kind} />
             <Input
               value={title}
@@ -124,55 +129,63 @@ export function ItemPage({ plan, item }: ItemPageProps) {
               }}
               className="h-9 min-w-0 flex-1 border-0 bg-transparent px-1 text-xl font-semibold shadow-none focus-visible:bg-muted/60 focus-visible:ring-0 md:text-xl"
             />
-            <StatusChip
-              value={item.status}
-              onChange={(status: ItemStatus) => {
-                if (status === "completed") {
-                  void save(completeItem(item));
-                  return;
-                }
-                if (item.status === "completed") {
-                  void save(updateItem(reopenItem(item), { status }));
-                  return;
-                }
-                void save(updateItem(item, { status }));
-              }}
-            />
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/plan/${plan.id}?focus=${item.id}`}>
-                <CalendarRange />
-                Open in timeline
-              </Link>
-            </Button>
-            <CopyForAi document={itemDocumentForAi(item)} />
+            <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+              <StatusChip
+                value={item.status}
+                onChange={(status: ItemStatus) => {
+                  if (status === "completed") {
+                    void save(completeItem(item));
+                    return;
+                  }
+                  if (item.status === "completed") {
+                    void save(updateItem(reopenItem(item), { status }));
+                    return;
+                  }
+                  void save(updateItem(item, { status }));
+                }}
+              />
+              <ButtonGroup>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/plan/${plan.id}?focus=${item.id}`}>
+                    <CalendarRange />
+                    Timeline
+                  </Link>
+                </Button>
+                <CopyForAi document={itemDocumentForAi(item)} iconOnly />
+              </ButtonGroup>
+            </div>
           </div>
         </div>
       </header>
 
       <div className={cn(containerClasses(), "flex flex-col gap-10 py-8 lg:flex-row")}>
         <div className="min-w-0 flex-1 space-y-8 lg:w-2/3">
-          <section className="space-y-2">
-            <h2 className="text-sm font-medium">Notes</h2>
-            <Textarea
+          <InputGroup className="h-auto min-h-28 items-start">
+            <InputGroupAddon className="pt-3">
+              <StickyNote />
+            </InputGroupAddon>
+            <InputGroupTextarea
               value={notes}
-              placeholder="Notes, context, links…"
+              placeholder="Notes…"
               aria-label="Notes"
-              className="min-h-32"
+              className="min-h-28 py-3"
               onChange={(event) => setNotes(event.target.value)}
               onBlur={() => {
                 if (notes !== item.notes) void save(updateItem(item, { notes }));
               }}
             />
-          </section>
+          </InputGroup>
 
           {item.executor === "ai" && (
-            <section className="space-y-2">
-              <h2 className="text-sm font-medium">Agent brief</h2>
-              <Textarea
+            <InputGroup className="h-auto min-h-24 items-start">
+              <InputGroupAddon className="pt-3">
+                <Bot />
+              </InputGroupAddon>
+              <InputGroupTextarea
                 value={brief}
-                placeholder="Instructions and acceptance criteria for an AI executor."
+                placeholder="Brief for the AI executor…"
                 aria-label="Agent brief"
-                className="min-h-24"
+                className="min-h-24 py-3"
                 onChange={(event) => setBrief(event.target.value)}
                 onBlur={() => {
                   const next = brief.trim();
@@ -181,27 +194,19 @@ export function ItemPage({ plan, item }: ItemPageProps) {
                   }
                 }}
               />
-            </section>
+            </InputGroup>
           )}
 
           <ItemTree planId={plan.id} parent={item} items={items} />
 
           {occurrences.length > 0 && (
-            <section className="space-y-2">
-              <h2 className="text-sm font-medium">Upcoming</h2>
-              <ul className="space-y-1 text-sm text-muted-foreground">
-                {occurrences.map((occurrence) => (
-                  <li key={occurrence.start}>
-                    {occurrence.start}
-                    {occurrence.end ? ` → ${occurrence.end}` : ""}
-                  </li>
-                ))}
-              </ul>
-            </section>
+            <p className="text-xs text-muted-foreground">
+              Next: {occurrences.map((occurrence) => occurrence.start.slice(0, 10)).join(" · ")}
+            </p>
           )}
         </div>
 
-        <aside className="min-w-0 lg:w-1/3">
+        <aside className="min-w-0 lg:w-80 lg:shrink-0">
           <ItemProperties item={item} items={items} people={people} categories={categories} />
         </aside>
       </div>

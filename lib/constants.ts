@@ -1,16 +1,19 @@
 import {
+  Calendar,
   Circle,
   CircleAlert,
   CircleCheck,
   CircleDotDashed,
   CircleX,
+  Flag,
+  ListTodo,
   Signal,
   SignalHigh,
   SignalLow,
   SignalMedium,
   type LucideIcon,
 } from "lucide-react";
-import type { EnergyLevel, TaskStatus } from "@/types";
+import type { EnergyLevel, ItemKind, TaskStatus } from "@/types";
 
 export interface StatusOption {
   value: TaskStatus;
@@ -47,4 +50,20 @@ export function getStatusOption(status: TaskStatus): StatusOption {
 
 export function getEnergyOption(level: EnergyLevel): EnergyOption {
   return ENERGY_LEVELS.find((option) => option.value === level) ?? ENERGY_LEVELS[1];
+}
+
+export interface KindOption {
+  value: ItemKind;
+  label: string;
+  icon: LucideIcon;
+}
+
+export const KINDS: KindOption[] = [
+  { value: "task", label: "Task", icon: ListTodo },
+  { value: "event", label: "Event", icon: Calendar },
+  { value: "objective", label: "Objective", icon: Flag },
+];
+
+export function getKindOption(kind: ItemKind): KindOption {
+  return KINDS.find((option) => option.value === kind) ?? KINDS[0];
 }

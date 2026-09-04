@@ -4,16 +4,32 @@ import { useState } from "react";
 import Link from "next/link";
 import { Bot, Plus, User } from "lucide-react";
 import { toast } from "sonner";
+import { ItemBranchTree, type BranchNode } from "@/components/item/ItemBranchTree";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import { getKindOption } from "@/lib/constants";
 import { addSubtask, completeItem, DomainError, reopenItem, setExecutor } from "@/lib/domain/items";
+import { cn } from "@/lib/utils";
 import { usePlannerStore } from "@/store/plannerStore";
-import type { PlanItem } from "@/types";
+import type { ItemKind, PlanItem } from "@/types";
 
 function sortSiblings(items: PlanItem[]) {
   return [...items].sort((a, b) => a.start.localeCompare(b.start) || a.createdAt.localeCompare(b.createdAt));
+}
+
+function toBranchNodes(planId: string, parentId: string, items: PlanItem[]): BranchNode[] {
+  return sortSiblings(items.filter((item) => item.parentId === parentId)).map((item) => ({
+    id: item.id,
+    content: <TreeRow planId={planId} item={item} />,
+    children: toBranchNodes(planId, item.id, items),
+  }));
 }
 
 interface ItemTreeProps {
@@ -24,35 +40,32 @@ interface ItemTreeProps {
 
 export function ItemTree({ planId, parent, items }: ItemTreeProps) {
   if (parent.kind === "event") return null;
-
-  const children = sortSiblings(items.filter((item) => item.parentId === parent.id));
+  const children = toBranchNodes(planId, parent.id, items);
 
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-medium">Sub-items</h2>
-      <div className="space-y-1">
-        {children.map((child) => (
-          <TreeNode key={child.id} planId={planId} item={child} items={items} depth={0} />
-        ))}
-        <AddChildRow parent={parent} />
-      </div>
+      <h2 className="text-sm font-medium">Outline</h2>
+      {children.length > 0 ? (
+        <ItemBranchTree
+          guides={false}
+          nodes={[
+            {
+              id: parent.id,
+              content: <span className="text-sm font-medium">{parent.title}</span>,
+              children,
+            },
+          ]}
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground">Nothing nested yet.</p>
+      )}
+      <AddChildRow parent={parent} />
     </section>
   );
 }
 
-function TreeNode({
-  planId,
-  item,
-  items,
-  depth,
-}: {
-  planId: string;
-  item: PlanItem;
-  items: PlanItem[];
-  depth: number;
-}) {
+function TreeRow({ planId, item }: { planId: string; item: PlanItem }) {
   const putItem = usePlannerStore((s) => s.putItem);
-  const children = sortSiblings(items.filter((candidate) => candidate.parentId === item.id));
   const completed = item.status === "completed";
 
   const toggleComplete = async (checked: boolean) => {
@@ -72,38 +85,27 @@ function TreeNode({
   };
 
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-2" style={{ paddingLeft: depth * 16 }}>
-        <Checkbox
-          checked={completed}
-          aria-label={`Complete ${item.title}`}
-          onCheckedChange={(value) => void toggleComplete(value === true)}
-        />
-        <Link
-          href={`/plan/${planId}/item/${item.id}`}
-          className="min-w-0 flex-1 truncate text-sm hover:underline"
-        >
-          {item.title}
-        </Link>
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          aria-label={`Executor: ${item.executor}`}
-          onClick={() => void toggleExecutor()}
-        >
-          {item.executor === "ai" ? <Bot /> : <User />}
-          {item.executor === "ai" ? "AI" : "Human"}
-        </Button>
-      </div>
-      {children.map((child) => (
-        <TreeNode key={child.id} planId={planId} item={child} items={items} depth={depth + 1} />
-      ))}
-      {item.kind !== "event" && (
-        <div style={{ paddingLeft: (depth + 1) * 16 }}>
-          <AddChildRow parent={item} />
-        </div>
-      )}
+    <div className="flex min-w-0 flex-1 items-center gap-2">
+      <Checkbox
+        checked={completed}
+        aria-label={`Complete ${item.title}`}
+        onCheckedChange={(value) => void toggleComplete(value === true)}
+      />
+      <Link
+        href={`/plan/${planId}/item/${item.id}`}
+        className={cn("min-w-0 flex-1 truncate text-sm hover:underline", completed && "text-muted-foreground line-through")}
+      >
+        {item.title}
+      </Link>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        aria-label={item.executor === "ai" ? "AI" : "Human"}
+        onClick={() => void toggleExecutor()}
+      >
+        {item.executor === "ai" ? <Bot /> : <User />}
+      </Button>
     </div>
   );
 }
@@ -117,13 +119,7 @@ function AddChildRow({ parent }: { parent: PlanItem }) {
     const next = title.trim();
     if (!next) return;
     try {
-      await putItem(
-        addSubtask(parent, {
-          title: next,
-          start: parent.start,
-          end: parent.end,
-        })
-      );
+      await putItem(addSubtask(parent, { title: next, start: parent.start, end: parent.end }));
       setTitle("");
       setOpen(false);
     } catch (error) {
@@ -135,41 +131,49 @@ function AddChildRow({ parent }: { parent: PlanItem }) {
     return (
       <Button type="button" variant="ghost" size="xs" className="text-muted-foreground" onClick={() => setOpen(true)}>
         <Plus />
-        Add sub-item
+        Add
       </Button>
     );
   }
 
   return (
     <form
-      className="flex items-center gap-2"
       onSubmit={(event) => {
         event.preventDefault();
         void submit();
       }}
     >
-      <Input
-        autoFocus
-        value={title}
-        placeholder="Title"
-        aria-label="New sub-item title"
-        className="h-8"
-        onChange={(event) => setTitle(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            setOpen(false);
-            setTitle("");
-          }
-        }}
-      />
-      <Button type="submit" size="xs" disabled={!title.trim()}>
-        Add
-      </Button>
+      <InputGroup>
+        <InputGroupAddon>
+          <Plus />
+        </InputGroupAddon>
+        <InputGroupInput
+          autoFocus
+          value={title}
+          placeholder="New sub-item"
+          aria-label="New sub-item title"
+          onChange={(event) => setTitle(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setOpen(false);
+              setTitle("");
+            }
+          }}
+        />
+        <InputGroupButton type="submit" disabled={!title.trim()}>
+          Add
+        </InputGroupButton>
+      </InputGroup>
     </form>
   );
 }
 
-export function KindBadge({ kind }: { kind: PlanItem["kind"] }) {
-  const label = kind === "objective" ? "Objective" : kind === "event" ? "Event" : "Task";
-  return <Badge variant="secondary">{label}</Badge>;
+export function KindBadge({ kind }: { kind: ItemKind }) {
+  const option = getKindOption(kind);
+  return (
+    <Badge variant="secondary" className="gap-1">
+      <option.icon />
+      {option.label}
+    </Badge>
+  );
 }

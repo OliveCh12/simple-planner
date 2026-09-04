@@ -11,9 +11,10 @@ import { getRepository } from "@/lib/repository/create";
 interface CopyForAiProps {
   document: unknown;
   label?: string;
+  iconOnly?: boolean;
 }
 
-export function CopyForAi({ document, label = "Copy for AI" }: CopyForAiProps) {
+export function CopyForAi({ document, label = "Copy for AI", iconOnly = false }: CopyForAiProps) {
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
@@ -30,12 +31,18 @@ export function CopyForAi({ document, label = "Copy for AI" }: CopyForAiProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button type="button" variant="outline" size="sm" onClick={() => void copy()}>
+        <Button
+          type="button"
+          variant="outline"
+          size={iconOnly ? "icon-sm" : "sm"}
+          aria-label={label}
+          onClick={() => void copy()}
+        >
           {copied ? <Check /> : <Copy />}
-          {label}
+          {!iconOnly && label}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>JSON v3 with schema, for an AI agent</TooltipContent>
+      <TooltipContent>Copy for AI</TooltipContent>
     </Tooltip>
   );
 }
