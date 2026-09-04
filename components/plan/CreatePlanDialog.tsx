@@ -22,7 +22,7 @@ import {
   InputGroupText,
 } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
-import { samplePlan, sampleTasks } from "@/data/sampleData";
+import { sampleCategories, samplePeople, samplePlan, sampleTasks } from "@/data/sampleData";
 import { taskToItem } from "@/lib/domain/convert";
 import { createPlan } from "@/lib/plan";
 import { getRepository } from "@/lib/repository/create";
@@ -86,6 +86,12 @@ export function CreatePlanDialog({ open, onClose, onCreated }: CreatePlanDialogP
       await repository.plans.put(record);
       if (tasks.length) {
         await repository.items.putMany(tasks.map((task) => taskToItem(task, record.id)));
+      }
+      if (isSample) {
+        await Promise.all([
+          ...samplePeople.map((person) => repository.people.put(person)),
+          ...sampleCategories.map((category) => repository.categories.put(category)),
+        ]);
       }
       onCreated?.(plan);
       reset();

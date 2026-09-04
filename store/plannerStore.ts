@@ -14,9 +14,14 @@ interface PlannerStore {
 
   loadPlan: (id: string | null) => Promise<void>;
   refresh: () => Promise<void>;
+  loadDirectory: () => Promise<void>;
   updatePlan: (updates: Partial<Omit<Plan, "id" | "createdAt">>) => Promise<void>;
   putItem: (item: PlanItem) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
+  putPerson: (person: Person) => Promise<void>;
+  deletePerson: (id: string) => Promise<void>;
+  putCategory: (category: Category) => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
   addTask: (task: Task) => Promise<void>;
   updateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
@@ -31,8 +36,8 @@ function repo() {
   return getRepository();
 }
 
-function upsertItem(items: PlanItem[], item: PlanItem): PlanItem[] {
-  return [...items.filter((entry) => entry.id !== item.id), item];
+function upsertById<T extends { id: string }>(list: T[], entity: T): T[] {
+  return [...list.filter((entry) => entry.id !== entity.id), entity];
 }
 
 let unsubscribe: (() => void) | undefined;
@@ -52,12 +57,18 @@ function ensureSubscribed() {
   unsubscribe = repo().subscribe((change) => {
     if (refreshing || muteWrites > 0) return;
     const state = usePlannerStore.getState();
+    if (
+      change.collection === "people" ||
+      change.collection === "categories" ||
+      change.op === "import" ||
+      change.op === "clear"
+    ) {
+      void state.loadDirectory();
+    }
     if (!state.currentPlan) return;
     if (
       change.collection === "items" ||
       change.collection === "plans" ||
-      change.collection === "people" ||
-      change.collection === "categories" ||
       change.op === "import" ||
       change.op === "clear"
     ) {
@@ -160,7 +171,7 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
     const current = get().currentPlan;
     if (!current) return;
     const plan = updatePlanRecord(current, {});
-    set({ currentPlan: plan, items: upsertItem(get().items, item) });
+    set({ currentPlan: plan, items: upsertById(get().items, item) });
     beginWrite();
     try {
       await repo().items.put(item);
@@ -189,6 +200,68 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
     } catch (error) {
       console.error("Failed to delete item:", error);
       set({ error: "Failed to save plan" });
+      throw error;
+    } finally {
+      endWrite();
+    }
+  },
+
+  loadDirectory: async () => {
+    ensureSubscribed();
+    try {
+      const [people, categories] = await Promise.all([repo().people.list(), repo().categories.list()]);
+      set({ people, categories });
+    } catch (error) {
+      console.error("Failed to load people and categories:", error);
+    }
+  },
+
+  putPerson: async (person) => {
+    beginWrite();
+    try {
+      await repo().people.put(person);
+      set({ people: upsertById(get().people, person) });
+    } catch (error) {
+      console.error("Failed to save person:", error);
+      throw error;
+    } finally {
+      endWrite();
+    }
+  },
+
+  deletePerson: async (id) => {
+    beginWrite();
+    try {
+      await repo().people.delete(id);
+      set({ people: get().people.filter((person) => person.id !== id) });
+    } catch (error) {
+      console.error("Failed to delete person:", error);
+      throw error;
+    } finally {
+      endWrite();
+    }
+  },
+
+  putCategory: async (category) => {
+    beginWrite();
+    try {
+      await repo().categories.put(category);
+      set({ categories: upsertById(get().categories, category) });
+    } catch (error) {
+      console.error("Failed to save category:", error);
+      throw error;
+    } finally {
+      endWrite();
+    }
+  },
+
+  deleteCategory: async (id) => {
+    beginWrite();
+    try {
+      await repo().categories.delete(id);
+      set({ categories: get().categories.filter((category) => category.id !== id) });
+    } catch (error) {
+      console.error("Failed to delete category:", error);
       throw error;
     } finally {
       endWrite();

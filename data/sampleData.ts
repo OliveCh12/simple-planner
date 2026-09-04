@@ -1,4 +1,6 @@
 import { addMonths, getDaysInMonth, setDate, startOfMonth } from "date-fns";
+import { createCategory } from "@/lib/domain/categories";
+import { createPerson } from "@/lib/domain/people";
 import { createTask } from "@/lib/plan";
 import { formatLocalDate, parseLocal } from "@/lib/time/local";
 import type { EnergyLevel, Task, TaskStatus } from "@/types";
@@ -192,6 +194,22 @@ function offsetDate(base: Date, [month, day]: Offset): string {
   const target = addMonths(base, month);
   return formatLocalDate(setDate(target, Math.min(day, getDaysInMonth(target))));
 }
+
+export const samplePeople = [
+  createPerson({ id: "person-you", name: "You", kind: "human", color: "#2563eb" }),
+  createPerson({
+    id: "person-agent",
+    name: "Planner agent",
+    kind: "agent",
+    color: "#7c3aed",
+  }),
+];
+
+export const sampleCategories = [
+  createCategory({ id: "cat-health", name: "Health", color: "#16a34a" }),
+  createCategory({ id: "cat-career", name: "Career", color: "#2563eb" }),
+  createCategory({ id: "cat-home", name: "Home", color: "#ea580c" }),
+];
 
 /** Materialises the sample tasks relative to `planStart`. */
 export function sampleTasks(planStart: string): Task[] {

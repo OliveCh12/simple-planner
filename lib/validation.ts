@@ -196,18 +196,22 @@ export const planItemSchema = z
     }
   });
 
+export const colorHexSchema = z
+  .string()
+  .regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "Expected a hex color");
+
 export const personSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   kind: z.enum(["human", "agent"]),
-  email: z.string().optional(),
-  color: z.string().optional(),
+  email: z.email().optional(),
+  color: colorHexSchema.optional(),
 });
 
 export const categorySchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  color: z.string().min(1),
+  color: colorHexSchema,
   icon: z.string().optional(),
 });
 
