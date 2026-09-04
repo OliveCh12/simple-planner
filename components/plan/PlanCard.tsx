@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { CalendarRange, Trash2 } from "lucide-react";
+import { CopyPlanForAi } from "@/components/item/CopyForAi";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -45,7 +46,8 @@ export function PlanCard({ plan, onDelete }: PlanCardProps) {
         <CardDescription className="line-clamp-2">
           {plan.description || `A timeline from ${range}.`}
         </CardDescription>
-        <CardAction>
+        <CardAction className="flex items-center">
+          <CopyPlanForAi planId={plan.id} />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

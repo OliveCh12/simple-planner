@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { ExternalLink, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { DateRangeChip, EnergyChip, StatusChip } from "@/components/task/TaskProperties";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ interface TaskEditorProps {
 
 export function TaskEditor({ task, onClose }: TaskEditorProps) {
   const updateTask = usePlannerStore((s) => s.updateTask);
+  const planId = usePlannerStore((s) => s.currentPlan?.id);
   const deleteTask = useDeleteTask();
   const [title, setTitle] = useState(task.title);
   const [notes, setNotes] = useState(task.notes);
@@ -75,6 +77,18 @@ export function TaskEditor({ task, onClose }: TaskEditorProps) {
           }}
           className="-ml-1 h-7 flex-1 rounded-sm border-0 bg-transparent px-1 text-sm font-medium shadow-none focus-visible:bg-muted/60 focus-visible:ring-0 dark:bg-transparent"
         />
+        {planId && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon-xs" aria-label="Open page" asChild>
+                <Link href={`/plan/${planId}/item/${task.id}`}>
+                  <ExternalLink />
+                </Link>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Open page</TooltipContent>
+          </Tooltip>
+        )}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

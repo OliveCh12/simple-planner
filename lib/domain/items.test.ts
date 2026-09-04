@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { addSubtask, completeItem, createItem, DomainError, moveItem, setExecutor } from "@/lib/domain/items";
+import {
+  addSubtask,
+  completeItem,
+  createItem,
+  DomainError,
+  moveItem,
+  setExecutor,
+  setKind,
+  setParent,
+} from "@/lib/domain/items";
 
 describe("createItem", () => {
   it("defaults a human task", () => {
@@ -78,5 +87,30 @@ describe("item commands", () => {
       kind: "event",
     });
     expect(() => addSubtask(event, { title: "Nope", start: "2026-06-01" })).toThrow(/cannot have children/);
+  });
+});
+
+describe("setParent / setKind", () => {
+  const objective = createItem({
+    planId: "plan-1",
+    title: "Body",
+    start: "2026-06-01",
+    kind: "objective",
+  });
+  const task = createItem({
+    planId: "plan-1",
+    title: "Gym",
+    start: "2026-06-01",
+  });
+  const child = addSubtask(task, { title: "Warm-up", start: "2026-06-01" });
+
+  it("nests a task under an objective and rejects a cycle", () => {
+    const nested = setParent(task, objective.id, [objective, task, child]);
+    expect(nested.parentId).toBe(objective.id);
+    expect(() => setParent(objective, child.id, [objective, nested, child])).toThrow(/descendant/);
+  });
+
+  it("rejects turning a parent into an event", () => {
+    expect(() => setKind(task, "event", [task, child])).toThrow(/cannot have children/);
   });
 });
