@@ -5,7 +5,13 @@ import { useDroppable } from "@dnd-kit/react";
 import { AddTaskItem } from "@/components/task/AddTaskItem";
 import { TaskItem } from "@/components/task/TaskItem";
 import { Badge } from "@/components/ui/badge";
-import { countCompleted, createTask, defaultTaskRange, tasksInColumn } from "@/lib/plan";
+import {
+  countCompleted,
+  createTask,
+  defaultTaskRange,
+  groupTasksByMonth,
+  tasksInColumn,
+} from "@/lib/plan";
 import { columnLabel } from "@/lib/time/labels";
 import type { TimeColumn as TimeColumnModel } from "@/lib/time/scale";
 import { cn } from "@/lib/utils";
@@ -36,6 +42,10 @@ export function TimeColumn({
   const weekStartsOn = useUIStore((s) => s.settings.firstDayOfWeek);
   const showWeekNumbers = useUIStore((s) => s.settings.showWeekNumbers);
   const { spanning, contained } = useMemo(() => tasksInColumn(tasks, column), [tasks, column]);
+  const groups = useMemo(
+    () => (column.scale === "year" ? groupTasksByMonth(contained) : null),
+    [column.scale, contained]
+  );
   const total = spanning.length + contained.length;
   const completed = countCompleted(spanning) + countCompleted(contained);
   const label = columnLabel(column, { weekStartsOn, showWeekNumbers });
@@ -81,9 +91,20 @@ export function TimeColumn({
         {spanning.length > 0 && contained.length > 0 && (
           <div className="mx-1.5 !my-1.5 border-t border-border/60" />
         )}
-        {contained.map((task) => (
-          <TaskItem key={task.id} task={task} column={column} planId={planId} contained />
-        ))}
+        {groups
+          ? groups.map((group) => (
+              <div key={group.key}>
+                <p className="sticky top-0 z-10 bg-card/95 px-1.5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground backdrop-blur-sm">
+                  {group.label}
+                </p>
+                {group.tasks.map((task) => (
+                  <TaskItem key={task.id} task={task} column={column} planId={planId} contained />
+                ))}
+              </div>
+            ))
+          : contained.map((task) => (
+              <TaskItem key={task.id} task={task} column={column} planId={planId} contained />
+            ))}
       </div>
 
       <div className="px-2 pb-2 pt-1">

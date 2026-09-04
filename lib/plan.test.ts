@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createTask, tasksInColumn } from "@/lib/plan";
+import { createTask, groupTasksByMonth, tasksInColumn } from "@/lib/plan";
 import { columnsFor } from "@/lib/time/scale";
 import type { Task } from "@/types";
 
@@ -60,5 +60,19 @@ describe("tasksInColumn", () => {
     });
     expect(tasksInColumn([meeting, long], hours[10]).spanning).toEqual([long]);
     expect(tasksInColumn([meeting, long], hours[11])).toEqual({ spanning: [], contained: [] });
+  });
+});
+
+describe("groupTasksByMonth", () => {
+  it("groups by start month in first-seen order", () => {
+    const groups = groupTasksByMonth([
+      task("a", "2027-03-05", "2027-03-06"),
+      task("b", "2027-01-10", "2027-01-12"),
+      task("c", "2027-03-20", "2027-03-21"),
+    ]);
+    expect(groups.map((group) => [group.label, group.tasks.map((t) => t.id)])).toEqual([
+      ["March", ["a", "c"]],
+      ["January", ["b"]],
+    ]);
   });
 });

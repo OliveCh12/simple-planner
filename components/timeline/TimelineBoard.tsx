@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { DragDropProvider, type DragEndEvent } from "@dnd-kit/react";
 import { SubHeader } from "@/components/layout/SubHeader";
 import type { TaskDragData } from "@/components/task/TaskItem";
 import { RemoveDropZone } from "@/components/timeline/RemoveDropZone";
+import { ScaleControl } from "@/components/timeline/ScaleControl";
 import { TimeColumn } from "@/components/timeline/TimeColumn";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -13,6 +14,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDeleteTask } from "@/hooks/useTaskActions";
 import { useTimelinePan } from "@/hooks/useTimelinePan";
+import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { formatDateDisplay } from "@/lib/date-utils";
 import { shiftTask } from "@/lib/time/local";
 import {
@@ -20,8 +22,12 @@ import {
   COLUMN_WIDTH,
   columnIndexContaining,
   columnsFor,
+  defaultScaleFor,
   instantAtX,
   nearestColumnIndex,
+  xOfInstant,
+  zoomIn,
+  zoomOut,
 } from "@/lib/time/scale";
 import { cn } from "@/lib/utils";
 import { usePlanStore } from "@/store/planStore";
@@ -38,6 +44,12 @@ function isTypingTarget(target: EventTarget | null) {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
 }
 
+interface Anchor {
+  instant: Date;
+  /** Distance from the board's left edge, in px, where `instant` should land. */
+  offset: number;
+}
+
 interface TimelineBoardProps {
   plan: Plan;
 }
@@ -45,10 +57,13 @@ interface TimelineBoardProps {
 export function TimelineBoard({ plan }: TimelineBoardProps) {
   const weekStartsOn = useUIStore((s) => s.settings.firstDayOfWeek);
   const dateFormat = useUIStore((s) => s.settings.dateFormat);
+  const updatePlan = usePlanStore((s) => s.updatePlan);
   const updateTask = usePlanStore((s) => s.updateTask);
   const deleteTask = useDeleteTask();
 
-  const scale: TimeScale = "month";
+  const [scale, setScaleState] = useState<TimeScale>(
+    () => plan.scale ?? defaultScaleFor(plan.start, plan.end)
+  );
   const width = COLUMN_WIDTH[scale];
   const pitch = width + COLUMN_GAP;
   const columns = useMemo(
@@ -75,20 +90,60 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
     [boardEl, pitch, width]
   );
 
-  const centeredIndex = useCallback(() => {
-    if (!boardEl || columns.length === 0) return -1;
-    const x = boardEl.scrollLeft + boardEl.clientWidth / 2 - paddingLeft(boardEl);
-    const instant = instantAtX(columns, x, pitch);
-    return instant ? nearestColumnIndex(columns, instant) : -1;
-  }, [boardEl, columns, pitch]);
+  const instantAtOffset = useCallback(
+    (offset: number) => {
+      if (!boardEl || columns.length === 0) return null;
+      return instantAtX(columns, boardEl.scrollLeft + offset - paddingLeft(boardEl), pitch);
+    },
+    [boardEl, columns, pitch]
+  );
 
-  const initialisedFor = useRef<string | null>(null);
+  const centeredIndex = useCallback(() => {
+    if (!boardEl) return -1;
+    const instant = instantAtOffset(boardEl.clientWidth / 2);
+    return instant ? nearestColumnIndex(columns, instant) : -1;
+  }, [boardEl, columns, instantAtOffset]);
+
+  const initialised = useRef(false);
   useEffect(() => {
-    if (!boardEl || initialisedFor.current === plan.id) return;
-    initialisedFor.current = plan.id;
+    if (!boardEl || initialised.current) return;
+    initialised.current = true;
     const frame = window.requestAnimationFrame(() => scrollToColumn(homeIndex, "auto"));
     return () => window.cancelAnimationFrame(frame);
-  }, [boardEl, plan.id, homeIndex, scrollToColumn]);
+  }, [boardEl, homeIndex, scrollToColumn]);
+
+  const anchorRef = useRef<Anchor | null>(null);
+  useLayoutEffect(() => {
+    const anchor = anchorRef.current;
+    if (!anchor || !boardEl) return;
+    anchorRef.current = null;
+    boardEl.scrollTo({
+      left: xOfInstant(columns, anchor.instant, pitch) + paddingLeft(boardEl) - anchor.offset,
+      behavior: "instant",
+    });
+  }, [boardEl, columns, pitch]);
+
+  const setScale = useCallback(
+    (next: TimeScale | null, clientX?: number) => {
+      if (!next || next === scale) return;
+      if (boardEl) {
+        const offset =
+          clientX === undefined
+            ? boardEl.clientWidth / 2
+            : clientX - boardEl.getBoundingClientRect().left;
+        const instant = instantAtOffset(offset);
+        if (instant) anchorRef.current = { instant, offset };
+      }
+      setSelectedKey(null);
+      setScaleState(next);
+      void updatePlan({ scale: next });
+    },
+    [boardEl, instantAtOffset, scale, updatePlan]
+  );
+
+  useTimelineZoom(boardEl, (direction, clientX) => {
+    setScale(direction > 0 ? zoomIn(scale) : zoomOut(scale), clientX);
+  });
 
   const selectColumn = useCallback(
     (index: number) => {
@@ -106,27 +161,42 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
       const centered = centeredIndex();
       const current =
         centered >= 0 ? centered : columns.findIndex((column) => column.key === effectiveKey);
-      const next = Math.min(columns.length - 1, Math.max(0, current + delta));
-      selectColumn(next);
+      selectColumn(Math.min(columns.length - 1, Math.max(0, current + delta)));
     },
     [centeredIndex, columns, effectiveKey, selectColumn]
   );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isTypingTarget(event.target)) return;
-      if (event.key === "ArrowRight") {
-        event.preventDefault();
-        shiftColumn(1);
-      }
-      if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        shiftColumn(-1);
+      if (isTypingTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
+      switch (event.key) {
+        case "ArrowRight":
+          event.preventDefault();
+          shiftColumn(1);
+          break;
+        case "ArrowLeft":
+          event.preventDefault();
+          shiftColumn(-1);
+          break;
+        case "+":
+        case "=":
+          event.preventDefault();
+          setScale(zoomIn(scale));
+          break;
+        case "-":
+          event.preventDefault();
+          setScale(zoomOut(scale));
+          break;
+        case "t":
+        case "T":
+          event.preventDefault();
+          selectColumn(homeIndex);
+          break;
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [shiftColumn]);
+  }, [homeIndex, scale, selectColumn, setScale, shiftColumn]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     setIsDragging(false);
@@ -161,7 +231,7 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
       <SubHeader backUrl="/" title={plan.title} subtitle={range}>
         <p
           className={cn(
-            "hidden items-center gap-1.5 text-xs transition-colors md:flex",
+            "hidden items-center gap-1.5 text-xs transition-colors lg:flex",
             panReady ? "text-foreground" : "text-muted-foreground"
           )}
         >
@@ -174,7 +244,8 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
           </Kbd>
           {!panReady && "to pan"}
         </p>
-        <ButtonGroup>
+        <ScaleControl value={scale} onChange={(next) => setScale(next)} />
+        <ButtonGroup className="hidden md:flex">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -190,10 +261,17 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
               Previous {scale} <Kbd>←</Kbd>
             </TooltipContent>
           </Tooltip>
-          <Button variant="outline" size="sm" onClick={() => selectColumn(homeIndex)}>
-            <CalendarDays />
-            Today
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="sm" onClick={() => selectColumn(homeIndex)}>
+                <CalendarDays />
+                Today
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Jump to now <Kbd>T</Kbd>
+            </TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -210,6 +288,15 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
             </TooltipContent>
           </Tooltip>
         </ButtonGroup>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          aria-label="Today"
+          className="md:hidden"
+          onClick={() => selectColumn(homeIndex)}
+        >
+          <CalendarDays />
+        </Button>
       </SubHeader>
 
       <div className="relative min-h-0 flex-1">

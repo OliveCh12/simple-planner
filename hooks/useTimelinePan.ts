@@ -110,6 +110,7 @@ export function useTimelinePan(el: HTMLDivElement | null, enabled: boolean) {
     };
 
     const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.metaKey) return;
       const column =
         event.target instanceof Element ? event.target.closest("[data-column-scroll]") : null;
       if (column instanceof HTMLElement && column.scrollHeight > column.clientHeight + 1) {

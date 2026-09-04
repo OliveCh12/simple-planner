@@ -51,5 +51,5 @@ export default function PlanPage() {
     );
   }
 
-  return <TimelineBoard plan={plan} />;
+  return <TimelineBoard key={plan.id} plan={plan} />;
 }

@@ -1,4 +1,4 @@
-import { subDays } from "date-fns";
+import { format, subDays } from "date-fns";
 import type { EnergyLevel, Plan, Task, TaskStatus } from "@/types";
 import {
   contains,
@@ -6,6 +6,7 @@ import {
   formatLocalDateTime,
   intersects,
   intervalOf,
+  parseLocal,
   type Interval,
 } from "@/lib/time/local";
 import type { TimeColumn } from "@/lib/time/scale";
@@ -113,4 +114,25 @@ export function defaultTaskRange(
     return { start: formatLocalDateTime(column.start), end: formatLocalDateTime(column.end) };
   }
   return { start: formatLocalDate(column.start), end: formatLocalDate(subDays(column.end, 1)) };
+}
+
+export interface MonthGroup {
+  key: string;
+  label: string;
+  tasks: Task[];
+}
+
+/** Groups tasks by the month they start in, keeping the incoming order. */
+export function groupTasksByMonth(tasks: Task[]): MonthGroup[] {
+  const groups = new Map<string, MonthGroup>();
+  for (const task of tasks) {
+    const key = task.start.slice(0, 7);
+    let group = groups.get(key);
+    if (!group) {
+      group = { key, label: format(parseLocal(task.start), "MMMM"), tasks: [] };
+      groups.set(key, group);
+    }
+    group.tasks.push(task);
+  }
+  return [...groups.values()];
 }
