@@ -1,25 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { describeQuickAdd, parseQuickAdd, type QuickAddCategory, type QuickAddResult } from "@/lib/quickadd";
+import type { Executor, LocalDateTime } from "@/types";
 
 interface CalendarCreateButtonProps {
   when: string;
-  onCreate: (title: string) => void;
+  defaultStart: LocalDateTime;
+  defaultEnd?: LocalDateTime;
+  categories?: QuickAddCategory[];
+  defaultExecutor?: Executor;
+  onCreate: (draft: QuickAddResult) => void;
 }
 
-export function CalendarCreateButton({ when, onCreate }: CalendarCreateButtonProps) {
+export function CalendarCreateButton({
+  when,
+  defaultStart,
+  defaultEnd,
+  categories = [],
+  defaultExecutor,
+  onCreate,
+}: CalendarCreateButtonProps) {
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
+  const [value, setValue] = useState("");
+  const draft = useMemo(
+    () => parseQuickAdd(value, { defaultStart, defaultEnd, categories, defaultExecutor }),
+    [value, defaultStart, defaultEnd, categories, defaultExecutor]
+  );
+  const hint = draft ? describeQuickAdd(draft, categories) : "";
 
   const submit = () => {
-    const next = title.trim();
-    if (!next) return;
-    onCreate(next);
-    setTitle("");
+    if (!draft) return;
+    onCreate(draft);
+    setValue("");
     setOpen(false);
   };
 
@@ -28,7 +45,7 @@ export function CalendarCreateButton({ when, onCreate }: CalendarCreateButtonPro
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (!next) setTitle("");
+        if (!next) setValue("");
       }}
     >
       <PopoverTrigger asChild>
@@ -37,7 +54,7 @@ export function CalendarCreateButton({ when, onCreate }: CalendarCreateButtonPro
           <span className="hidden sm:inline">Create</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 p-3">
+      <PopoverContent align="end" className="w-80 p-3">
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -46,13 +63,13 @@ export function CalendarCreateButton({ when, onCreate }: CalendarCreateButtonPro
         >
           <Input
             autoFocus
-            value={title}
-            placeholder="Item title"
-            aria-label="Item title"
-            onChange={(event) => setTitle(event.target.value)}
+            value={value}
+            placeholder="Gym every weekday 7am #health @ai"
+            aria-label="New item"
+            onChange={(event) => setValue(event.target.value)}
           />
-          <p className="mt-2 text-xs text-muted-foreground">{when}</p>
-          <Button type="submit" size="sm" className="mt-3 w-full" disabled={!title.trim()}>
+          <p className="mt-2 text-xs text-muted-foreground">{hint || when}</p>
+          <Button type="submit" size="sm" className="mt-3 w-full" disabled={!draft}>
             Add
           </Button>
         </form>

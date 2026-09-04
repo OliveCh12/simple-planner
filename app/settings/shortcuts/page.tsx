@@ -42,9 +42,14 @@ const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
     keys: ["Drag"],
   },
   {
-    title: "Add a task",
-    description: "Type in the SubHeader field to create a task on the unit at the centre of the view, or drag on an empty lane to create one on the swept range.",
+    title: "Add an item",
+    description: "Type in the quick-add field. Tokens: every weekday|daily|weekly|monthly, 7am or 19:00, until Aug 31, #category, @ai or @human. Drag on an empty Gantt lane to create on the swept range.",
     keys: ["Enter"],
+  },
+  {
+    title: "AI queue",
+    description: "The AI queue toggle keeps items whose executor is AI and that are not completed or cancelled.",
+    keys: ["AI queue"],
   },
   {
     title: "Save a task",

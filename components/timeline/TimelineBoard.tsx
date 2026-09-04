@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Bot, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { CalendarBoard } from "@/components/calendar/CalendarBoard";
 import { CalendarCreateButton } from "@/components/calendar/CalendarCreateButton";
+import { QuickAdd } from "@/components/item/QuickAdd";
 import { TaskDetailsPanel } from "@/components/item/TaskDetailsPanel";
-import { AddTaskItem } from "@/components/task/AddTaskItem";
 import { LaneLayer } from "@/components/timeline/LaneLayer";
 import { NowLine } from "@/components/timeline/NowLine";
 import { RemoveDropZone } from "@/components/timeline/RemoveDropZone";
@@ -28,6 +28,7 @@ import { formatDateDisplay } from "@/lib/date-utils";
 import { createItem } from "@/lib/domain/items";
 import { layoutLanes, type LaneItem, type LaneTask } from "@/lib/lanes";
 import { createTask, defaultTaskRange } from "@/lib/plan";
+import type { QuickAddResult } from "@/lib/quickadd";
 import { addUnits, formatLocalDate, formatLocalDateTime, intervalOf, isAllDay, parseLocal } from "@/lib/time/local";
 import { instantAt, layoutFor, xOf } from "@/lib/time/layout";
 import {
@@ -119,22 +120,36 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     focusItem && !isAllDay(focusItem.start) ? parseLocal(focusItem.start).getHours() : undefined
   );
   const [showCompleted, setShowCompleted] = useState(false);
+  const [aiQueue, setAiQueue] = useState(false);
+
+  const queueItems = useMemo(
+    () =>
+      items.filter(
+        (item) => item.executor === "ai" && item.status !== "completed" && item.status !== "cancelled"
+      ),
+    [items]
+  );
+  const visibleItemsForView = useMemo(
+    () => (aiQueue ? queueItems : items),
+    [aiQueue, items, queueItems]
+  );
 
   const layout = useMemo(
     () => layoutFor(scale, plan.start, plan.end, { weekStartsOn }),
     [scale, plan.start, plan.end, weekStartsOn]
   );
 
-  const laneTasks = useMemo<LaneTask[]>(
-    () =>
-      plan.tasks.map((task) => ({
+  const laneTasks = useMemo<LaneTask[]>(() => {
+    const allowed = aiQueue ? new Set(queueItems.map((item) => item.id)) : null;
+    return plan.tasks
+      .filter((task) => !allowed || allowed.has(task.id))
+      .map((task) => ({
         id: task.id,
         title: task.title,
         interval: intervalOf(task),
         allDay: isAllDay(task.start),
-      })),
-    [plan.tasks]
-  );
+      }));
+  }, [aiQueue, plan.tasks, queueItems]);
   const lanes = useMemo(() => layoutLanes(laneTasks, (date) => xOf(layout, date)), [laneTasks, layout]);
   const tasksById = useMemo(() => new Map(plan.tasks.map((task) => [task.id, task])), [plan.tasks]);
 
@@ -347,28 +362,41 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [goToday, scale, setScale, shiftUnit]);
 
-  const createAtCenter = useCallback(
-    (title: string) => {
-      if (!gantt) {
-        const day = selectedDay;
-        const start =
-          selectedHour === undefined
-            ? formatLocalDate(day)
-            : formatLocalDateTime(new Date(day.getFullYear(), day.getMonth(), day.getDate(), selectedHour));
-        const end =
-          selectedHour === undefined
-            ? formatLocalDate(day)
-            : formatLocalDateTime(new Date(day.getFullYear(), day.getMonth(), day.getDate(), selectedHour + 1));
-        void saveItem(createItem({ planId: plan.id, title, start, end }));
-        return;
-      }
-      const index = centeredIndex();
-      const unit = layout.units[index >= 0 ? index : homeIndex];
-      if (!unit) return;
-      void addTask(createTask({ title, ...defaultTaskRange(unit) }));
+  const applyQuickAdd = useCallback(
+    (draft: QuickAddResult) => {
+      void saveItem(
+        createItem({
+          planId: plan.id,
+          title: draft.title,
+          start: draft.start,
+          end: draft.end,
+          kind: draft.kind,
+          executor: draft.executor,
+          categoryId: draft.categoryId,
+          recurrence: draft.recurrence,
+        })
+      );
     },
-    [addTask, centeredIndex, gantt, homeIndex, layout.units, plan.id, saveItem, selectedDay, selectedHour]
+    [plan.id, saveItem]
   );
+
+  const ganttQuickRange = useMemo(() => {
+    const index = centeredIndex();
+    const unit = layout.units[index >= 0 ? index : homeIndex];
+    if (!unit) return { start: formatLocalDate(focus), end: undefined as string | undefined };
+    return defaultTaskRange(unit);
+  }, [centeredIndex, focus, homeIndex, layout.units]);
+
+  const calendarQuickStart =
+    selectedHour === undefined
+      ? formatLocalDate(selectedDay)
+      : formatLocalDateTime(new Date(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate(), selectedHour));
+  const calendarQuickEnd =
+    selectedHour === undefined
+      ? formatLocalDate(selectedDay)
+      : formatLocalDateTime(
+          new Date(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate(), selectedHour + 1)
+        );
 
   const createWhen =
     selectedHour === undefined
@@ -477,17 +505,52 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
                 Completed
               </Button>
             )}
+            <Button
+              type="button"
+              variant={aiQueue ? "secondary" : "ghost"}
+              size="xs"
+              aria-pressed={aiQueue}
+              aria-label="AI queue"
+              onClick={() => setAiQueue((current) => !current)}
+            >
+              <Bot />
+              <span className="hidden sm:inline">AI queue</span>
+              {queueItems.length > 0 ? (
+                <span className="tabular-nums text-muted-foreground">{queueItems.length}</span>
+              ) : null}
+            </Button>
             {gantt ? (
               <>
-                <div className="hidden w-44 min-w-0 md:block">
-                  <AddTaskItem onCreate={createAtCenter} />
+                <div className="hidden min-w-44 max-w-sm flex-1 md:block">
+                  <QuickAdd
+                    defaultStart={ganttQuickRange.start}
+                    defaultEnd={ganttQuickRange.end}
+                    categories={categories}
+                    defaultExecutor={aiQueue ? "ai" : "human"}
+                    placeholder="Gym every weekday 7am #health @ai"
+                    onCreate={applyQuickAdd}
+                  />
                 </div>
                 <div className="md:hidden">
-                  <CalendarCreateButton when="Current column" onCreate={createAtCenter} />
+                  <CalendarCreateButton
+                    when="Current column"
+                    defaultStart={ganttQuickRange.start}
+                    defaultEnd={ganttQuickRange.end}
+                    categories={categories}
+                    defaultExecutor={aiQueue ? "ai" : "human"}
+                    onCreate={applyQuickAdd}
+                  />
                 </div>
               </>
             ) : (
-              <CalendarCreateButton when={createWhen} onCreate={createAtCenter} />
+              <CalendarCreateButton
+                when={createWhen}
+                defaultStart={calendarQuickStart}
+                defaultEnd={calendarQuickEnd}
+                categories={categories}
+                defaultExecutor={aiQueue ? "ai" : "human"}
+                onCreate={applyQuickAdd}
+              />
             )}
           </div>
         </div>
@@ -497,7 +560,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
         {!gantt ? (
           <div ref={setCalendarEl} className="flex h-full min-h-0 flex-1 flex-col">
             <CalendarBoard
-              items={items}
+              items={visibleItemsForView}
               categories={categories}
               scale={scale}
               focus={focus}
