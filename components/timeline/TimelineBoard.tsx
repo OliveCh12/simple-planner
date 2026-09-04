@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import { AddTaskItem } from "@/components/task/AddTaskItem";
+import Link from "next/link";
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { CalendarBoard } from "@/components/calendar/CalendarBoard";
-import { SubHeader } from "@/components/layout/SubHeader";
+import { CalendarCreateButton } from "@/components/calendar/CalendarCreateButton";
+import { TaskDetailsPanel } from "@/components/item/TaskDetailsPanel";
+import { AddTaskItem } from "@/components/task/AddTaskItem";
 import { LaneLayer } from "@/components/timeline/LaneLayer";
 import { NowLine } from "@/components/timeline/NowLine";
 import { RemoveDropZone } from "@/components/timeline/RemoveDropZone";
@@ -21,10 +23,12 @@ import { useTaskPointer } from "@/hooks/useTaskPointer";
 import { useTimelinePan } from "@/hooks/useTimelinePan";
 import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { useVisibleRange } from "@/hooks/useVisibleRange";
+import { periodLabel } from "@/lib/calendar";
 import { formatDateDisplay } from "@/lib/date-utils";
+import { createItem } from "@/lib/domain/items";
 import { layoutLanes, type LaneItem, type LaneTask } from "@/lib/lanes";
 import { createTask, defaultTaskRange } from "@/lib/plan";
-import { addUnits, intervalOf, isAllDay } from "@/lib/time/local";
+import { addUnits, formatLocalDate, formatLocalDateTime, intervalOf, isAllDay, parseLocal } from "@/lib/time/local";
 import { instantAt, layoutFor, xOf } from "@/lib/time/layout";
 import {
   CALENDAR_SCALES,
@@ -36,10 +40,16 @@ import {
   zoomOut,
   type TimeColumn,
 } from "@/lib/time/scale";
-import { cn } from "@/lib/utils";
+import { cn, containerClasses } from "@/lib/utils";
+import { useSaveItem } from "@/hooks/useSaveItem";
 import { usePlannerStore } from "@/store/plannerStore";
 import { useUIStore, type TimelineView } from "@/store/uiStore";
-import type { HydratedPlan, TimeScale } from "@/types";
+import type { HydratedPlan, PlanItem, TimeScale } from "@/types";
+
+function FocusedItemSheet({ item }: { item: PlanItem }) {
+  const [open, setOpen] = useState(true);
+  return <TaskDetailsPanel item={item} open={open} onOpenChange={setOpen} />;
+}
 
 const SMOOTH_SCROLL_VIEWPORTS = 4;
 
@@ -74,9 +84,10 @@ interface Anchor {
 
 interface TimelineBoardProps {
   plan: HydratedPlan;
+  focusItemId?: string | null;
 }
 
-export function TimelineBoard({ plan }: TimelineBoardProps) {
+export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
   const weekStartsOn = useUIStore((s) => s.settings.firstDayOfWeek);
   const dateFormat = useUIStore((s) => s.settings.dateFormat);
   const view = useUIStore((s) => s.timelineView);
@@ -85,12 +96,29 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
   const updatePlan = usePlannerStore((s) => s.updatePlan);
   const addTask = usePlannerStore((s) => s.addTask);
   const updateTask = usePlannerStore((s) => s.updateTask);
+  const items = usePlannerStore((s) => s.items);
+  const categories = usePlannerStore((s) => s.categories);
   const deleteTask = useDeleteTask();
+  const saveItem = useSaveItem();
+
+  const focusItem = focusItemId ? items.find((item) => item.id === focusItemId) : undefined;
 
   const [scale, setScaleState] = useState<TimeScale>(
     () => plan.scale ?? defaultScaleFor(plan.start, plan.end)
   );
-  const [focus, setFocus] = useState(() => new Date());
+  const [userFocus, setUserFocus] = useState<Date | null>(null);
+  const focus = useMemo(() => {
+    if (userFocus) return userFocus;
+    if (focusItem) return parseLocal(focusItem.start);
+    return new Date();
+  }, [focusItem, userFocus]);
+  const [selectedDay, setSelectedDay] = useState(() =>
+    focusItem ? parseLocal(focusItem.start) : new Date()
+  );
+  const [selectedHour, setSelectedHour] = useState<number | undefined>(() =>
+    focusItem && !isAllDay(focusItem.start) ? parseLocal(focusItem.start).getHours() : undefined
+  );
+  const [showCompleted, setShowCompleted] = useState(false);
 
   const layout = useMemo(
     () => layoutFor(scale, plan.start, plan.end, { weekStartsOn }),
@@ -229,7 +257,7 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
         const instant = instantAtOffset(offset);
         if (instant) {
           anchorRef.current = { instant, offset };
-          setFocus(instant);
+          setUserFocus(instant);
         }
       }
       setScaleState(next);
@@ -246,9 +274,10 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
   const shiftUnit = useCallback(
     (delta: number) => {
       if (!gantt) {
-        setFocus((current) =>
-          addUnits(startOfUnit(current, scale, { weekStartsOn }), scale, delta)
-        );
+        const next = addUnits(startOfUnit(focus, scale, { weekStartsOn }), scale, delta);
+        setUserFocus(next);
+        setSelectedDay(next);
+        setSelectedHour(undefined);
         return;
       }
       if (layout.units.length === 0) return;
@@ -256,11 +285,14 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
       const current = centered >= 0 ? centered : homeIndex;
       scrollToUnit(Math.min(layout.units.length - 1, Math.max(0, current + delta)));
     },
-    [centeredIndex, gantt, homeIndex, layout.units.length, scale, scrollToUnit, weekStartsOn]
+    [centeredIndex, focus, gantt, homeIndex, layout.units.length, scale, scrollToUnit, weekStartsOn]
   );
 
   const goToday = useCallback(() => {
-    setFocus(new Date());
+    const now = new Date();
+    setUserFocus(now);
+    setSelectedDay(now);
+    setSelectedHour(undefined);
     if (gantt) {
       if (todayIndex >= 0) scrollToX(nowX);
       else scrollToUnit(homeIndex);
@@ -272,7 +304,7 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
       if (next === view) return;
       if (next === "calendar") {
         const instant = gantt ? instantAtOffset(boardEl?.clientWidth ? boardEl.clientWidth / 2 : 0) : null;
-        if (instant) setFocus(instant);
+        if (instant) setUserFocus(instant);
         if (scale === "hour") setScale("day");
       } else {
         anchorRef.current = { instant: focus, offset: window.innerWidth / 2 };
@@ -318,9 +350,16 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
   const createAtCenter = useCallback(
     (title: string) => {
       if (!gantt) {
-        const start = startOfUnit(focus, scale, { weekStartsOn });
-        const end = addUnits(start, scale, 1);
-        void addTask(createTask({ title, ...defaultTaskRange({ scale, start, end }) }));
+        const day = selectedDay;
+        const start =
+          selectedHour === undefined
+            ? formatLocalDate(day)
+            : formatLocalDateTime(new Date(day.getFullYear(), day.getMonth(), day.getDate(), selectedHour));
+        const end =
+          selectedHour === undefined
+            ? formatLocalDate(day)
+            : formatLocalDateTime(new Date(day.getFullYear(), day.getMonth(), day.getDate(), selectedHour + 1));
+        void saveItem(createItem({ planId: plan.id, title, start, end }));
         return;
       }
       const index = centeredIndex();
@@ -328,111 +367,156 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
       if (!unit) return;
       void addTask(createTask({ title, ...defaultTaskRange(unit) }));
     },
-    [addTask, centeredIndex, focus, gantt, homeIndex, layout.units, scale, weekStartsOn]
+    [addTask, centeredIndex, gantt, homeIndex, layout.units, plan.id, saveItem, selectedDay, selectedHour]
   );
 
+  const createWhen =
+    selectedHour === undefined
+      ? `${formatDateDisplay(selectedDay, "EEEE d MMMM")} · all day`
+      : `${formatDateDisplay(selectedDay, "EEEE d MMMM")} · ${String(selectedHour).padStart(2, "0")}:00`;
+
   const range = `${formatDateDisplay(plan.start, dateFormat)} – ${formatDateDisplay(plan.end, dateFormat)}`;
+  const viewedPeriod = gantt ? range : periodLabel(scale === "hour" ? "day" : scale, focus, weekStartsOn);
   const pastWidth = Math.min(layout.totalWidth, Math.max(0, nowX));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <SubHeader backUrl="/" title={plan.title} subtitle={range}>
-        <div className="hidden w-44 min-w-0 md:block">
-          <AddTaskItem onCreate={createAtCenter} />
+      <div className="shrink-0 border-b bg-background/80 backdrop-blur-md">
+        <div className={cn(containerClasses())}>
+          <div className="flex h-12 items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-sm" className="-ml-2 shrink-0" asChild>
+                  <Link href="/" aria-label="Back">
+                    <ArrowLeft />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Back</TooltipContent>
+            </Tooltip>
+            <h1 className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight">{plan.title}</h1>
+            {gantt && (
+              <p
+                className={cn(
+                  "hidden items-center gap-1.5 text-xs transition-colors lg:flex",
+                  panReady ? "text-foreground" : "text-muted-foreground"
+                )}
+              >
+                {panReady ? "Drag to pan" : "Hold"}
+                <Kbd
+                  aria-pressed={panReady}
+                  className={cn("transition-colors", panReady && "bg-foreground text-background")}
+                >
+                  Space
+                </Kbd>
+                {!panReady && "to pan"}
+              </p>
+            )}
+            <ViewToggle value={view} onChange={switchView} />
+            <ScaleControl
+              value={gantt || scale !== "hour" ? scale : "day"}
+              onChange={(next) => setScale(next)}
+              scales={gantt ? undefined : CALENDAR_SCALES}
+            />
+          </div>
+          <div className="flex items-center gap-2 pb-3">
+            <ButtonGroup>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    aria-label={`Previous ${scale}`}
+                    onClick={() => shiftUnit(-1)}
+                  >
+                    <ChevronLeft />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Previous {scale} <Kbd>←</Kbd>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="sm" className="px-2 sm:px-3" onClick={goToday}>
+                    <CalendarDays />
+                    <span className="hidden sm:inline">Today</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Jump to now <Kbd>T</Kbd>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    aria-label={`Next ${scale}`}
+                    onClick={() => shiftUnit(1)}
+                  >
+                    <ChevronRight />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Next {scale} <Kbd>→</Kbd>
+                </TooltipContent>
+              </Tooltip>
+            </ButtonGroup>
+            <h2 className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight sm:text-base">
+              {viewedPeriod}
+            </h2>
+            {!gantt && (
+              <Button
+                type="button"
+                variant={showCompleted ? "secondary" : "ghost"}
+                size="xs"
+                className="hidden sm:inline-flex"
+                onClick={() => setShowCompleted((current) => !current)}
+              >
+                Completed
+              </Button>
+            )}
+            {gantt ? (
+              <>
+                <div className="hidden w-44 min-w-0 md:block">
+                  <AddTaskItem onCreate={createAtCenter} />
+                </div>
+                <div className="md:hidden">
+                  <CalendarCreateButton when="Current column" onCreate={createAtCenter} />
+                </div>
+              </>
+            ) : (
+              <CalendarCreateButton when={createWhen} onCreate={createAtCenter} />
+            )}
+          </div>
         </div>
-        <p
-          className={cn(
-            "hidden items-center gap-1.5 text-xs transition-colors lg:flex",
-            !gantt && "lg:hidden",
-            panReady ? "text-foreground" : "text-muted-foreground"
-          )}
-        >
-          {panReady ? "Drag to pan" : "Hold"}
-          <Kbd
-            aria-pressed={panReady}
-            className={cn("transition-colors", panReady && "bg-foreground text-background")}
-          >
-            Space
-          </Kbd>
-          {!panReady && "to pan"}
-        </p>
-        <ViewToggle value={view} onChange={switchView} />
-        <ScaleControl
-          value={gantt || scale !== "hour" ? scale : "day"}
-          onChange={(next) => setScale(next)}
-          scales={gantt ? undefined : CALENDAR_SCALES}
-        />
-        <ButtonGroup className="hidden md:flex">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                aria-label={`Previous ${scale}`}
-                onClick={() => shiftUnit(-1)}
-              >
-                <ChevronLeft />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              Previous {scale} <Kbd>←</Kbd>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goToday}
-              >
-                <CalendarDays />
-                Today
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              Jump to now <Kbd>T</Kbd>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                aria-label={`Next ${scale}`}
-                onClick={() => shiftUnit(1)}
-              >
-                <ChevronRight />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              Next {scale} <Kbd>→</Kbd>
-            </TooltipContent>
-          </Tooltip>
-        </ButtonGroup>
-        <Button
-          variant="outline"
-          size="icon-sm"
-          aria-label="Today"
-          className="md:hidden"
-          onClick={goToday}
-        >
-          <CalendarDays />
-        </Button>
-      </SubHeader>
+      </div>
 
       <div className="relative min-h-0 flex-1">
         {!gantt ? (
           <div ref={setCalendarEl} className="flex h-full min-h-0 flex-1 flex-col">
             <CalendarBoard
-              plan={plan}
+              items={items}
+              categories={categories}
               scale={scale}
               focus={focus}
               weekStartsOn={weekStartsOn}
+              selectedDay={selectedDay}
+              selectedHour={selectedHour}
+              highlightId={focusItemId}
+              showCompleted={showCompleted}
+              onSelectDay={(day, hour) => {
+                setSelectedDay(day);
+                setSelectedHour(hour);
+              }}
               onFocusMonth={(date) => {
-                setFocus(date);
+                setUserFocus(date);
+                setSelectedDay(date);
                 setScale("month");
               }}
             />
+            {focusItem ? <FocusedItemSheet key={focusItem.id} item={focusItem} /> : null}
           </div>
         ) : (
         <div

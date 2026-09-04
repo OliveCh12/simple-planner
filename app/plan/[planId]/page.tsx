@@ -1,7 +1,8 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { ArrowLeft, Waypoints } from "lucide-react";
 import { TimelineBoard } from "@/components/timeline/TimelineBoard";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,12 @@ import {
 } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 import { usePlan } from "@/hooks/usePlan";
+import type { HydratedPlan } from "@/types";
+
+function PlanBoard({ plan }: { plan: HydratedPlan }) {
+  const searchParams = useSearchParams();
+  return <TimelineBoard plan={plan} focusItemId={searchParams.get("focus")} />;
+}
 
 export default function PlanPage() {
   const params = useParams();
@@ -51,5 +58,15 @@ export default function PlanPage() {
     );
   }
 
-  return <TimelineBoard key={plan.id} plan={plan} />;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-1 items-center justify-center">
+          <Spinner className="text-muted-foreground" />
+        </div>
+      }
+    >
+      <PlanBoard key={plan.id} plan={plan} />
+    </Suspense>
+  );
 }

@@ -1,4 +1,18 @@
-import type { Interval } from "@/lib/time/local";
+import {
+  addDays,
+  addMonths,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameDay,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  startOfYear,
+} from "date-fns";
+import { expandRecurrence } from "@/lib/time/recurrence";
+import { formatLocalDate, intervalOf, intersects, isAllDay, parseLocal, type Interval } from "@/lib/time/local";
+import type { Category, ItemKind, ItemStatus, LocalDateTime, PlanItem, TimeScale } from "@/types";
 
 export interface PackedSpan {
   id: string;
@@ -63,4 +77,148 @@ export function packInRange(
   }
 
   return { spans: clipped, laneCount: laneEnds.length };
+}
+
+export interface CalendarOccurrence {
+  id: string;
+  itemId: string;
+  title: string;
+  kind: ItemKind;
+  status: ItemStatus;
+  categoryId?: string;
+  categoryColor?: string;
+  start: LocalDateTime;
+  end?: LocalDateTime;
+  allDay: boolean;
+}
+
+export function isCalendarActive(status: ItemStatus): boolean {
+  return status !== "completed" && status !== "cancelled";
+}
+
+export function occurrenceInterval(occurrence: Pick<CalendarOccurrence, "start" | "end">): Interval {
+  return intervalOf({ start: occurrence.start, end: occurrence.end });
+}
+
+export function occurrencesInRange(
+  items: PlanItem[],
+  range: Interval,
+  categories: Category[] = []
+): CalendarOccurrence[] {
+  const colorById = new Map(categories.map((category) => [category.id, category.color]));
+  const out: CalendarOccurrence[] = [];
+
+  for (const item of items) {
+    let occurrences;
+    try {
+      occurrences = expandRecurrence(item, range);
+    } catch {
+      const interval = intervalOf(item);
+      if (!intersects(interval, range)) continue;
+      occurrences = item.end === undefined ? [{ start: item.start }] : [{ start: item.start, end: item.end }];
+    }
+
+    for (const occurrence of occurrences) {
+      const next: CalendarOccurrence = {
+        id: item.recurrence ? `${item.id}::${occurrence.start}` : item.id,
+        itemId: item.id,
+        title: item.title,
+        kind: item.kind,
+        status: item.status,
+        start: occurrence.start,
+        allDay: isAllDay(occurrence.start),
+      };
+      if (occurrence.end !== undefined) next.end = occurrence.end;
+      if (item.categoryId) {
+        next.categoryId = item.categoryId;
+        const color = colorById.get(item.categoryId);
+        if (color) next.categoryColor = color;
+      }
+      out.push(next);
+    }
+  }
+
+  out.sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
+  return out;
+}
+
+function dayInterval(day: Date): Interval {
+  const start = startOfDay(day);
+  return { start, end: addDays(start, 1) };
+}
+
+/** Whether an occurrence should be listed on this civil day in month/agenda views. */
+export function occupiesMonthDay(occurrence: CalendarOccurrence, day: Date): boolean {
+  const range = dayInterval(day);
+  const interval = occurrenceInterval(occurrence);
+  if (!intersects(interval, range)) return false;
+
+  if (occurrence.kind === "event") return true;
+
+  if (isSameDay(parseLocal(occurrence.start), day)) return true;
+
+  if (occurrence.kind === "objective" && day.getDate() === 1 && range.start >= interval.start) {
+    return true;
+  }
+
+  return false;
+}
+
+export function occurrencesOnDay(occurrences: CalendarOccurrence[], day: Date): CalendarOccurrence[] {
+  return occurrences.filter((occurrence) => occupiesMonthDay(occurrence, day));
+}
+
+export function periodLabel(scale: TimeScale, focus: Date, weekStartsOn: 0 | 1): string {
+  switch (scale) {
+    case "year":
+      return format(focus, "yyyy");
+    case "month":
+      return format(focus, "MMMM yyyy");
+    case "week": {
+      const start = startOfWeek(focus, { weekStartsOn });
+      const end = addDays(start, 6);
+      if (start.getFullYear() !== end.getFullYear()) {
+        return `${format(start, "d MMM yyyy")} – ${format(end, "d MMM yyyy")}`;
+      }
+      if (start.getMonth() !== end.getMonth()) {
+        return `${format(start, "d MMM")} – ${format(end, "d MMM yyyy")}`;
+      }
+      return `${format(start, "d")} – ${format(end, "d MMM yyyy")}`;
+    }
+    case "day":
+    case "hour":
+      return format(focus, "EEEE d MMMM yyyy");
+  }
+}
+
+export function visibleCalendarRange(scale: TimeScale, focus: Date, weekStartsOn: 0 | 1): Interval {
+  if (scale === "year") {
+    const start = startOfYear(focus);
+    return { start, end: addMonths(start, 12) };
+  }
+  if (scale === "month") {
+    const monthStart = startOfMonth(focus);
+    const start = startOfWeek(monthStart, { weekStartsOn });
+    const last = startOfDay(endOfWeek(endOfMonth(monthStart), { weekStartsOn }));
+    return { start, end: addDays(last, 1) };
+  }
+  if (scale === "week") {
+    const start = startOfWeek(focus, { weekStartsOn });
+    return { start, end: addDays(start, 7) };
+  }
+  const start = startOfDay(focus);
+  return { start, end: addDays(start, 1) };
+}
+
+export function timedLabel(occurrence: CalendarOccurrence): string | undefined {
+  if (occurrence.allDay) return undefined;
+  const start = format(parseLocal(occurrence.start), "HH:mm");
+  if (!occurrence.end) return start;
+  const end = format(parseLocal(occurrence.end), "HH:mm");
+  if (end === start) return start;
+  return `${start}–${end}`;
+}
+
+export function dayKey(date: Date): string {
+  return formatLocalDate(date);
 }
