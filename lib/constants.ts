@@ -10,10 +10,10 @@ import {
   SignalMedium,
   type LucideIcon,
 } from "lucide-react";
-import type { EnergyLevel, ObjectiveStatus } from "@/types";
+import type { EnergyLevel, TaskStatus } from "@/types";
 
 export interface StatusOption {
-  value: ObjectiveStatus;
+  value: TaskStatus;
   label: string;
   icon: LucideIcon;
   className: string;
@@ -41,7 +41,7 @@ export const ENERGY_LEVELS: EnergyOption[] = [
   { value: "critical", label: "Critical", icon: Signal, className: "text-red-500" },
 ];
 
-export function getStatusOption(status: ObjectiveStatus): StatusOption {
+export function getStatusOption(status: TaskStatus): StatusOption {
   return STATUSES.find((option) => option.value === status) ?? STATUSES[0];
 }
 

@@ -21,16 +21,16 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   clearAllData,
   downloadBackup,
-  getAllRoadmaps,
+  getAllPlans,
   getDefaultSettings,
   importData,
 } from "@/lib/db";
-import { useRoadmapStore } from "@/store/roadmapStore";
+import { usePlanStore } from "@/store/planStore";
 import { useUIStore } from "@/store/uiStore";
 
 interface StorageStats {
-  roadmaps: number;
-  objectives: number;
+  plans: number;
+  tasks: number;
 }
 
 function plural(count: number, noun: string) {
@@ -50,20 +50,12 @@ export default function DataSettingsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    getAllRoadmaps()
-      .then((roadmaps) => {
+    getAllPlans()
+      .then((plans) => {
         if (cancelled) return;
         setStats({
-          roadmaps: roadmaps.length,
-          objectives: roadmaps.reduce(
-            (sum, roadmap) =>
-              sum +
-              Object.values(roadmap.months).reduce(
-                (monthSum, month) => monthSum + month.objectives.length,
-                0
-              ),
-            0
-          ),
+          plans: plans.length,
+          tasks: plans.reduce((sum, plan) => sum + plan.tasks.length, 0),
         });
       })
       .catch((error) => console.error("Failed to read storage stats:", error));
@@ -78,7 +70,7 @@ export default function DataSettingsPage() {
       const json = await file.text();
       const importedSettings = await importData(json);
       replaceSettings(importedSettings);
-      useRoadmapStore.getState().reset();
+      usePlanStore.getState().reset();
       toast.success("Backup imported");
       router.push("/");
     } catch (error) {
@@ -97,7 +89,7 @@ export default function DataSettingsPage() {
     try {
       await clearAllData();
       replaceSettings(getDefaultSettings());
-      useRoadmapStore.getState().reset();
+      usePlanStore.getState().reset();
       setShowClearDialog(false);
       toast.success("All data cleared");
       router.push("/");
@@ -114,7 +106,7 @@ export default function DataSettingsPage() {
       title="Data"
       description={
         stats
-          ? `${plural(stats.roadmaps, "roadmap")} and ${plural(stats.objectives, "objective")} stored in this browser.`
+          ? `${plural(stats.plans, "plan")} and ${plural(stats.tasks, "task")} stored in this browser.`
           : "Everything is stored in this browser."
       }
     >
@@ -125,7 +117,7 @@ export default function DataSettingsPage() {
           </ItemMedia>
           <ItemContent>
             <ItemTitle>Export backup</ItemTitle>
-            <ItemDescription>Download every roadmap and your settings as JSON.</ItemDescription>
+            <ItemDescription>Download every plan and your settings as JSON.</ItemDescription>
           </ItemContent>
           <ItemActions>
             <Button variant="outline" size="sm" onClick={() => void downloadBackup(settings)}>
@@ -140,7 +132,7 @@ export default function DataSettingsPage() {
           </ItemMedia>
           <ItemContent>
             <ItemTitle>Import backup</ItemTitle>
-            <ItemDescription>Replaces all current roadmaps with the file contents.</ItemDescription>
+            <ItemDescription>Replaces all current plans with the file contents.</ItemDescription>
           </ItemContent>
           <ItemActions>
             <Button
@@ -171,7 +163,7 @@ export default function DataSettingsPage() {
           </ItemMedia>
           <ItemContent>
             <ItemTitle>Clear all data</ItemTitle>
-            <ItemDescription>Deletes every roadmap and resets settings.</ItemDescription>
+            <ItemDescription>Deletes every plan and resets settings.</ItemDescription>
           </ItemContent>
           <ItemActions>
             <Button variant="destructive" size="sm" onClick={() => setShowClearDialog(true)}>
@@ -184,7 +176,7 @@ export default function DataSettingsPage() {
       <ConfirmDialog
         open={showClearDialog}
         title="Clear all data"
-        description="This permanently deletes every roadmap and objective stored in this browser. Export a backup first if you need it."
+        description="This permanently deletes every plan and task stored in this browser. Export a backup first if you need it."
         confirmLabel="Clear all data"
         destructive
         loading={isClearing}

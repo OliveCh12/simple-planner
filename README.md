@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Timeline Planner
 
-## Getting Started
+A local-first, zoomable timeline to plan anything that lives in time: a year of
+personal goals, a web project, a two-week sprint, a single event day.
 
-First, run the development server:
+- **Plans** have a free start and end date.
+- **Tasks** have an absolute start and end (a date, optionally with a time), so
+  they can span months or last an hour.
+- The board is a continuous Gantt-style timeline. Zoom steps through years,
+  months, weeks, days, or hours; each task is a single bar; drag to move or
+  resize.
+
+Everything is stored in the browser (IndexedDB) and can be exported or imported
+as JSON. No account, no server.
+
+## Stack
+
+Next.js (App Router), React, TypeScript, Tailwind CSS v4, shadcn/ui, Zustand,
+Dexie, date-fns, Vitest.
+
+## Development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm build
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Data model
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See [docs/zoomable-timeline.md](docs/zoomable-timeline.md) for the design of
+the time model, the scales, and the migration from the previous month-based
+roadmaps. Backups written by older versions (`version: 1`) are still importable.

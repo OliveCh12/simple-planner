@@ -1,23 +1,36 @@
 import Dexie, { type EntityTable } from "dexie";
-import type { AppData, AppSettings, Roadmap } from "@/types";
+import type { AppData, AppSettings, Plan } from "@/types";
 import { DEFAULT_ACCENT } from "@/lib/themes";
+import { migrateRoadmapToPlan, type LegacyRoadmap } from "@/lib/migrations";
 import { parseAppData } from "@/lib/validation";
 
-export class RoadmapDB extends Dexie {
-  roadmaps!: EntityTable<Roadmap, "id">;
+/** IndexedDB database name. Kept from v1 so existing data is found and migrated. */
+export const DB_NAME = "RoadmapDB";
+
+export class PlannerDB extends Dexie {
+  plans!: EntityTable<Plan, "id">;
   appSettings!: EntityTable<AppSettings & { id: string }, "id">;
 
-  constructor() {
-    super("RoadmapDB");
+  constructor(name = DB_NAME) {
+    super(name);
 
     this.version(1).stores({
       roadmaps: "id, category, createdAt, lastAccessedAt",
       appSettings: "id",
     });
+
+    this.version(2)
+      .stores({ plans: "id, createdAt, lastAccessedAt" })
+      .upgrade(async (tx) => {
+        const roadmaps = (await tx.table("roadmaps").toArray()) as LegacyRoadmap[];
+        await tx.table("plans").bulkAdd(roadmaps.map(migrateRoadmapToPlan));
+      });
+
+    this.version(3).stores({ roadmaps: null });
   }
 }
 
-export const db = new RoadmapDB();
+export const db = new PlannerDB();
 
 export function getDefaultSettings(): AppSettings {
   return {
@@ -31,40 +44,40 @@ export function getDefaultSettings(): AppSettings {
   };
 }
 
-export async function getAllRoadmaps(): Promise<Roadmap[]> {
-  return db.roadmaps.orderBy("lastAccessedAt").reverse().toArray();
+export async function getAllPlans(): Promise<Plan[]> {
+  return db.plans.orderBy("lastAccessedAt").reverse().toArray();
 }
 
-export async function getRoadmap(id: string): Promise<Roadmap | undefined> {
-  return db.roadmaps.get(id);
+export async function getPlan(id: string): Promise<Plan | undefined> {
+  return db.plans.get(id);
 }
 
-export async function saveRoadmap(roadmap: Roadmap): Promise<string> {
-  const toSave: Roadmap = {
-    ...roadmap,
-    months: { ...roadmap.months },
+export async function savePlan(plan: Plan): Promise<string> {
+  const toSave: Plan = {
+    ...plan,
+    tasks: [...plan.tasks],
     updatedAt: new Date().toISOString(),
   };
-  await db.roadmaps.put(toSave);
+  await db.plans.put(toSave);
   return toSave.id;
 }
 
-export async function deleteRoadmap(id: string): Promise<void> {
-  await db.roadmaps.delete(id);
+export async function deletePlan(id: string): Promise<void> {
+  await db.plans.delete(id);
 }
 
-export async function touchRoadmap(id: string): Promise<void> {
-  await db.roadmaps.update(id, {
+export async function touchPlan(id: string): Promise<void> {
+  await db.plans.update(id, {
     lastAccessedAt: new Date().toISOString(),
   });
 }
 
 export async function exportData(settings: AppSettings = getDefaultSettings()): Promise<string> {
-  const roadmaps = await db.roadmaps.toArray();
+  const plans = await db.plans.toArray();
 
   const payload: AppData = {
-    version: 1,
-    roadmaps,
+    version: 2,
+    plans,
     settings,
     lastExport: new Date().toISOString(),
   };
@@ -75,9 +88,9 @@ export async function exportData(settings: AppSettings = getDefaultSettings()): 
 export async function importData(jsonString: string): Promise<AppSettings> {
   const data = parseAppData(jsonString);
 
-  await db.transaction("rw", db.roadmaps, db.appSettings, async () => {
-    await db.roadmaps.clear();
-    await db.roadmaps.bulkAdd(data.roadmaps);
+  await db.transaction("rw", db.plans, db.appSettings, async () => {
+    await db.plans.clear();
+    await db.plans.bulkAdd(data.plans);
     await db.appSettings.put({ ...data.settings, id: "default" });
   });
 
@@ -85,8 +98,8 @@ export async function importData(jsonString: string): Promise<AppSettings> {
 }
 
 export async function clearAllData(): Promise<void> {
-  await db.transaction("rw", db.roadmaps, db.appSettings, async () => {
-    await db.roadmaps.clear();
+  await db.transaction("rw", db.plans, db.appSettings, async () => {
+    await db.plans.clear();
     await db.appSettings.clear();
   });
 }

@@ -26,7 +26,7 @@ export function SettingsNav() {
       >
         <Link href="/">
           <ArrowLeft />
-          Roadmaps
+          Plans
         </Link>
       </Button>
       <nav
