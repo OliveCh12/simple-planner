@@ -1,0 +1,6 @@
+# Simple Planner
+
+Local-first timeline planner (plans, tasks, events, objectives). Persistence is IndexedDB in the browser. Agents should use the v3 JSON model.
+
+- Agent API and MCP tools: docs/agent-api.md
+- JSON Schema: schema/planner.schema.json
