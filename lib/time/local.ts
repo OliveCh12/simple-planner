@@ -1,5 +1,5 @@
 import { add, addDays, addMinutes, format, isValid, type Duration } from "date-fns";
-import type { LocalDateTime, Task, TimeScale } from "@/types";
+import type { LocalDateTime, TimeScale } from "@/types";
 
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const DATETIME_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
@@ -51,11 +51,14 @@ export function todayLocal(): string {
   return formatLocalDate(new Date());
 }
 
-/** Half-open `[start, end)` interval of a task, in local time. */
-export function intervalOf(task: Pick<Task, "start" | "end">): Interval {
-  const start = parseLocal(task.start);
-  const rawEnd = parseLocal(task.end);
-  const end = isAllDay(task.end) ? addDays(rawEnd, 1) : rawEnd;
+/** Half-open `[start, end)` interval of an item, in local time. Missing `end` is a 1-minute point. */
+export function intervalOf(item: { start: LocalDateTime; end?: LocalDateTime }): Interval {
+  const start = parseLocal(item.start);
+  if (item.end === undefined) {
+    return { start, end: addMinutes(start, 1) };
+  }
+  const rawEnd = parseLocal(item.end);
+  const end = isAllDay(item.end) ? addDays(rawEnd, 1) : rawEnd;
   return { start, end: end > start ? end : addMinutes(start, 1) };
 }
 
@@ -80,16 +83,19 @@ export function addUnits(date: Date, scale: TimeScale, amount: number): Date {
 }
 
 /** Moves a task by whole units of `scale`, keeping its duration and all-day-ness. */
-export function shiftTask<T extends Pick<Task, "start" | "end">>(
+export function shiftTask<T extends { start: LocalDateTime; end?: LocalDateTime }>(
   task: T,
   scale: TimeScale,
   delta: number
 ): T {
   if (delta === 0) return task;
   const allDay = isAllDay(task.start);
-  return {
+  const next = {
     ...task,
     start: formatLocal(addUnits(parseLocal(task.start), scale, delta), allDay),
-    end: formatLocal(addUnits(parseLocal(task.end), scale, delta), allDay),
   };
+  if (task.end !== undefined) {
+    next.end = formatLocal(addUnits(parseLocal(task.end), scale, delta), isAllDay(task.end));
+  }
+  return next;
 }

@@ -35,7 +35,7 @@ import {
 import { cn } from "@/lib/utils";
 import { usePlanStore } from "@/store/planStore";
 import { useUIStore } from "@/store/uiStore";
-import type { Plan, TimeScale } from "@/types";
+import type { HydratedPlan, TimeScale } from "@/types";
 
 const SMOOTH_SCROLL_VIEWPORTS = 4;
 
@@ -69,7 +69,7 @@ interface Anchor {
 }
 
 interface TimelineBoardProps {
-  plan: Plan;
+  plan: HydratedPlan;
 }
 
 export function TimelineBoard({ plan }: TimelineBoardProps) {

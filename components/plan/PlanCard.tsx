@@ -17,11 +17,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { formatDateDisplay } from "@/lib/date-utils";
 import { countCompleted } from "@/lib/plan";
 import { useUIStore } from "@/store/uiStore";
-import type { Plan } from "@/types";
+import type { HydratedPlan } from "@/types";
 
 interface PlanCardProps {
-  plan: Plan;
-  onDelete?: (plan: Plan) => void;
+  plan: HydratedPlan;
+  onDelete?: (plan: HydratedPlan) => void;
 }
 
 export function PlanCard({ plan, onDelete }: PlanCardProps) {

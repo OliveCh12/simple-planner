@@ -21,14 +21,14 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { deletePlan, getAllPlans } from "@/lib/db";
 import { cn, containerClasses } from "@/lib/utils";
-import type { Plan } from "@/types";
+import type { HydratedPlan } from "@/types";
 
 export default function Home() {
   const router = useRouter();
-  const [plans, setPlans] = useState<Plan[]>([]);
+  const [plans, setPlans] = useState<HydratedPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<Plan | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<HydratedPlan | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
@@ -69,7 +69,7 @@ export default function Home() {
     }
   }
 
-  function handlePlanCreated(plan: Plan) {
+  function handlePlanCreated(plan: HydratedPlan) {
     setPlans((prev) => [plan, ...prev]);
     router.push(`/plan/${plan.id}`);
   }

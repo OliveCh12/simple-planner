@@ -26,12 +26,12 @@ import { samplePlan, sampleTasks } from "@/data/sampleData";
 import { savePlan } from "@/lib/db";
 import { createPlan } from "@/lib/plan";
 import { isValidLocal, parseLocal } from "@/lib/time/local";
-import type { Plan } from "@/types";
+import type { HydratedPlan } from "@/types";
 
 interface CreatePlanDialogProps {
   open: boolean;
   onClose: () => void;
-  onCreated?: (plan: Plan) => void;
+  onCreated?: (plan: HydratedPlan) => void;
 }
 
 function currentYearRange() {

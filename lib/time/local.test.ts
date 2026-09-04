@@ -50,6 +50,12 @@ describe("intervalOf", () => {
     const { start, end } = intervalOf({ start: "2027-09-14T09:00", end: "2027-09-14T09:00" });
     expect(end > start).toBe(true);
   });
+
+  it("treats a missing end as a one-minute point", () => {
+    const { start, end } = intervalOf({ start: "2027-09-14T09:00" });
+    expect(start).toEqual(new Date(2027, 8, 14, 9, 0));
+    expect(end).toEqual(new Date(2027, 8, 14, 9, 1));
+  });
 });
 
 describe("intersects / contains", () => {

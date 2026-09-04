@@ -1,14 +1,17 @@
 import { z } from "zod";
 import { FONT_IDS } from "@/lib/fonts";
 import { ACCENT_IDS, DEFAULT_ACCENT } from "@/lib/themes";
-import { migrateAppData } from "@/lib/migrations";
+import { migrateAppData, migrateV2ToV3 } from "@/lib/migrations";
 import { isValidLocal } from "@/lib/time/local";
 import type { AppData } from "@/types";
 
 const energyLevelSchema = z.enum(["low", "medium", "high", "critical"]);
-const taskStatusSchema = z.enum(["pending", "in-progress", "completed", "cancelled", "blocked"]);
+const itemStatusSchema = z.enum(["pending", "in-progress", "completed", "cancelled", "blocked"]);
+const taskStatusSchema = itemStatusSchema;
 const prioritySchema = z.enum(["low", "medium", "high", "urgent"]);
 const timeScaleSchema = z.enum(["year", "month", "week", "day", "hour"]);
+const itemKindSchema = z.enum(["task", "event", "objective"]);
+const executorSchema = z.enum(["human", "ai"]);
 
 const localDateSchema = z
   .string()
@@ -113,7 +116,7 @@ export const taskSchema = z.object({
   updatedAt: z.string(),
 });
 
-export const planSchema = z.object({
+export const planSchemaV2 = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   description: z.string().optional(),
@@ -126,16 +129,117 @@ export const planSchema = z.object({
   lastAccessedAt: z.string(),
 });
 
+/** @deprecated Use `planSchemaV2`. v2 plan with embedded tasks. */
+export const planSchema = planSchemaV2;
+
 export const appDataSchemaV2 = z.object({
   version: z.literal(2),
-  plans: z.array(planSchema),
+  plans: z.array(planSchemaV2),
   settings: appSettingsSchema,
   activePlanId: z.string().optional(),
   lastBackup: z.string().optional(),
   lastExport: z.string().optional(),
 });
 
-export const appDataSchema = z.discriminatedUnion("version", [appDataSchemaV1, appDataSchemaV2]);
+// --- Version 3: plans + items + people + categories ---------------------------
+
+export const locationSchema = z.object({
+  name: z.string().min(1),
+  address: z.string().optional(),
+  url: z.string().optional(),
+});
+
+export const planItemSchema = z
+  .object({
+    id: z.string().min(1),
+    planId: z.string().min(1),
+    kind: itemKindSchema,
+    title: z.string(),
+    notes: z.string(),
+    parentId: z.string().min(1).optional(),
+    start: localDateTimeSchema,
+    end: localDateTimeSchema.optional(),
+    recurrence: z.string().min(1).optional(),
+    recurrenceExceptions: z.array(localDateTimeSchema).optional(),
+    status: itemStatusSchema,
+    energy: energyLevelSchema,
+    executor: executorSchema,
+    agentBrief: z.string().optional(),
+    assigneeIds: z.array(z.string()),
+    attendeeIds: z.array(z.string()),
+    categoryId: z.string().min(1).optional(),
+    location: locationSchema.optional(),
+    completedAt: z.string().optional(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  })
+  .superRefine((item, ctx) => {
+    if (item.kind === "event" && item.parentId) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["parentId"],
+        message: "Events cannot have a parent",
+      });
+    }
+    if (item.end !== undefined) {
+      const start = item.start;
+      const end = item.end;
+      const startAllDay = !start.includes("T");
+      const endAllDay = !end.includes("T");
+      if (startAllDay === endAllDay && end < start) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["end"],
+          message: "end must not be before start",
+        });
+      }
+    }
+  });
+
+export const personSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  kind: z.enum(["human", "agent"]),
+  email: z.string().optional(),
+  color: z.string().optional(),
+});
+
+export const categorySchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  color: z.string().min(1),
+  icon: z.string().optional(),
+});
+
+export const planSchemaV3 = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  description: z.string().optional(),
+  start: localDateSchema,
+  end: localDateSchema,
+  scale: timeScaleSchema.optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  lastAccessedAt: z.string(),
+});
+
+export const appDataSchemaV3 = z.object({
+  version: z.literal(3),
+  plans: z.array(planSchemaV3),
+  items: z.array(planItemSchema),
+  people: z.array(personSchema),
+  categories: z.array(categorySchema),
+  settings: appSettingsSchema,
+  activePlanId: z.string().optional(),
+  lastBackup: z.string().optional(),
+  lastExport: z.string().optional(),
+});
+
+export const appDataSchema = z.discriminatedUnion("version", [
+  appDataSchemaV1,
+  appDataSchemaV2,
+  appDataSchemaV3,
+]);
 
 export function parseAppData(jsonString: string): AppData {
   let raw: unknown;
@@ -150,5 +254,7 @@ export function parseAppData(jsonString: string): AppData {
     throw new Error("Invalid backup file: unexpected data shape");
   }
 
-  return parsed.data.version === 1 ? migrateAppData(parsed.data) : parsed.data;
+  if (parsed.data.version === 1) return migrateV2ToV3(migrateAppData(parsed.data));
+  if (parsed.data.version === 2) return migrateV2ToV3(parsed.data);
+  return parsed.data;
 }

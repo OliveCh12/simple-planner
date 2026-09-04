@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   migrateAppData,
   migrateRoadmapToPlan,
+  migrateV2ToV3,
   type LegacyObjective,
   type LegacyRoadmap,
 } from "@/lib/migrations";
@@ -172,5 +173,39 @@ describe("migrateAppData", () => {
     expect(migrated.activePlanId).toBe("roadmap-1");
     expect(migrated.lastExport).toBe(now);
     expect(migrated.settings.theme).toBe("auto");
+  });
+});
+
+describe("migrateV2ToV3", () => {
+  it("lifts embedded tasks into items with v3 defaults", () => {
+    const v2 = migrateAppData({
+      version: 1,
+      roadmaps: [
+        roadmap({
+          "2027-01": month(2027, 1, [objective("a", "2027-01-01", "2027-01-02")]),
+        }),
+      ],
+      settings: getDefaultSettings(),
+      activeRoadmapId: "roadmap-1",
+    });
+    const v3 = migrateV2ToV3(v2);
+    expect(v3.version).toBe(3);
+    expect(v3.plans[0]).not.toHaveProperty("tasks");
+    expect(v3.people).toEqual([]);
+    expect(v3.categories).toEqual([]);
+    expect(v3.activePlanId).toBe("roadmap-1");
+    expect(v3.items).toEqual([
+      expect.objectContaining({
+        id: "a",
+        planId: "roadmap-1",
+        kind: "task",
+        title: "a",
+        start: "2027-01-01",
+        end: "2027-01-02",
+        executor: "human",
+        assigneeIds: [],
+        attendeeIds: [],
+      }),
+    ]);
   });
 });

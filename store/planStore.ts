@@ -1,17 +1,17 @@
 import { create } from "zustand";
 import { savePlan } from "@/lib/db";
-import type { Plan, Task } from "@/types";
+import type { HydratedPlan, Task } from "@/types";
 
 interface PlanStore {
-  currentPlan: Plan | null;
+  currentPlan: HydratedPlan | null;
   isLoading: boolean;
   error: string | null;
 
-  setCurrentPlan: (plan: Plan | null) => void;
+  setCurrentPlan: (plan: HydratedPlan | null) => void;
   setIsLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 
-  updatePlan: (updates: Partial<Omit<Plan, "id" | "tasks">>) => Promise<void>;
+  updatePlan: (updates: Partial<Omit<HydratedPlan, "id" | "tasks">>) => Promise<void>;
   addTask: (task: Task) => Promise<void>;
   updateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;

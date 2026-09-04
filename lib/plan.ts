@@ -1,11 +1,11 @@
 import { subDays } from "date-fns";
-import type { EnergyLevel, Plan, Task, TaskStatus } from "@/types";
+import type { EnergyLevel, HydratedPlan, Task, TaskStatus } from "@/types";
+import { createPlanRecord } from "@/lib/domain/plans";
 import { formatLocalDate, formatLocalDateTime } from "@/lib/time/local";
 import type { TimeColumn } from "@/lib/time/scale";
 
-export function createId(): string {
-  return crypto.randomUUID();
-}
+export { createId } from "@/lib/id";
+import { createId } from "@/lib/id";
 
 export function createPlan(input: {
   title: string;
@@ -13,19 +13,9 @@ export function createPlan(input: {
   end: string;
   description?: string;
   tasks?: Task[];
-}): Plan {
-  const now = new Date().toISOString();
-  return {
-    id: createId(),
-    title: input.title.trim(),
-    description: input.description?.trim() || undefined,
-    start: input.start,
-    end: input.end,
-    tasks: input.tasks ?? [],
-    createdAt: now,
-    updatedAt: now,
-    lastAccessedAt: now,
-  };
+}): HydratedPlan {
+  const record = createPlanRecord(input);
+  return { ...record, tasks: input.tasks ?? [] };
 }
 
 export function createTask(input: {
@@ -63,5 +53,3 @@ export function defaultTaskRange(
   }
   return { start: formatLocalDate(column.start), end: formatLocalDate(subDays(column.end, 1)) };
 }
-
-
