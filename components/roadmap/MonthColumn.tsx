@@ -3,7 +3,11 @@
 import { useDroppable } from "@dnd-kit/react";
 import { ObjectiveItem } from "@/components/objective/ObjectiveItem";
 import { AddObjectiveItem } from "@/components/objective/AddObjectiveItem";
-import { formatMonthName, isMonthPast, getCurrentMonthKey } from "@/lib/date-utils";
+import {
+  formatMonthName,
+  isMonthPast,
+  getCurrentMonthKey,
+} from "@/lib/date-utils";
 import { createObjective } from "@/lib/objective";
 import { useRoadmapStore } from "@/store/roadmapStore";
 import type { Roadmap } from "@/types";
@@ -15,7 +19,12 @@ interface MonthColumnProps {
   onSelect: () => void;
 }
 
-export function MonthColumn({ monthKey, roadmap, selected, onSelect }: MonthColumnProps) {
+export function MonthColumn({
+  monthKey,
+  roadmap,
+  selected,
+  onSelect,
+}: MonthColumnProps) {
   const addObjective = useRoadmapStore((s) => s.addObjective);
   const [year, month] = monthKey.split("-").map(Number);
   const monthData = roadmap.months[monthKey];
@@ -27,15 +36,14 @@ export function MonthColumn({ monthKey, roadmap, selected, onSelect }: MonthColu
     <section
       ref={ref}
       data-month-key={monthKey}
-      className={`flex w-[272px] shrink-0 flex-col self-stretch rounded-2xl border bg-card/90 backdrop-blur-sm transition-colors ${
+      className={`flex shrink-0 flex-col self-stretch rounded-2xl border bg-card/90 backdrop-blur-sm transition-colors ${
         current ? "border-primary/50" : "border-border/70"
-      } ${selected ? "ring-2 ring-primary/25" : ""} ${
+      } ${selected ? "border-secondary" : "border-secondary"} ${
         isDropTarget ? "border-primary bg-primary/5" : ""
       } ${past && !selected ? "opacity-70 hover:opacity-100" : ""}`}
     >
       <header
-        data-timeline-pan
-        className="flex cursor-grab items-start justify-between gap-2 px-4 pb-3 pt-4 active:cursor-grabbing"
+        className="flex cursor-pointer items-start justify-between gap-2 px-4 pb-3 pt-4"
         onClick={onSelect}
       >
         <div>

@@ -1,6 +1,4 @@
-import { useEffect, useState, type RefObject } from "react";
-
-const NO_PAN = 'input, textarea, select, button, a, [data-slot="input-group"], [data-no-pan]';
+import { useEffect, useState } from "react";
 
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
@@ -8,82 +6,67 @@ function isTypingTarget(target: EventTarget | null) {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
 }
 
-function canStartPan(event: PointerEvent, spaceHeld: boolean) {
-  const target = event.target;
-  if (!(target instanceof Element)) return false;
-  if (target.closest(NO_PAN)) return false;
-
-  const onItem = Boolean(target.closest("[data-objective]"));
-  const modifierPan = event.button === 1 || event.altKey || spaceHeld;
-
-  if (onItem) return modifierPan;
-  if (modifierPan) return true;
-  return event.button === 0;
-}
-
-export function useTimelinePan(
-  scrollRef: RefObject<HTMLDivElement | null>,
-  enabled: boolean
-) {
+export function useTimelinePan(el: HTMLDivElement | null, enabled: boolean) {
   const [panning, setPanning] = useState(false);
   const [panReady, setPanReady] = useState(false);
 
   useEffect(() => {
-    const el = scrollRef.current;
     if (!el || !enabled) return;
 
     let pointerId: number | null = null;
     let startX = 0;
-    let startScroll = 0;
     let lastX = 0;
     let lastTime = 0;
     let velocity = 0;
     let moved = false;
-    let frame = 0;
+    let inertiaFrame = 0;
     let spaceHeld = false;
+    let lockedScroll = 0;
 
     const stopInertia = () => {
-      cancelAnimationFrame(frame);
-      frame = 0;
+      cancelAnimationFrame(inertiaFrame);
+      inertiaFrame = 0;
+    };
+
+    const setSpace = (held: boolean) => {
+      if (spaceHeld === held) return;
+      spaceHeld = held;
+      if (held) lockedScroll = el.scrollLeft;
+      setPanReady(held);
+      stopInertia();
+      if (!held && pointerId !== null && !moved) pointerId = null;
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.repeat || isTypingTarget(event.target)) return;
-      if (event.code === "Space") {
-        event.preventDefault();
-        spaceHeld = true;
-        setPanReady(true);
-      }
-      if (event.key === "Alt") setPanReady(true);
+      if (event.code !== "Space" || isTypingTarget(event.target)) return;
+      event.preventDefault();
+      if (event.repeat) return;
+      setSpace(true);
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
-      if (event.code === "Space") spaceHeld = false;
-      if (event.code === "Space" || event.key === "Alt") setPanReady(false);
-    };
-
-    const clearModifiers = () => {
-      spaceHeld = false;
-      setPanReady(false);
+      if (event.code !== "Space" || isTypingTarget(event.target)) return;
+      event.preventDefault();
+      setSpace(false);
     };
 
     const onPointerDown = (event: PointerEvent) => {
-      if (!canStartPan(event, spaceHeld)) return;
+      if (!spaceHeld || event.button !== 0) return;
+      if (isTypingTarget(event.target)) return;
       stopInertia();
       pointerId = event.pointerId;
       startX = event.clientX;
       lastX = event.clientX;
       lastTime = performance.now();
-      startScroll = el.scrollLeft;
       moved = false;
       velocity = 0;
     };
 
     const onPointerMove = (event: PointerEvent) => {
-      if (pointerId !== event.pointerId) return;
-      const dx = event.clientX - startX;
+      if (pointerId !== event.pointerId || !spaceHeld) return;
+      const dx = event.clientX - lastX;
       if (!moved) {
-        if (Math.abs(dx) < 6) return;
+        if (Math.abs(event.clientX - startX) < 4) return;
         moved = true;
         setPanning(true);
         try {
@@ -92,10 +75,10 @@ export function useTimelinePan(
           /* ignore */
         }
       }
-      el.scrollLeft = startScroll - dx;
+      el.scrollLeft -= dx;
       const now = performance.now();
       const dt = now - lastTime;
-      if (dt > 0) velocity = (event.clientX - lastX) / dt;
+      if (dt > 0) velocity = dx / dt;
       lastX = event.clientX;
       lastTime = now;
       event.preventDefault();
@@ -105,6 +88,7 @@ export function useTimelinePan(
       if (pointerId !== event.pointerId) return;
       pointerId = null;
       setPanning(false);
+      lockedScroll = el.scrollLeft;
       if (!moved) return;
 
       let remaining = -velocity * 14;
@@ -112,9 +96,10 @@ export function useTimelinePan(
         remaining *= 0.92;
         if (Math.abs(remaining) < 0.35) return;
         el.scrollLeft += remaining;
-        frame = requestAnimationFrame(tick);
+        lockedScroll = el.scrollLeft;
+        inertiaFrame = requestAnimationFrame(tick);
       };
-      frame = requestAnimationFrame(tick);
+      inertiaFrame = requestAnimationFrame(tick);
     };
 
     const onClickCapture = (event: MouseEvent) => {
@@ -138,31 +123,55 @@ export function useTimelinePan(
 
       event.preventDefault();
       el.scrollLeft += event.deltaY;
+      lockedScroll = el.scrollLeft;
     };
 
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    window.addEventListener("blur", clearModifiers);
+    const onSelectStart = (event: Event) => {
+      if (isTypingTarget(event.target)) return;
+      event.preventDefault();
+    };
+
+    const onScroll = () => {
+      if (!spaceHeld || pointerId !== null || inertiaFrame !== 0) return;
+      el.scrollLeft = lockedScroll;
+    };
+
+    const clearSpace = () => setSpace(false);
+    const onVisibility = () => {
+      if (document.hidden) setSpace(false);
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("keyup", onKeyUp, true);
+    window.addEventListener("blur", clearSpace);
+    document.addEventListener("visibilitychange", onVisibility);
     el.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", finish);
     window.addEventListener("pointercancel", finish);
     el.addEventListener("click", onClickCapture, true);
     el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("selectstart", onSelectStart);
+    el.addEventListener("scroll", onScroll);
 
     return () => {
       stopInertia();
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-      window.removeEventListener("blur", clearModifiers);
+      setPanReady(false);
+      setPanning(false);
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("keyup", onKeyUp, true);
+      window.removeEventListener("blur", clearSpace);
+      document.removeEventListener("visibilitychange", onVisibility);
       el.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", finish);
       window.removeEventListener("pointercancel", finish);
       el.removeEventListener("click", onClickCapture, true);
       el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("selectstart", onSelectStart);
+      el.removeEventListener("scroll", onScroll);
     };
-  }, [enabled, scrollRef]);
+  }, [el, enabled]);
 
   return { panning, panReady };
 }

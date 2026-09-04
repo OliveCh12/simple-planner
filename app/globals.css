@@ -137,21 +137,24 @@
 }
 
 .timeline-board {
-  cursor: grab;
+  --month-col-w: 300px;
+  --month-gap: 0.75rem;
+  user-select: none;
+  -webkit-user-select: none;
+  gap: var(--month-gap);
+  padding-inline: max(1.25rem, calc(50vw - var(--month-col-w) / 2));
+  padding-block: 1rem;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in oklab, var(--foreground) 18%, transparent) transparent;
 }
 
 .timeline-board [data-month-key] {
-  cursor: grab;
+  width: var(--month-col-w);
 }
 
-.timeline-board [data-objective] {
-  cursor: default;
-}
-
-.timeline-board [data-no-pan] {
-  cursor: grab;
+.timeline-board.is-pan-ready,
+.timeline-board.is-pan-ready *:not(input):not(textarea) {
+  cursor: grab !important;
 }
 
 .timeline-board.is-panning,
@@ -159,12 +162,9 @@
   cursor: grabbing !important;
 }
 
-.timeline-board.is-pan-ready,
-.timeline-board.is-pan-ready * {
-  cursor: grab !important;
-}
-
 .timeline-board input,
 .timeline-board textarea {
   cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
 }

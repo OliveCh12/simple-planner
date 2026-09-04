@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { DragDropProvider, type DragEndEvent } from "@dnd-kit/react";
@@ -29,10 +29,10 @@ export default function RoadmapPage() {
   const deleteObjective = useRoadmapStore((s) => s.deleteObjective);
   const moveObjective = useRoadmapStore((s) => s.moveObjective);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [boardEl, setBoardEl] = useState<HTMLDivElement | null>(null);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const { panning, panReady } = useTimelinePan(scrollRef, !isDragging);
+  const { panning, panReady } = useTimelinePan(boardEl, !isDragging);
 
   const startYear = roadmap?.startYear;
   const endYear = roadmap?.endYear;
@@ -45,9 +45,9 @@ export default function RoadmapPage() {
     (roadmap ? defaultMonthKey(roadmap.startYear, roadmap.endYear) : null);
 
   const scrollToMonth = useCallback((monthKey: string, behavior: ScrollBehavior = "smooth") => {
-    const column = scrollRef.current?.querySelector(`[data-month-key="${monthKey}"]`);
+    const column = boardEl?.querySelector(`[data-month-key="${monthKey}"]`);
     column?.scrollIntoView({ inline: "center", block: "nearest", behavior });
-  }, []);
+  }, [boardEl]);
 
   useEffect(() => {
     if (!roadmap) return;
@@ -66,8 +66,7 @@ export default function RoadmapPage() {
   const shiftMonth = useCallback(
     (delta: number) => {
       if (monthKeys.length === 0) return;
-      const board = scrollRef.current;
-      const centered = board ? getCenteredMonthKey(board) : null;
+      const centered = boardEl ? getCenteredMonthKey(boardEl) : null;
       const current = centered ?? effectiveMonthKey ?? monthKeys[0];
       const index = monthKeys.indexOf(current);
       const next = monthKeys[Math.min(monthKeys.length - 1, Math.max(0, index + delta))];
@@ -75,7 +74,7 @@ export default function RoadmapPage() {
       setSelectedMonthKey(next);
       scrollToMonth(next);
     },
-    [effectiveMonthKey, monthKeys, scrollToMonth]
+    [boardEl, effectiveMonthKey, monthKeys, scrollToMonth]
   );
 
   useEffect(() => {
@@ -150,7 +149,25 @@ export default function RoadmapPage() {
           roadmap.endYear !== roadmap.startYear ? ` – ${roadmap.endYear}` : ""
         }`}
         trailing={
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
+            <p
+              className={`hidden items-center gap-1.5 text-xs sm:flex ${
+                panReady ? "text-foreground" : "text-muted-foreground"
+              }`}
+            >
+              {panReady ? "Drag to pan" : "Hold"}
+              <kbd
+                aria-pressed={panReady}
+                className={`inline-flex h-5 min-w-[2.75rem] items-center justify-center rounded-md border px-1.5 font-mono text-[10px] font-semibold leading-none transition-[transform,box-shadow,background-color,color,border-color] duration-100 ${
+                  panReady
+                    ? "translate-y-[2px] border-foreground/30 bg-foreground text-background shadow-none"
+                    : "border-border bg-muted text-foreground shadow-[0_2px_0_0_var(--border)]"
+                }`}
+              >
+                Space
+              </kbd>
+              {panReady ? "" : "to pan"}
+            </p>
             <Button
               variant="ghost"
               size="icon"
@@ -190,8 +207,8 @@ export default function RoadmapPage() {
           onDragEnd={handleDragEnd}
         >
           <div
-            ref={scrollRef}
-            className={`timeline-board flex h-full min-h-[24rem] items-stretch gap-3 overflow-x-auto overflow-y-hidden px-[max(1.25rem,calc(50vw-8.5rem))] py-4 ${
+            ref={setBoardEl}
+            className={`timeline-board flex h-full min-h-[24rem] items-stretch overflow-x-auto overflow-y-hidden ${
               panning ? "is-panning" : ""
             } ${panReady ? "is-pan-ready" : ""}`}
           >
