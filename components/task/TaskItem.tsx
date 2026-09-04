@@ -15,12 +15,14 @@ import { intervalOf } from "@/lib/time/local";
 import type { TimeColumn } from "@/lib/time/scale";
 import { cn } from "@/lib/utils";
 import { usePlanStore } from "@/store/planStore";
-import type { Task, TaskStatus } from "@/types";
+import type { Task, TaskStatus, TimeScale } from "@/types";
 
 export interface TaskDragData {
   taskId: string;
   planId: string;
-  columnIndex: number;
+  /** Scale and index of the column the drag started from. */
+  scale: TimeScale;
+  index: number;
 }
 
 interface TaskItemProps {
@@ -43,7 +45,7 @@ export function TaskItem({ task, column, planId, contained }: TaskItemProps) {
   const instanceId = `${column.key}/${task.id}`;
   const { ref, handleRef, isDragging } = useDraggable({
     id: instanceId,
-    data: { taskId: task.id, planId, columnIndex: column.index } satisfies TaskDragData,
+    data: { taskId: task.id, planId, scale: column.scale, index: column.index } satisfies TaskDragData,
   });
 
   useEffect(() => {

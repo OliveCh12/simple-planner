@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarRange } from "lucide-react";
+import { CalendarRange, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import {
@@ -179,15 +179,34 @@ export function DateRangeChip({ start, end, column, onChange }: DateRangeChipPro
             />
           </InputGroup>
         </ButtonGroup>
-        <Button
-          variant="ghost"
-          size="xs"
-          className="mt-2 w-full"
-          disabled={fillsColumn}
-          onClick={() => onChange(wholeColumn.start, wholeColumn.end)}
-        >
-          Whole {column.scale}
-        </Button>
+        <ButtonGroup className="mt-2 w-full [&>*]:flex-1">
+          <Button
+            variant="ghost"
+            size="xs"
+            disabled={fillsColumn}
+            onClick={() => onChange(wholeColumn.start, wholeColumn.end)}
+          >
+            Whole {column.scale}
+          </Button>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() =>
+              allDay
+                ? onChange(`${start}T09:00`, `${end}T${start === end ? "10:00" : "18:00"}`)
+                : onChange(start.slice(0, 10), end.slice(0, 10))
+            }
+          >
+            {allDay ? (
+              <>
+                <Clock />
+                Add time
+              </>
+            ) : (
+              "Remove time"
+            )}
+          </Button>
+        </ButtonGroup>
       </PopoverContent>
     </Popover>
   );

@@ -142,7 +142,6 @@
   --column-gap: 12px;
   user-select: none;
   -webkit-user-select: none;
-  gap: var(--column-gap);
   padding-inline: max(1.25rem, calc(50vw - var(--column-w) / 2));
   padding-block: 1rem;
   scrollbar-width: thin;

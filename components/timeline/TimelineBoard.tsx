@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { differenceInCalendarDays } from "date-fns";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { DragDropProvider, type DragEndEvent } from "@dnd-kit/react";
 import { SubHeader } from "@/components/layout/SubHeader";
 import type { TaskDragData } from "@/components/task/TaskItem";
+import { ALL_DAY_PREFIX, AllDayBand } from "@/components/timeline/AllDayBand";
 import { RemoveDropZone } from "@/components/timeline/RemoveDropZone";
 import { ScaleControl } from "@/components/timeline/ScaleControl";
 import { TimeColumn } from "@/components/timeline/TimeColumn";
@@ -15,8 +17,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useDeleteTask } from "@/hooks/useTaskActions";
 import { useTimelinePan } from "@/hooks/useTimelinePan";
 import { useTimelineZoom } from "@/hooks/useTimelineZoom";
+import { useVirtualColumns } from "@/hooks/useVirtualColumns";
 import { formatDateDisplay } from "@/lib/date-utils";
-import { shiftTask } from "@/lib/time/local";
+import { isAllDay, parseLocal, shiftTask } from "@/lib/time/local";
 import {
   COLUMN_GAP,
   COLUMN_WIDTH,
@@ -50,6 +53,11 @@ interface Anchor {
   offset: number;
 }
 
+interface DropSlot {
+  scale: TimeScale;
+  index: number;
+}
+
 interface TimelineBoardProps {
   plan: Plan;
 }
@@ -70,16 +78,35 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
     () => columnsFor(scale, plan.start, plan.end, { weekStartsOn }),
     [scale, plan.start, plan.end, weekStartsOn]
   );
+  const hourly = scale === "hour";
+  const days = useMemo(
+    () => (hourly ? columnsFor("day", plan.start, plan.end, { weekStartsOn }) : []),
+    [hourly, plan.start, plan.end, weekStartsOn]
+  );
+  const columnTasks = useMemo(
+    () => (hourly ? plan.tasks.filter((task) => !isAllDay(task.start)) : plan.tasks),
+    [hourly, plan.tasks]
+  );
+  const allDayTasks = useMemo(
+    () => (hourly ? plan.tasks.filter((task) => isAllDay(task.start)) : []),
+    [hourly, plan.tasks]
+  );
 
   const [boardEl, setBoardEl] = useState<HTMLDivElement | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const { panning, panReady } = useTimelinePan(boardEl, !isDragging);
+  const { from, to } = useVirtualColumns(boardEl, columns.length, pitch);
 
   const now = new Date();
   const todayIndex = columnIndexContaining(columns, now);
   const homeIndex = todayIndex >= 0 ? todayIndex : 0;
   const effectiveKey = selectedKey ?? columns[homeIndex]?.key ?? null;
+  const planStart = parseLocal(plan.start);
+  const dayIndexOf = useCallback(
+    (date: Date) => differenceInCalendarDays(date, planStart),
+    [planStart]
+  );
 
   const scrollToColumn = useCallback(
     (index: number, behavior: ScrollBehavior = "smooth") => {
@@ -198,6 +225,18 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [homeIndex, scale, selectColumn, setScale, shiftColumn]);
 
+  const resolveDrop = (targetId: string): DropSlot | null => {
+    if (targetId.startsWith(ALL_DAY_PREFIX)) {
+      const index = Number(targetId.slice(ALL_DAY_PREFIX.length));
+      return Number.isInteger(index) ? { scale: "day", index } : null;
+    }
+    const column = columns.find((item) => item.key === targetId);
+    return column ? { scale: column.scale, index: column.index } : null;
+  };
+
+  const dayOf = (slot: DropSlot): number =>
+    slot.scale === "day" && hourly ? slot.index : dayIndexOf(columns[slot.index].start);
+
   const handleDragEnd = (event: DragEndEvent) => {
     setIsDragging(false);
     if (event.canceled) return;
@@ -207,6 +246,7 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
 
     const data = source.data as Partial<TaskDragData> | undefined;
     if (!data || data.planId !== plan.id || typeof data.taskId !== "string") return;
+    if (data.scale === undefined || data.index === undefined) return;
     const task = plan.tasks.find((item) => item.id === data.taskId);
     if (!task) return;
 
@@ -216,15 +256,23 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
       return;
     }
 
-    const targetColumn = columns.find((column) => column.key === targetId);
-    if (!targetColumn || data.columnIndex === undefined) return;
-    const delta = targetColumn.index - data.columnIndex;
-    if (delta === 0) return;
-    const moved = shiftTask(task, scale, delta);
+    const dropped = resolveDrop(targetId);
+    if (!dropped) return;
+    const origin: DropSlot = { scale: data.scale, index: data.index };
+    const moved =
+      dropped.scale === origin.scale
+        ? shiftTask(task, dropped.scale, dropped.index - origin.index)
+        : shiftTask(task, "day", dayOf(dropped) - dayOf(origin));
+    if (moved === task) return;
     void updateTask(task.id, { start: moved.start, end: moved.end });
   };
 
   const range = `${formatDateDisplay(plan.start, dateFormat)} – ${formatDateDisplay(plan.end, dateFormat)}`;
+  const leading = from > 0 ? from * pitch - COLUMN_GAP : 0;
+  const trailing = to < columns.length - 1 ? (columns.length - 1 - to) * pitch - COLUMN_GAP : 0;
+  const dayFrom = hourly && columns[from] ? dayIndexOf(columns[from].start) : 0;
+  const dayTo = hourly && columns[to] ? dayIndexOf(columns[to].start) : -1;
+  const todayDayIndex = todayIndex >= 0 ? dayIndexOf(columns[todayIndex].start) : -1;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -305,23 +353,41 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
             ref={setBoardEl}
             style={{ "--column-w": `${width}px`, "--column-gap": `${COLUMN_GAP}px` } as React.CSSProperties}
             className={cn(
-              "timeline-board flex h-full min-h-[24rem] items-stretch overflow-x-auto overflow-y-hidden",
+              "timeline-board flex h-full min-h-[24rem] overflow-x-auto overflow-y-hidden",
               panning && "is-panning",
               panReady && "is-pan-ready"
             )}
           >
-            {columns.map((column) => (
-              <TimeColumn
-                key={column.key}
-                column={column}
-                tasks={plan.tasks}
-                planId={plan.id}
-                selected={column.key === effectiveKey}
-                current={column.index === todayIndex}
-                past={column.end <= now}
-                onSelect={() => selectColumn(column.index)}
-              />
-            ))}
+            <div className="flex h-full min-w-max flex-col gap-3">
+              {hourly && (
+                <AllDayBand
+                  days={days}
+                  from={dayFrom}
+                  to={dayTo}
+                  pitch={pitch}
+                  gap={COLUMN_GAP}
+                  tasks={allDayTasks}
+                  planId={plan.id}
+                  todayIndex={todayDayIndex}
+                />
+              )}
+              <div className="flex min-h-0 flex-1 items-stretch" style={{ gap: COLUMN_GAP }}>
+                {leading > 0 && <div aria-hidden className="shrink-0" style={{ width: leading }} />}
+                {columns.slice(from, to + 1).map((column) => (
+                  <TimeColumn
+                    key={column.key}
+                    column={column}
+                    tasks={columnTasks}
+                    planId={plan.id}
+                    selected={column.key === effectiveKey}
+                    current={column.index === todayIndex}
+                    past={column.end <= now}
+                    onSelect={() => selectColumn(column.index)}
+                  />
+                ))}
+                {trailing > 0 && <div aria-hidden className="shrink-0" style={{ width: trailing }} />}
+              </div>
+            </div>
           </div>
           <RemoveDropZone isDragging={isDragging} />
         </DragDropProvider>
