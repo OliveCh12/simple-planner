@@ -1,9 +1,10 @@
 import { addMonths, getDaysInMonth, setDate, startOfMonth } from "date-fns";
 import { createCategory } from "@/lib/domain/categories";
+import { createItem, type CreateItemInput } from "@/lib/domain/items";
 import { createPerson } from "@/lib/domain/people";
 import { createTask } from "@/lib/plan";
 import { formatLocalDate, parseLocal } from "@/lib/time/local";
-import type { EnergyLevel, Task, TaskStatus } from "@/types";
+import type { EnergyLevel, PlanItem, Task, TaskStatus } from "@/types";
 
 /** `[monthOffset, dayOfMonth]` relative to the first month of the plan. */
 type Offset = [month: number, day: number];
@@ -197,6 +198,9 @@ function offsetDate(base: Date, [month, day]: Offset): string {
 
 export const DEFAULT_USER_ID = "person-olivier";
 
+export const AGENT_ID = "person-agent";
+export const GUEST_ID = "person-maya";
+
 export const samplePeople = [
   createPerson({
     id: DEFAULT_USER_ID,
@@ -206,10 +210,17 @@ export const samplePeople = [
     color: "#2563eb",
   }),
   createPerson({
-    id: "person-agent",
+    id: AGENT_ID,
     name: "Planner agent",
     kind: "agent",
     color: "#7c3aed",
+  }),
+  createPerson({
+    id: GUEST_ID,
+    name: "Maya Chen",
+    kind: "human",
+    email: "maya@example.com",
+    color: "#e11d48",
   }),
 ];
 
@@ -218,6 +229,166 @@ export const sampleCategories = [
   createCategory({ id: "cat-career", name: "Career", color: "#2563eb" }),
   createCategory({ id: "cat-home", name: "Home", color: "#ea580c" }),
 ];
+
+function pad(value: number): string {
+  return value < 10 ? `0${value}` : String(value);
+}
+
+function local(year: number, month: number, day: number, time?: string): string {
+  const date = `${year}-${pad(month)}-${pad(day)}`;
+  return time ? `${date}T${time}` : date;
+}
+
+/** Full demo items for Olivier's plan: objectives, recurrences, an event, an AI task. */
+export function olivierPlanItems(planId: string, year: number): PlanItem[] {
+  const olivier = [DEFAULT_USER_ID];
+  const item = (id: string, input: Omit<CreateItemInput, "id" | "planId">) =>
+    createItem({ id, planId, ...input });
+
+  return [
+    item("obj-product", {
+      kind: "objective",
+      title: "Ship a product people love",
+      notes: "The planner, in public, by year end.",
+      start: local(year, 1, 1),
+      end: local(year, 12, 31),
+      status: "in-progress",
+      energy: "high",
+      categoryId: "cat-career",
+      assigneeIds: olivier,
+    }),
+    item("task-planner-v3", {
+      parentId: "obj-product",
+      title: "Ship planner v3",
+      notes: "Model, item page, then the lane timeline.",
+      start: local(year, 9, 1),
+      end: local(year, 9, 30),
+      status: "in-progress",
+      energy: "high",
+      categoryId: "cat-career",
+      assigneeIds: olivier,
+    }),
+    item("task-item-page", {
+      parentId: "task-planner-v3",
+      title: "Item page",
+      notes: "Dedicated editor, tree, properties.",
+      start: local(year, 9, 1),
+      end: local(year, 9, 12),
+      status: "completed",
+      energy: "medium",
+      categoryId: "cat-career",
+      assigneeIds: olivier,
+    }),
+    item("task-lane", {
+      parentId: "task-planner-v3",
+      title: "Lane timeline",
+      notes: "One bar per item, no repeats.",
+      start: local(year, 9, 15),
+      end: local(year, 9, 30),
+      energy: "high",
+      categoryId: "cat-career",
+      assigneeIds: olivier,
+    }),
+    item("task-ai-launch", {
+      parentId: "obj-product",
+      title: "Draft the launch note",
+      notes: "Short post: what changed and why it is free.",
+      start: local(year, 9, 18),
+      end: local(year, 9, 22),
+      executor: "ai",
+      energy: "low",
+      categoryId: "cat-career",
+      assigneeIds: [AGENT_ID],
+      agentBrief:
+        "Write a 200-word launch note in English. Audience: indie hackers. Mention local-first, no account, AI-readable JSON. Do not oversell.",
+    }),
+    item("obj-summer", {
+      kind: "objective",
+      title: "Summer body",
+      notes: "Train through August, then keep the habit.",
+      start: local(year, 5, 1),
+      end: local(year, 8, 31),
+      status: "in-progress",
+      energy: "high",
+      categoryId: "cat-health",
+      assigneeIds: olivier,
+    }),
+    item("task-gym", {
+      parentId: "obj-summer",
+      title: "Gym",
+      notes: "Strength, 60 minutes.",
+      start: local(year, 5, 4, "07:00"),
+      end: local(year, 5, 4, "08:00"),
+      recurrence: `FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;UNTIL=${year}0831`,
+      energy: "high",
+      categoryId: "cat-health",
+      assigneeIds: olivier,
+    }),
+    item("task-shoes", {
+      parentId: "task-gym",
+      title: "Buy lifting shoes",
+      notes: "Flat sole.",
+      start: local(year, 5, 2),
+      end: local(year, 5, 6),
+      status: "completed",
+      energy: "low",
+      categoryId: "cat-health",
+      assigneeIds: olivier,
+    }),
+    item("task-coach", {
+      parentId: "task-gym",
+      title: "Book a form check",
+      start: local(year, 5, 10),
+      end: local(year, 5, 20),
+      energy: "medium",
+      categoryId: "cat-health",
+      assigneeIds: olivier,
+    }),
+    item("task-meals", {
+      parentId: "obj-summer",
+      title: "Meal prep",
+      notes: "Cook on Sunday night.",
+      start: local(year, 5, 3, "18:00"),
+      end: local(year, 5, 3, "20:00"),
+      recurrence: `FREQ=WEEKLY;BYDAY=SU;UNTIL=${year}0831`,
+      energy: "medium",
+      categoryId: "cat-health",
+      assigneeIds: olivier,
+    }),
+    item("event-jazz", {
+      kind: "event",
+      title: "Jazz night",
+      notes: "Duo piano / double bass.",
+      start: local(year, 9, 20, "20:00"),
+      end: local(year, 9, 20, "23:00"),
+      energy: "low",
+      categoryId: "cat-home",
+      assigneeIds: olivier,
+      attendeeIds: [DEFAULT_USER_ID, GUEST_ID],
+      location: {
+        name: "Duc des Lombards",
+        address: "42 rue des Lombards, 75001 Paris",
+        url: "https://ducdeslombards.com",
+      },
+    }),
+    item("task-visa", {
+      title: "Visa appointment",
+      notes: "Bring the folder. Milestone.",
+      start: local(year, 10, 3, "09:30"),
+      energy: "medium",
+      categoryId: "cat-career",
+      assigneeIds: olivier,
+    }),
+    item("task-clean", {
+      title: "Deep-clean the apartment",
+      start: local(year, 9, 6),
+      end: local(year, 9, 7),
+      energy: "medium",
+      categoryId: "cat-home",
+      assigneeIds: olivier,
+    }),
+  ];
+}
 
 /** Materialises the sample tasks relative to `planStart`. */
 export function sampleTasks(planStart: string): Task[] {

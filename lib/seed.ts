@@ -1,14 +1,18 @@
-import { sampleCategories, samplePeople, samplePlan, sampleTasks } from "@/data/sampleData";
-import { createItem } from "@/lib/domain/items";
+import {
+  olivierPlanItems,
+  sampleCategories,
+  samplePeople,
+} from "@/data/sampleData";
 import { createPlanRecord } from "@/lib/domain/plans";
 import { getRepository } from "@/lib/repository/create";
 import type { PlannerRepository } from "@/lib/repository/types";
 
 export const DEMO_PLAN_ID = "plan-demo-career";
+export const DEMO_EVENT_ID = "event-jazz";
 
 function currentYearRange() {
   const year = new Date().getFullYear();
-  return { start: `${year}-01-01`, end: `${year}-12-31` };
+  return { year, start: `${year}-01-01`, end: `${year}-12-31` };
 }
 
 export async function seedDirectory(repository: PlannerRepository): Promise<void> {
@@ -16,56 +20,44 @@ export async function seedDirectory(repository: PlannerRepository): Promise<void
   await Promise.all(samplePeople.map((person) => repository.people.put(person)));
   await Promise.all(sampleCategories.map((category) => repository.categories.put(category)));
   const ownerId = samplePeople[0]?.id;
+  const keep = new Set(samplePeople.map((person) => person.id));
   const stale = existing.filter(
     (person) =>
-      person.id === "person-you" || (person.email === "olivierchemla@gmail.com" && person.id !== ownerId)
+      !keep.has(person.id) &&
+      (person.id === "person-you" || person.email === "olivierchemla@gmail.com" || person.id === ownerId)
   );
   await Promise.all(stale.map((person) => repository.people.delete(person.id)));
 }
 
 export async function seedDemoPlan(repository: PlannerRepository): Promise<string> {
-  const { start, end } = currentYearRange();
+  const { year, start, end } = currentYearRange();
   const record = createPlanRecord({
     id: DEMO_PLAN_ID,
-    title: samplePlan.title,
-    description: samplePlan.description,
+    title: "Olivier's plan",
+    description: "Work, health and nights out — a year in view.",
     start,
     end,
   });
   await repository.plans.put(record);
 
-  const ownerId = samplePeople[0]!.id;
-  const careerId = sampleCategories.find((category) => category.id === "cat-career")?.id;
-  const items = sampleTasks(start).map((task) =>
-    createItem({
-      id: task.id,
-      planId: DEMO_PLAN_ID,
-      title: task.title,
-      notes: task.notes,
-      start: task.start,
-      end: task.end,
-      status: task.status,
-      energy: task.energy,
-      assigneeIds: [ownerId],
-      categoryId: careerId,
-    })
-  );
-  const stale = (await repository.items.listByPlan(DEMO_PLAN_ID)).filter(
-    (item) => !items.some((next) => next.id === item.id)
-  );
+  const items = olivierPlanItems(DEMO_PLAN_ID, year);
+  const nextIds = new Set(items.map((item) => item.id));
+  const stale = (await repository.items.listByPlan(DEMO_PLAN_ID)).filter((item) => !nextIds.has(item.id));
   await Promise.all(stale.map((item) => repository.items.delete(item.id)));
   await repository.items.putMany(items);
   return DEMO_PLAN_ID;
 }
 
-/** Upserts Olivier, the agent, categories, and the demo plan when missing. */
+/** Upserts Olivier, directory data, and the demo plan when missing or stale. */
 export async function ensureDemoData(
   repository: PlannerRepository,
   options: { forcePlan?: boolean } = {}
 ): Promise<{ planId: string }> {
   await seedDirectory(repository);
   const existing = await repository.plans.get(DEMO_PLAN_ID);
-  if (existing && !options.forcePlan) return { planId: existing.id };
+  const items = existing ? await repository.items.listByPlan(DEMO_PLAN_ID) : [];
+  const stale = !existing || !items.some((item) => item.id === DEMO_EVENT_ID);
+  if (!stale && !options.forcePlan) return { planId: existing.id };
   const planId = await seedDemoPlan(repository);
   return { planId };
 }
