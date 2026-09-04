@@ -2,7 +2,7 @@
 
 Refonte du modèle temporel : on abandonne le découpage « roadmap → mois → objectives » pour un conteneur à plage de dates libre, des éléments à début/fin absolus, et une timeline zoomable.
 
-Le **rendu en colonnes** (une liste par unité, tâches répétées) a été remplacé par deux vues, toutes deux zoomables (Y M W D H) : un **Gantt** continu et un **calendrier** (grille année / mois / semaine / jour). Voir §7. Le modèle de données de §2 est inchangé.
+Le **rendu en colonnes** (une liste par unité, tâches répétées) a été remplacé par deux vues : un **Gantt** continu (Y M W D H) et un **calendrier** (année / mois / semaine / jour). Voir §7. Le modèle de données de §2 est inchangé.
 
 ## 1. Nommage
 
@@ -246,7 +246,7 @@ Supprimé : `TimeColumn`, `AllDayBand`, `TimelineViewport`, `TaskItem`, `useVirt
 Deux vues, même échelle :
 
 - **Gantt** : axe horizontal continu, une barre par tâche, lanes. Unités plus larges (mois 168 px) pour que les titres tiennent.
-- **Calendrier** : année (12 mois), mois (grille 7×n avec barres qui spannen), semaine (7 colonnes + bande all-day), jour (liste horaires), heure (grille verticale 24 h).
+- **Calendrier** : année (12 mois), mois (grille 7×n avec barres qui spannen), semaine (7 colonnes + bande all-day), jour (agenda). Pas d’échelle heure : le jour suffit.
 
 ### Interactions
 

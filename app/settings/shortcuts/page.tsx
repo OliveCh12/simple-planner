@@ -13,7 +13,7 @@ import { Kbd, KbdGroup } from "@/components/ui/kbd";
 const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
   {
     title: "Switch view",
-    description: "Gantt shows each task as a bar on a continuous time axis. Calendar shows a year grid, a month, a week, or a day, using the same Y M W D H zoom.",
+    description: "Gantt shows each task as a bar on a continuous time axis (Y M W D H). Calendar shows a year, month, week or day (Y M W D).",
     keys: ["Gantt", "Calendar"],
   },
   {

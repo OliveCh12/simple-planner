@@ -27,6 +27,7 @@ import { createTask, defaultTaskRange } from "@/lib/plan";
 import { addUnits, intervalOf, isAllDay } from "@/lib/time/local";
 import { instantAt, layoutFor, xOf } from "@/lib/time/layout";
 import {
+  CALENDAR_SCALES,
   columnIndexContaining,
   defaultScaleFor,
   nearestColumnIndex,
@@ -219,6 +220,7 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
   const setScale = useCallback(
     (next: TimeScale | null, clientX?: number) => {
       if (!next || next === scale) return;
+      if (view === "calendar" && next === "hour") return;
       if (gantt && boardEl) {
         const offset =
           clientX === undefined
@@ -233,7 +235,7 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
       setScaleState(next);
       void updatePlan({ scale: next });
     },
-    [boardEl, gantt, instantAtOffset, scale, updatePlan]
+    [boardEl, gantt, instantAtOffset, scale, updatePlan, view]
   );
 
   const [calendarEl, setCalendarEl] = useState<HTMLDivElement | null>(null);
@@ -271,13 +273,14 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
       if (next === "calendar") {
         const instant = gantt ? instantAtOffset(boardEl?.clientWidth ? boardEl.clientWidth / 2 : 0) : null;
         if (instant) setFocus(instant);
+        if (scale === "hour") setScale("day");
       } else {
         anchorRef.current = { instant: focus, offset: window.innerWidth / 2 };
         initialised.current = false;
       }
       setTimelineView(next);
     },
-    [boardEl, focus, gantt, instantAtOffset, setTimelineView, view]
+    [boardEl, focus, gantt, instantAtOffset, scale, setScale, setTimelineView, view]
   );
 
   useEffect(() => {
@@ -354,7 +357,11 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
           {!panReady && "to pan"}
         </p>
         <ViewToggle value={view} onChange={switchView} />
-        <ScaleControl value={scale} onChange={(next) => setScale(next)} />
+        <ScaleControl
+          value={gantt || scale !== "hour" ? scale : "day"}
+          onChange={(next) => setScale(next)}
+          scales={gantt ? undefined : CALENDAR_SCALES}
+        />
         <ButtonGroup className="hidden md:flex">
           <Tooltip>
             <TooltipTrigger asChild>

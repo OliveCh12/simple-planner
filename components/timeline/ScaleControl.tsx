@@ -17,9 +17,10 @@ const SCALE_LABELS: Record<TimeScale, { short: string; label: string }> = {
 interface ScaleControlProps {
   value: TimeScale;
   onChange: (scale: TimeScale) => void;
+  scales?: readonly TimeScale[];
 }
 
-export function ScaleControl({ value, onChange }: ScaleControlProps) {
+export function ScaleControl({ value, onChange, scales = SCALES }: ScaleControlProps) {
   return (
     <ToggleGroup
       type="single"
@@ -31,7 +32,7 @@ export function ScaleControl({ value, onChange }: ScaleControlProps) {
         if (next) onChange(next as TimeScale);
       }}
     >
-      {SCALES.map((scale) => (
+      {scales.map((scale) => (
         <Tooltip key={scale}>
           <TooltipTrigger asChild>
             <ToggleGroupItem

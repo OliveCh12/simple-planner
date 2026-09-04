@@ -17,7 +17,7 @@ import {
 import { CalendarChip } from "@/components/calendar/CalendarChip";
 import { packInRange } from "@/lib/calendar";
 import { createTask, defaultTaskRange } from "@/lib/plan";
-import { formatLocalDateTime, intervalOf, isAllDay } from "@/lib/time/local";
+import { intervalOf, isAllDay } from "@/lib/time/local";
 import { cn } from "@/lib/utils";
 import { usePlanStore } from "@/store/planStore";
 import type { Plan, Task, TimeScale } from "@/types";
@@ -25,7 +25,6 @@ import type { Plan, Task, TimeScale } from "@/types";
 const WEEKDAY_COUNT = 7;
 const MONTH_LANES = 4;
 const LANE_PX = 22;
-const HOUR_PX = 44;
 
 interface CalendarBoardProps {
   plan: Plan;
@@ -33,10 +32,6 @@ interface CalendarBoardProps {
   focus: Date;
   weekStartsOn: 0 | 1;
   onFocusMonth: (date: Date) => void;
-}
-
-function pad(value: number): string {
-  return value < 10 ? `0${value}` : String(value);
 }
 
 function dayRange(date: Date): { start: Date; end: Date } {
@@ -58,18 +53,6 @@ export function CalendarBoard({ plan, scale, focus, weekStartsOn, onFocusMonth }
   const createOnDay = (day: Date) => {
     const column = { scale: "day" as const, start: day, end: addDays(day, 1) };
     void addTask(createTask({ title: "New task", ...defaultTaskRange(column) }));
-  };
-
-  const createOnHour = (day: Date, hour: number) => {
-    const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), hour);
-    const end = new Date(day.getFullYear(), day.getMonth(), day.getDate(), hour + 1);
-    void addTask(
-      createTask({
-        title: "New task",
-        start: formatLocalDateTime(start),
-        end: formatLocalDateTime(end),
-      })
-    );
   };
 
   if (scale === "year") {
@@ -97,16 +80,7 @@ export function CalendarBoard({ plan, scale, focus, weekStartsOn, onFocusMonth }
       />
     );
   }
-  return (
-    <DayView
-      focus={focus}
-      intersecting={intersecting}
-      tasksById={tasksById}
-      onCreateDay={createOnDay}
-      onCreateHour={createOnHour}
-      hours={scale === "hour"}
-    />
-  );
+  return <DayView focus={focus} intersecting={intersecting} onCreateDay={createOnDay} />;
 }
 
 function WeekdayHeaders({ weekStartsOn }: { weekStartsOn: 0 | 1 }) {
@@ -376,27 +350,16 @@ function WeekView({
 function DayView({
   focus,
   intersecting,
-  tasksById,
   onCreateDay,
-  onCreateHour,
-  hours,
 }: {
   focus: Date;
   intersecting: (range: { start: Date; end: Date }) => { task: Task; interval: ReturnType<typeof intervalOf> }[];
-  tasksById: Map<string, Task>;
   onCreateDay: (day: Date) => void;
-  onCreateHour: (day: Date, hour: number) => void;
-  hours: boolean;
 }) {
   const range = dayRange(focus);
   const items = intersecting(range);
   const allDay = items.filter((item) => isAllDay(item.task.start));
   const timed = items.filter((item) => !isAllDay(item.task.start));
-  const packed = packInRange(
-    timed.map((item) => ({ id: item.task.id, interval: item.interval })),
-    range
-  );
-  const laneCount = Math.max(1, packed.laneCount);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -420,65 +383,23 @@ function DayView({
           ))}
         </div>
       </div>
-      {hours ? (
-        <div className="relative min-h-0 flex-1 overflow-y-auto">
-          {Array.from({ length: 24 }, (_, hour) => (
-            <button
-              key={hour}
-              type="button"
-              className="flex h-11 w-full border-b border-border/50 text-left hover:bg-muted/40"
-              onClick={() => onCreateHour(range.start, hour)}
-            >
-              <span className="w-16 shrink-0 px-3 py-1 text-xs tabular-nums text-muted-foreground">
-                {pad(hour)}:00
-              </span>
-            </button>
+      <ul className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-3">
+        {timed.length === 0 && (
+          <li className="px-1.5 text-sm text-muted-foreground">No timed tasks this day.</li>
+        )}
+        {timed
+          .slice()
+          .sort((a, b) => a.interval.start.getTime() - b.interval.start.getTime())
+          .map((item) => (
+            <li key={item.task.id}>
+              <CalendarChip
+                task={item.task}
+                time={format(item.interval.start, "HH:mm")}
+                className="py-1.5 text-sm"
+              />
+            </li>
           ))}
-          <div className="pointer-events-none absolute inset-y-0 left-16 right-2">
-            {packed.spans.map((span) => {
-              const task = tasksById.get(span.id);
-              if (!task) return null;
-              const colWidth = 100 / laneCount;
-              return (
-                <div
-                  key={span.id}
-                  className="pointer-events-auto absolute px-0.5"
-                  style={{
-                    top: span.startFrac * 24 * HOUR_PX,
-                    height: Math.max(18, (span.endFrac - span.startFrac) * 24 * HOUR_PX),
-                    left: `${span.lane * colWidth}%`,
-                    width: `${colWidth}%`,
-                  }}
-                >
-                  <CalendarChip
-                    task={task}
-                    className="h-full items-start py-1"
-                    time={format(intervalOf(task).start, "HH:mm")}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ) : (
-        <ul className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-3">
-          {timed.length === 0 && (
-            <li className="px-1.5 text-sm text-muted-foreground">No timed tasks this day.</li>
-          )}
-          {timed
-            .slice()
-            .sort((a, b) => a.interval.start.getTime() - b.interval.start.getTime())
-            .map((item) => (
-              <li key={item.task.id}>
-                <CalendarChip
-                  task={item.task}
-                  time={format(item.interval.start, "HH:mm")}
-                  className="py-1.5 text-sm"
-                />
-              </li>
-            ))}
-        </ul>
-      )}
+      </ul>
     </div>
   );
 }
