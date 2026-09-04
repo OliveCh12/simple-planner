@@ -12,9 +12,19 @@ import { Kbd, KbdGroup } from "@/components/ui/kbd";
 
 const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
   {
-    title: "Previous or next month",
-    description: "Scrolls the timeline one month and selects it.",
+    title: "Zoom in or out",
+    description: "Steps through years, months, weeks, days and hours, keeping the time under the cursor in place. Ctrl or ⌘ with the mouse wheel, or a trackpad pinch, does the same.",
+    keys: ["-", "+"],
+  },
+  {
+    title: "Previous or next column",
+    description: "Scrolls the timeline one column and selects it.",
     keys: ["←", "→"],
+  },
+  {
+    title: "Jump to now",
+    description: "Centres the column that contains the current time.",
+    keys: ["T"],
   },
   {
     title: "Pan the timeline",
@@ -22,8 +32,8 @@ const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
     keys: ["Space", "Drag"],
   },
   {
-    title: "Add a goal",
-    description: "Type in a month's “Add a goal” field, then press Enter.",
+    title: "Add a task",
+    description: "Type in a column's “Add a task” field, then press Enter.",
     keys: ["Enter"],
   },
   {

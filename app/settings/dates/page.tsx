@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { formatDateDisplay } from "@/lib/date-utils";
 import { useUIStore } from "@/store/uiStore";
 
@@ -43,6 +44,18 @@ export default function DatesSettingsPage() {
               <SelectItem value="0">Sunday</SelectItem>
             </SelectContent>
           </Select>
+        </Field>
+
+        <Field orientation="horizontal">
+          <FieldContent>
+            <FieldLabel htmlFor="week-numbers">Week numbers</FieldLabel>
+            <FieldDescription>Shown in the header of week columns.</FieldDescription>
+          </FieldContent>
+          <Switch
+            id="week-numbers"
+            checked={settings.showWeekNumbers}
+            onCheckedChange={(checked) => updateSettings({ showWeekNumbers: checked })}
+          />
         </Field>
 
         <Field orientation="responsive">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { columnLabel, taskRangeLabel } from "@/lib/time/labels";
+import { columnLabel, taskDatesLabel, taskRangeLabel } from "@/lib/time/labels";
 import { columnsFor } from "@/lib/time/scale";
 
 const options = { weekStartsOn: 1 as const, showWeekNumbers: false };
@@ -58,5 +58,17 @@ describe("taskRangeLabel", () => {
       "Dec 20, 2027 – Jan 5, 2028"
     );
     expect(taskRangeLabel(timed, "hour", false)).toBe("09:30–11:00");
+  });
+});
+
+describe("taskDatesLabel", () => {
+  it("shows dates for all-day tasks and times for timed ones", () => {
+    expect(taskDatesLabel({ start: "2027-09-14", end: "2027-09-16" })).toBe("Sep 14–16");
+    expect(taskDatesLabel({ start: "2027-09-15T23:00", end: "2027-09-16T00:00" })).toBe(
+      "Sep 15 · 23:00–00:00"
+    );
+    expect(taskDatesLabel({ start: "2027-09-14T09:00", end: "2027-09-16T18:00" })).toBe(
+      "Sep 14 09:00 – Sep 16 18:00"
+    );
   });
 });

@@ -27,8 +27,8 @@ import {
 } from "@/components/ui/popover";
 import { ENERGY_LEVELS, STATUSES, getEnergyOption, getStatusOption } from "@/lib/constants";
 import { defaultTaskRange } from "@/lib/plan";
-import { shortDateRange } from "@/lib/time/labels";
-import { isAllDay, isValidLocal, parseLocal } from "@/lib/time/local";
+import { taskDatesLabel } from "@/lib/time/labels";
+import { isAllDay, isValidLocal } from "@/lib/time/local";
 import type { TimeColumn } from "@/lib/time/scale";
 import { cn } from "@/lib/utils";
 import type { EnergyLevel, TaskStatus } from "@/types";
@@ -126,9 +126,7 @@ export function DateRangeChip({ start, end, column, onChange }: DateRangeChipPro
   const allDay = isAllDay(start);
   const wholeColumn = defaultTaskRange(column);
   const fillsColumn = start === wholeColumn.start && end === wholeColumn.end;
-  const label = fillsColumn
-    ? `Whole ${column.scale}`
-    : shortDateRange(parseLocal(start), parseLocal(end));
+  const label = fillsColumn ? `Whole ${column.scale}` : taskDatesLabel({ start, end });
 
   const update = (value: string, which: "start" | "end") => {
     if (!isValidLocal(value)) return;

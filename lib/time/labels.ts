@@ -52,6 +52,11 @@ function monthDayRange(start: Date, end: Date): string {
   return `${format(start, "MMM d")} – ${format(end, "MMM d")}`;
 }
 
+/** True when `end` falls on the same day, counting the next midnight as this day. */
+function endsSameDay(start: Date, end: Date): boolean {
+  return isSameDay(start, end) || (end > start && isSameDay(start, subMilliseconds(end, 1)));
+}
+
 function timeRange(start: Date, end: Date): string {
   return `${format(start, "HH:mm")}–${format(end, "HH:mm")}`;
 }
@@ -60,6 +65,15 @@ function timeRange(start: Date, end: Date): string {
 export function shortDateRange(start: Date, end: Date): string {
   if (isSameYear(start, end)) return monthDayRange(start, end);
   return `${format(start, "MMM d, yyyy")} – ${format(end, "MMM d, yyyy")}`;
+}
+
+/** Full label of a task's dates, with times when it has them. */
+export function taskDatesLabel(task: Pick<Task, "start" | "end">): string {
+  const start = parseLocal(task.start);
+  const end = parseLocal(task.end);
+  if (isAllDay(task.start)) return shortDateRange(start, end);
+  if (endsSameDay(start, end)) return `${format(start, "MMM d")} · ${timeRange(start, end)}`;
+  return `${format(start, "MMM d HH:mm")} – ${format(end, "MMM d HH:mm")}`;
 }
 
 /**
@@ -76,7 +90,7 @@ export function taskRangeLabel(
   const allDay = isAllDay(task.start);
 
   if (!contained) {
-    if (!allDay && isSameDay(start, end)) return timeRange(start, end);
+    if (!allDay && endsSameDay(start, end)) return timeRange(start, end);
     return shortDateRange(start, end);
   }
 
