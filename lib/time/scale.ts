@@ -12,16 +12,6 @@ import { addUnits, parseLocal } from "@/lib/time/local";
 
 export const SCALES: readonly TimeScale[] = ["year", "month", "week", "day", "hour"];
 
-export const COLUMN_GAP = 12;
-
-export const COLUMN_WIDTH: Record<TimeScale, number> = {
-  year: 320,
-  month: 300,
-  week: 280,
-  day: 240,
-  hour: 160,
-};
-
 export interface TimeColumn {
   key: string;
   scale: TimeScale;
@@ -100,26 +90,6 @@ export function nearestColumnIndex(columns: TimeColumn[], instant: Date): number
   const last = columns.length - 1;
   if (instant >= columns[last].end) return last;
   return columnIndexContaining(columns, instant);
-}
-
-/** Horizontal offset of `instant` on a board whose columns all have `width`. */
-export function xOfInstant(columns: TimeColumn[], instant: Date, width: number): number {
-  const index = nearestColumnIndex(columns, instant);
-  if (index < 0) return 0;
-  const column = columns[index];
-  const span = column.end.getTime() - column.start.getTime();
-  const fraction = Math.min(1, Math.max(0, (instant.getTime() - column.start.getTime()) / span));
-  return (index + fraction) * width;
-}
-
-export function instantAtX(columns: TimeColumn[], x: number, width: number): Date | null {
-  if (columns.length === 0) return null;
-  const position = Math.max(0, Math.min(columns.length, x / width));
-  const index = Math.min(columns.length - 1, Math.floor(position));
-  const column = columns[index];
-  const fraction = position - index;
-  const span = column.end.getTime() - column.start.getTime();
-  return new Date(column.start.getTime() + fraction * span);
 }
 
 export function defaultScaleFor(planStart: string, planEnd: string): TimeScale {

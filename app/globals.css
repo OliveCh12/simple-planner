@@ -138,19 +138,12 @@
 }
 
 .timeline-board {
-  --column-w: 300px;
-  --column-gap: 12px;
+  --unit-w: 72px;
   user-select: none;
   -webkit-user-select: none;
-  padding-inline: max(1.25rem, calc(50vw - var(--column-w) / 2));
-  padding-block: 1rem;
+  padding-inline: max(1.25rem, calc(50vw - var(--unit-w) / 2));
   scrollbar-width: thin;
   scrollbar-color: color-mix(in oklab, var(--foreground) 18%, transparent) transparent;
-}
-
-.timeline-board [data-column] {
-  width: var(--column-w);
-  contain: layout style;
 }
 
 .timeline-board.is-pan-ready,

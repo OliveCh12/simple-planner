@@ -1,14 +1,6 @@
-import { format, subDays } from "date-fns";
+import { subDays } from "date-fns";
 import type { EnergyLevel, Plan, Task, TaskStatus } from "@/types";
-import {
-  contains,
-  formatLocalDate,
-  formatLocalDateTime,
-  intersects,
-  intervalOf,
-  parseLocal,
-  type Interval,
-} from "@/lib/time/local";
+import { formatLocalDate, formatLocalDateTime } from "@/lib/time/local";
 import type { TimeColumn } from "@/lib/time/scale";
 
 export function createId(): string {
@@ -58,54 +50,6 @@ export function createTask(input: {
   };
 }
 
-export interface PlacedTask {
-  task: Task;
-  interval: Interval;
-}
-
-/** Parses every task's dates once so columns can be filtered cheaply. */
-export function placeTasks(tasks: Task[]): PlacedTask[] {
-  return tasks.map((task) => ({ task, interval: intervalOf(task) }));
-}
-
-export interface ColumnTasks {
-  /** Tasks that overflow the column: same order in every column, so they line up. */
-  spanning: Task[];
-  /** Tasks that fit entirely in the column, chronologically. */
-  contained: Task[];
-}
-
-function bySpanningOrder(a: PlacedTask, b: PlacedTask): number {
-  const byStart = a.interval.start.getTime() - b.interval.start.getTime();
-  if (byStart !== 0) return byStart;
-  const byEnd = b.interval.end.getTime() - a.interval.end.getTime();
-  if (byEnd !== 0) return byEnd;
-  return a.task.id.localeCompare(b.task.id);
-}
-
-function byContainedOrder(a: PlacedTask, b: PlacedTask): number {
-  const byStart = a.interval.start.getTime() - b.interval.start.getTime();
-  if (byStart !== 0) return byStart;
-  const byCreated = a.task.createdAt.localeCompare(b.task.createdAt);
-  if (byCreated !== 0) return byCreated;
-  return a.task.id.localeCompare(b.task.id);
-}
-
-export function tasksInColumn(placed: PlacedTask[], column: Interval): ColumnTasks {
-  const spanning: PlacedTask[] = [];
-  const contained: PlacedTask[] = [];
-
-  for (const item of placed) {
-    if (!intersects(item.interval, column)) continue;
-    (contains(column, item.interval) ? contained : spanning).push(item);
-  }
-
-  return {
-    spanning: spanning.sort(bySpanningOrder).map((item) => item.task),
-    contained: contained.sort(byContainedOrder).map((item) => item.task),
-  };
-}
-
 export function countCompleted(tasks: Task[]): number {
   return tasks.filter((task) => task.status === "completed").length;
 }
@@ -120,23 +64,4 @@ export function defaultTaskRange(
   return { start: formatLocalDate(column.start), end: formatLocalDate(subDays(column.end, 1)) };
 }
 
-export interface MonthGroup {
-  key: string;
-  label: string;
-  tasks: Task[];
-}
 
-/** Groups tasks by the month they start in, keeping the incoming order. */
-export function groupTasksByMonth(tasks: Task[]): MonthGroup[] {
-  const groups = new Map<string, MonthGroup>();
-  for (const task of tasks) {
-    const key = task.start.slice(0, 7);
-    let group = groups.get(key);
-    if (!group) {
-      group = { key, label: format(parseLocal(task.start), "MMMM"), tasks: [] };
-      groups.set(key, group);
-    }
-    group.tasks.push(task);
-  }
-  return [...groups.values()];
-}

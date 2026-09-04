@@ -3,9 +3,7 @@ import {
   columnIndexContaining,
   columnsFor,
   defaultScaleFor,
-  instantAtX,
   nearestColumnIndex,
-  xOfInstant,
   zoomIn,
   zoomOut,
 } from "@/lib/time/scale";
@@ -57,22 +55,6 @@ describe("column lookup", () => {
   it("clamps to the edges when asked for the nearest column", () => {
     expect(nearestColumnIndex(columns, new Date(2026, 11, 31))).toBe(0);
     expect(nearestColumnIndex(columns, new Date(2028, 5, 1))).toBe(11);
-  });
-});
-
-describe("xOfInstant / instantAtX", () => {
-  const columns = columnsFor("month", "2027-01-01", "2027-12-31", monday);
-
-  it("maps an instant to a fractional column offset and back", () => {
-    const instant = new Date(2027, 8, 16); // mid-September
-    const x = xOfInstant(columns, instant, 300);
-    expect(x).toBeCloseTo((8 + 15 / 30) * 300, 5);
-    expect(instantAtX(columns, x, 300)?.getTime()).toBeCloseTo(instant.getTime(), -3);
-  });
-
-  it("clamps beyond the last column", () => {
-    expect(xOfInstant(columns, new Date(2030, 0, 1), 300)).toBe(12 * 300);
-    expect(instantAtX(columns, 99999, 300)).toEqual(columns[11].end);
   });
 });
 

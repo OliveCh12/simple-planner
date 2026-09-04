@@ -26,10 +26,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ENERGY_LEVELS, STATUSES, getEnergyOption, getStatusOption } from "@/lib/constants";
-import { defaultTaskRange } from "@/lib/plan";
 import { taskDatesLabel } from "@/lib/time/labels";
 import { isAllDay, isValidLocal } from "@/lib/time/local";
-import type { TimeColumn } from "@/lib/time/scale";
 import { cn } from "@/lib/utils";
 import type { EnergyLevel, TaskStatus } from "@/types";
 
@@ -118,15 +116,12 @@ export function EnergyChip({ value, onChange }: EnergyChipProps) {
 interface DateRangeChipProps {
   start: string;
   end: string;
-  column: TimeColumn;
   onChange: (start: string, end: string) => void;
 }
 
-export function DateRangeChip({ start, end, column, onChange }: DateRangeChipProps) {
+export function DateRangeChip({ start, end, onChange }: DateRangeChipProps) {
   const allDay = isAllDay(start);
-  const wholeColumn = defaultTaskRange(column);
-  const fillsColumn = start === wholeColumn.start && end === wholeColumn.end;
-  const label = fillsColumn ? `Whole ${column.scale}` : taskDatesLabel({ start, end });
+  const label = taskDatesLabel({ start, end });
 
   const update = (value: string, which: "start" | "end") => {
     if (!isValidLocal(value)) return;
@@ -177,34 +172,25 @@ export function DateRangeChip({ start, end, column, onChange }: DateRangeChipPro
             />
           </InputGroup>
         </ButtonGroup>
-        <ButtonGroup className="mt-2 w-full [&>*]:flex-1">
-          <Button
-            variant="ghost"
-            size="xs"
-            disabled={fillsColumn}
-            onClick={() => onChange(wholeColumn.start, wholeColumn.end)}
-          >
-            Whole {column.scale}
-          </Button>
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={() =>
-              allDay
-                ? onChange(`${start}T09:00`, `${end}T${start === end ? "10:00" : "18:00"}`)
-                : onChange(start.slice(0, 10), end.slice(0, 10))
-            }
-          >
-            {allDay ? (
-              <>
-                <Clock />
-                Add time
-              </>
-            ) : (
-              "Remove time"
-            )}
-          </Button>
-        </ButtonGroup>
+        <Button
+          variant="ghost"
+          size="xs"
+          className="mt-2 w-full"
+          onClick={() =>
+            allDay
+              ? onChange(`${start}T09:00`, `${end}T${start === end ? "10:00" : "18:00"}`)
+              : onChange(start.slice(0, 10), end.slice(0, 10))
+          }
+        >
+          {allDay ? (
+            <>
+              <Clock />
+              Add time
+            </>
+          ) : (
+            "Remove time"
+          )}
+        </Button>
       </PopoverContent>
     </Popover>
   );

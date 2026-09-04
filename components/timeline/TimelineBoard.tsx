@@ -1,43 +1,39 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { differenceInCalendarDays } from "date-fns";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import { DragDropProvider, type DragEndEvent } from "@dnd-kit/react";
+import { AddTaskItem } from "@/components/task/AddTaskItem";
 import { SubHeader } from "@/components/layout/SubHeader";
-import type { TaskDragData } from "@/components/task/TaskItem";
-import { ALL_DAY_PREFIX } from "@/components/timeline/AllDayBand";
-import { RemoveDropZone } from "@/components/timeline/RemoveDropZone";
+import { LaneLayer } from "@/components/timeline/LaneLayer";
+import { NowLine } from "@/components/timeline/NowLine";
 import { ScaleControl } from "@/components/timeline/ScaleControl";
-import { TimelineViewport } from "@/components/timeline/TimelineViewport";
+import { TimelineGrid } from "@/components/timeline/TimelineGrid";
+import { TimelineHeader } from "@/components/timeline/TimelineHeader";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useDeleteTask } from "@/hooks/useTaskActions";
 import { useTimelinePan } from "@/hooks/useTimelinePan";
 import { useTimelineZoom } from "@/hooks/useTimelineZoom";
+import { useVisibleRange } from "@/hooks/useVisibleRange";
 import { formatDateDisplay } from "@/lib/date-utils";
-import { placeTasks } from "@/lib/plan";
-import { isAllDay, parseLocal, shiftTask } from "@/lib/time/local";
+import { layoutLanes, type LaneItem, type LaneTask } from "@/lib/lanes";
+import { createTask, defaultTaskRange } from "@/lib/plan";
+import { intervalOf, isAllDay } from "@/lib/time/local";
+import { instantAt, layoutFor, xOf } from "@/lib/time/layout";
 import {
-  COLUMN_GAP,
-  COLUMN_WIDTH,
   columnIndexContaining,
-  columnsFor,
   defaultScaleFor,
-  instantAtX,
   nearestColumnIndex,
-  xOfInstant,
   zoomIn,
   zoomOut,
+  type TimeColumn,
 } from "@/lib/time/scale";
 import { cn } from "@/lib/utils";
 import { usePlanStore } from "@/store/planStore";
 import { useUIStore } from "@/store/uiStore";
 import type { Plan, TimeScale } from "@/types";
 
-/** Beyond this many viewports, jump instead of animating the scroll. */
 const SMOOTH_SCROLL_VIEWPORTS = 4;
 
 function paddingLeft(el: HTMLElement): number {
@@ -50,15 +46,23 @@ function isTypingTarget(target: EventTarget | null) {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
 }
 
-interface Anchor {
-  instant: Date;
-  /** Distance from the board's left edge, in px, where `instant` should land. */
-  offset: number;
+function visibleUnits(units: TimeColumn[], layout: ReturnType<typeof layoutFor>, fromX: number, toX: number) {
+  return units.filter((unit) => {
+    const start = xOf(layout, unit.start);
+    const end = xOf(layout, unit.end);
+    return end >= fromX && start <= toX;
+  });
 }
 
-interface DropSlot {
-  scale: TimeScale;
-  index: number;
+function visibleItems(items: LaneItem[], fromX: number, toX: number) {
+  return items.filter(
+    (item) => item.x <= toX && item.x + Math.max(item.width, item.labelWidth) >= fromX
+  );
+}
+
+interface Anchor {
+  instant: Date;
+  offset: number;
 }
 
 interface TimelineBoardProps {
@@ -69,78 +73,99 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
   const weekStartsOn = useUIStore((s) => s.settings.firstDayOfWeek);
   const dateFormat = useUIStore((s) => s.settings.dateFormat);
   const updatePlan = usePlanStore((s) => s.updatePlan);
-  const updateTask = usePlanStore((s) => s.updateTask);
-  const deleteTask = useDeleteTask();
+  const addTask = usePlanStore((s) => s.addTask);
 
   const [scale, setScaleState] = useState<TimeScale>(
     () => plan.scale ?? defaultScaleFor(plan.start, plan.end)
   );
-  const width = COLUMN_WIDTH[scale];
-  const pitch = width + COLUMN_GAP;
-  const columns = useMemo(
-    () => columnsFor(scale, plan.start, plan.end, { weekStartsOn }),
+
+  const layout = useMemo(
+    () => layoutFor(scale, plan.start, plan.end, { weekStartsOn }),
     [scale, plan.start, plan.end, weekStartsOn]
   );
-  const hourly = scale === "hour";
-  const days = useMemo(
-    () => (hourly ? columnsFor("day", plan.start, plan.end, { weekStartsOn }) : []),
-    [hourly, plan.start, plan.end, weekStartsOn]
+
+  const laneTasks = useMemo<LaneTask[]>(
+    () =>
+      plan.tasks.map((task) => ({
+        id: task.id,
+        title: task.title,
+        interval: intervalOf(task),
+        allDay: isAllDay(task.start),
+      })),
+    [plan.tasks]
   );
-  const placed = useMemo(() => placeTasks(plan.tasks), [plan.tasks]);
-  const columnTasks = useMemo(
-    () => (hourly ? placed.filter((item) => !isAllDay(item.task.start)) : placed),
-    [hourly, placed]
-  );
-  const allDayTasks = useMemo(
-    () => (hourly ? placed.filter((item) => isAllDay(item.task.start)) : []),
-    [hourly, placed]
-  );
+  const lanes = useMemo(() => layoutLanes(laneTasks, (date) => xOf(layout, date)), [laneTasks, layout]);
+  const tasksById = useMemo(() => new Map(plan.tasks.map((task) => [task.id, task])), [plan.tasks]);
 
   const [boardEl, setBoardEl] = useState<HTMLDivElement | null>(null);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const { panning, panReady } = useTimelinePan(boardEl, !isDragging);
+  const { panning, panReady } = useTimelinePan(boardEl, true);
+  const { fromX, toX, visibleFrom } = useVisibleRange(boardEl, layout.totalWidth);
 
-  const todayIndex = columnIndexContaining(columns, new Date());
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const nowX = xOf(layout, now);
+  const todayIndex = columnIndexContaining(layout.units, now);
   const homeIndex = todayIndex >= 0 ? todayIndex : 0;
-  const effectiveKey = selectedKey ?? columns[homeIndex]?.key ?? null;
-  const planStartMs = parseLocal(plan.start).getTime();
-  const dayIndexOf = useCallback(
-    (date: Date) => differenceInCalendarDays(date, new Date(planStartMs)),
-    [planStartMs]
-  );
+  const todayKey = layout.units[todayIndex]?.key ?? null;
 
-  const scrollToColumn = useCallback(
-    (index: number, behavior: ScrollBehavior = "smooth") => {
+  const headerUnits = useMemo(
+    () => visibleUnits(layout.units, layout, fromX, toX),
+    [layout, fromX, toX]
+  );
+  const headerMajor = useMemo(
+    () => visibleUnits(layout.majorUnits, layout, fromX, toX),
+    [layout, fromX, toX]
+  );
+  const allDayItems = useMemo(() => visibleItems(lanes.allDay.items, fromX, toX), [lanes, fromX, toX]);
+  const timedItems = useMemo(() => visibleItems(lanes.timed.items, fromX, toX), [lanes, fromX, toX]);
+
+  const scrollToX = useCallback(
+    (x: number, behavior: ScrollBehavior = "smooth") => {
       if (!boardEl) return;
-      const left = paddingLeft(boardEl) + index * pitch + width / 2 - boardEl.clientWidth / 2;
+      const left = paddingLeft(boardEl) + x - boardEl.clientWidth / 2;
       const far = Math.abs(left - boardEl.scrollLeft) > SMOOTH_SCROLL_VIEWPORTS * boardEl.clientWidth;
       boardEl.scrollTo({ left, behavior: far ? "instant" : behavior });
     },
-    [boardEl, pitch, width]
+    [boardEl]
+  );
+
+  const scrollToUnit = useCallback(
+    (index: number, behavior: ScrollBehavior = "smooth") => {
+      const unit = layout.units[index];
+      if (!unit) return;
+      scrollToX((xOf(layout, unit.start) + xOf(layout, unit.end)) / 2, behavior);
+    },
+    [layout, scrollToX]
   );
 
   const instantAtOffset = useCallback(
     (offset: number) => {
-      if (!boardEl || columns.length === 0) return null;
-      return instantAtX(columns, boardEl.scrollLeft + offset - paddingLeft(boardEl), pitch);
+      if (!boardEl || layout.totalWidth === 0) return null;
+      return instantAt(layout, boardEl.scrollLeft + offset - paddingLeft(boardEl));
     },
-    [boardEl, columns, pitch]
+    [boardEl, layout]
   );
 
   const centeredIndex = useCallback(() => {
     if (!boardEl) return -1;
     const instant = instantAtOffset(boardEl.clientWidth / 2);
-    return instant ? nearestColumnIndex(columns, instant) : -1;
-  }, [boardEl, columns, instantAtOffset]);
+    return instant ? nearestColumnIndex(layout.units, instant) : -1;
+  }, [boardEl, layout.units, instantAtOffset]);
 
   const initialised = useRef(false);
   useEffect(() => {
     if (!boardEl || initialised.current) return;
     initialised.current = true;
-    const frame = window.requestAnimationFrame(() => scrollToColumn(homeIndex, "auto"));
+    const frame = window.requestAnimationFrame(() => {
+      if (todayIndex >= 0) scrollToX(nowX, "auto");
+      else scrollToUnit(homeIndex, "auto");
+    });
     return () => window.cancelAnimationFrame(frame);
-  }, [boardEl, homeIndex, scrollToColumn]);
+  }, [boardEl, homeIndex, nowX, scrollToUnit, scrollToX, todayIndex]);
 
   const anchorRef = useRef<Anchor | null>(null);
   useLayoutEffect(() => {
@@ -148,10 +173,10 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
     if (!anchor || !boardEl) return;
     anchorRef.current = null;
     boardEl.scrollTo({
-      left: xOfInstant(columns, anchor.instant, pitch) + paddingLeft(boardEl) - anchor.offset,
+      left: xOf(layout, anchor.instant) + paddingLeft(boardEl) - anchor.offset,
       behavior: "instant",
     });
-  }, [boardEl, columns, pitch]);
+  }, [boardEl, layout]);
 
   const setScale = useCallback(
     (next: TimeScale | null, clientX?: number) => {
@@ -164,7 +189,6 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
         const instant = instantAtOffset(offset);
         if (instant) anchorRef.current = { instant, offset };
       }
-      setSelectedKey(null);
       setScaleState(next);
       void updatePlan({ scale: next });
     },
@@ -175,25 +199,14 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
     setScale(direction > 0 ? zoomIn(scale) : zoomOut(scale), clientX);
   });
 
-  const selectColumn = useCallback(
-    (index: number) => {
-      const column = columns[index];
-      if (!column) return;
-      setSelectedKey(column.key);
-      scrollToColumn(index);
-    },
-    [columns, scrollToColumn]
-  );
-
-  const shiftColumn = useCallback(
+  const shiftUnit = useCallback(
     (delta: number) => {
-      if (columns.length === 0) return;
+      if (layout.units.length === 0) return;
       const centered = centeredIndex();
-      const current =
-        centered >= 0 ? centered : columns.findIndex((column) => column.key === effectiveKey);
-      selectColumn(Math.min(columns.length - 1, Math.max(0, current + delta)));
+      const current = centered >= 0 ? centered : homeIndex;
+      scrollToUnit(Math.min(layout.units.length - 1, Math.max(0, current + delta)));
     },
-    [centeredIndex, columns, effectiveKey, selectColumn]
+    [centeredIndex, homeIndex, layout.units.length, scrollToUnit]
   );
 
   useEffect(() => {
@@ -202,11 +215,11 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
       switch (event.key) {
         case "ArrowRight":
           event.preventDefault();
-          shiftColumn(1);
+          shiftUnit(1);
           break;
         case "ArrowLeft":
           event.preventDefault();
-          shiftColumn(-1);
+          shiftUnit(-1);
           break;
         case "+":
         case "=":
@@ -220,61 +233,34 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
         case "t":
         case "T":
           event.preventDefault();
-          selectColumn(homeIndex);
+          if (todayIndex >= 0) scrollToX(nowX);
+          else scrollToUnit(homeIndex);
           break;
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [homeIndex, scale, selectColumn, setScale, shiftColumn]);
+  }, [homeIndex, nowX, scale, scrollToUnit, scrollToX, setScale, shiftUnit, todayIndex]);
 
-  const resolveDrop = (targetId: string): DropSlot | null => {
-    if (targetId.startsWith(ALL_DAY_PREFIX)) {
-      const index = Number(targetId.slice(ALL_DAY_PREFIX.length));
-      return Number.isInteger(index) ? { scale: "day", index } : null;
-    }
-    const column = columns.find((item) => item.key === targetId);
-    return column ? { scale: column.scale, index: column.index } : null;
-  };
-
-  const dayOf = (slot: DropSlot): number =>
-    slot.scale === "day" && hourly ? slot.index : dayIndexOf(columns[slot.index].start);
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    setIsDragging(false);
-    if (event.canceled) return;
-
-    const { source, target } = event.operation;
-    if (!source || !target) return;
-
-    const data = source.data as Partial<TaskDragData> | undefined;
-    if (!data || data.planId !== plan.id || typeof data.taskId !== "string") return;
-    if (data.scale === undefined || data.index === undefined) return;
-    const task = plan.tasks.find((item) => item.id === data.taskId);
-    if (!task) return;
-
-    const targetId = String(target.id);
-    if (targetId === "remove-zone") {
-      void deleteTask(task);
-      return;
-    }
-
-    const dropped = resolveDrop(targetId);
-    if (!dropped) return;
-    const origin: DropSlot = { scale: data.scale, index: data.index };
-    const moved =
-      dropped.scale === origin.scale
-        ? shiftTask(task, dropped.scale, dropped.index - origin.index)
-        : shiftTask(task, "day", dayOf(dropped) - dayOf(origin));
-    if (moved === task) return;
-    void updateTask(task.id, { start: moved.start, end: moved.end });
-  };
+  const createAtCenter = useCallback(
+    (title: string) => {
+      const index = centeredIndex();
+      const unit = layout.units[index >= 0 ? index : homeIndex];
+      if (!unit) return;
+      void addTask(createTask({ title, ...defaultTaskRange(unit) }));
+    },
+    [addTask, centeredIndex, homeIndex, layout.units]
+  );
 
   const range = `${formatDateDisplay(plan.start, dateFormat)} – ${formatDateDisplay(plan.end, dateFormat)}`;
+  const pastWidth = Math.min(layout.totalWidth, Math.max(0, nowX));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <SubHeader backUrl="/" title={plan.title} subtitle={range}>
+        <div className="hidden w-44 min-w-0 md:block">
+          <AddTaskItem onCreate={createAtCenter} />
+        </div>
         <p
           className={cn(
             "hidden items-center gap-1.5 text-xs transition-colors lg:flex",
@@ -298,7 +284,7 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
                 variant="outline"
                 size="icon-sm"
                 aria-label={`Previous ${scale}`}
-                onClick={() => shiftColumn(-1)}
+                onClick={() => shiftUnit(-1)}
               >
                 <ChevronLeft />
               </Button>
@@ -309,7 +295,11 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="outline" size="sm" onClick={() => selectColumn(homeIndex)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => (todayIndex >= 0 ? scrollToX(nowX) : scrollToUnit(homeIndex))}
+              >
                 <CalendarDays />
                 Today
               </Button>
@@ -324,7 +314,7 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
                 variant="outline"
                 size="icon-sm"
                 aria-label={`Next ${scale}`}
-                onClick={() => shiftColumn(1)}
+                onClick={() => shiftUnit(1)}
               >
                 <ChevronRight />
               </Button>
@@ -339,40 +329,63 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
           size="icon-sm"
           aria-label="Today"
           className="md:hidden"
-          onClick={() => selectColumn(homeIndex)}
+          onClick={() => (todayIndex >= 0 ? scrollToX(nowX) : scrollToUnit(homeIndex))}
         >
           <CalendarDays />
         </Button>
       </SubHeader>
 
       <div className="relative min-h-0 flex-1">
-        <DragDropProvider onDragStart={() => setIsDragging(true)} onDragEnd={handleDragEnd}>
-          <div
-            ref={setBoardEl}
-            style={{ "--column-w": `${width}px`, "--column-gap": `${COLUMN_GAP}px` } as React.CSSProperties}
-            className={cn(
-              "timeline-board flex h-full min-h-[24rem] overflow-x-auto overflow-y-hidden",
-              panning && "is-panning",
-              panReady && "is-pan-ready"
-            )}
-          >
-            <TimelineViewport
-              boardEl={boardEl}
-              columns={columns}
-              days={days}
-              pitch={pitch}
-              gap={COLUMN_GAP}
-              columnTasks={columnTasks}
-              allDayTasks={allDayTasks}
-              planId={plan.id}
-              selectedKey={effectiveKey}
-              todayIndex={todayIndex}
-              dayIndexOf={dayIndexOf}
-              onSelect={selectColumn}
+        <div
+          ref={setBoardEl}
+          style={{ "--unit-w": `${layout.pxPerUnit}px` } as React.CSSProperties}
+          className={cn(
+            "timeline-board h-full min-h-[24rem] overflow-x-auto overflow-y-hidden",
+            panning && "is-panning",
+            panReady && "is-pan-ready"
+          )}
+        >
+          <div className="relative flex h-full flex-col" style={{ width: layout.totalWidth }}>
+            <TimelineHeader
+              layout={layout}
+              units={headerUnits}
+              majorUnits={headerMajor}
+              now={now}
+              nowX={nowX}
+              todayKey={todayKey}
+              onSelectUnit={scrollToUnit}
             />
+            <div className="relative flex min-h-0 flex-1 flex-col">
+              <TimelineGrid layout={layout} units={headerUnits} majorUnits={headerMajor} />
+              {pastWidth > 0 && (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-y-0 left-0 z-10 bg-background/40"
+                  style={{ width: pastWidth }}
+                />
+              )}
+              <NowLine x={nowX} totalWidth={layout.totalWidth} />
+              <LaneLayer
+                stack={lanes.allDay}
+                items={allDayItems}
+                tasksById={tasksById}
+                variant="allDay"
+                scale={scale}
+                fromX={visibleFrom}
+              />
+              <div data-timed-scroll className="relative min-h-0 flex-1 overflow-y-auto">
+                <LaneLayer
+                  stack={lanes.timed}
+                  items={timedItems}
+                  tasksById={tasksById}
+                  variant="timed"
+                  scale={scale}
+                  fromX={visibleFrom}
+                />
+              </div>
+            </div>
           </div>
-          <RemoveDropZone isDragging={isDragging} />
-        </DragDropProvider>
+        </div>
       </div>
     </div>
   );
