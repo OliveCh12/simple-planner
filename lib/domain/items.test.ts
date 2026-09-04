@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addSubtask,
+  applyStatus,
   completeItem,
   createItem,
   DomainError,
@@ -68,6 +69,9 @@ describe("item commands", () => {
   it("completes, moves and sets the executor", () => {
     expect(completeItem(task).status).toBe("completed");
     expect(completeItem(task).completedAt).toBeTruthy();
+    expect(applyStatus(completeItem(task), "pending")).toMatchObject({
+      status: "pending",
+    });
     expect(moveItem(task, "2026-07-01", "2026-07-03")).toMatchObject({
       start: "2026-07-01",
       end: "2026-07-03",

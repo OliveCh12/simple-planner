@@ -18,9 +18,9 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { DEFAULT_SWATCH } from "@/lib/colors";
-import { KINDS } from "@/lib/constants";
 import { createCategory } from "@/lib/domain/categories";
-import { DomainError, moveItem, setKind, setParent, updateItem } from "@/lib/domain/items";
+import { useSaveItem } from "@/hooks/useSaveItem";
+import { DomainError, moveItem, setParent, updateItem } from "@/lib/domain/items";
 import { recurrencePresetId, RECURRENCE_PRESETS } from "@/lib/recurrence-presets";
 import { isAllDay } from "@/lib/time/local";
 import { formatDateDisplay } from "@/lib/date-utils";
@@ -48,7 +48,7 @@ interface ItemPropertiesProps {
 }
 
 export function ItemProperties({ item, items, people, categories }: ItemPropertiesProps) {
-  const putItem = usePlannerStore((s) => s.putItem);
+  const save = useSaveItem();
   const putCategory = usePlannerStore((s) => s.putCategory);
   const dateFormat = useUIStore((s) => s.settings.dateFormat);
   const [customRule, setCustomRule] = useState(item.recurrence ?? "");
@@ -56,14 +56,6 @@ export function ItemProperties({ item, items, people, categories }: ItemProperti
   const startParts = splitLocal(item.start);
   const endParts = item.end ? splitLocal(item.end) : { date: "", time: "" };
   const timed = !isAllDay(item.start);
-
-  const save = async (next: PlanItem) => {
-    try {
-      await putItem(next);
-    } catch (error) {
-      toast.error(error instanceof DomainError ? error.message : "Failed to save item.");
-    }
-  };
 
   const parentOptions = items
     .filter((candidate) => candidate.id !== item.id && candidate.kind !== "event")
@@ -246,32 +238,6 @@ export function ItemProperties({ item, items, people, categories }: ItemProperti
       </TabsContent>
 
       <TabsContent value="who" className="space-y-5">
-        <Field>
-          <FieldLabel className="text-muted-foreground">Kind</FieldLabel>
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            size="sm"
-            value={item.kind}
-            onValueChange={(value) => {
-              if (value === "task" || value === "event" || value === "objective") {
-                try {
-                  void save(setKind(item, value, items));
-                } catch (error) {
-                  toast.error(error instanceof DomainError ? error.message : "Failed to save item.");
-                }
-              }
-            }}
-          >
-            {KINDS.map((kind) => (
-              <ToggleGroupItem key={kind.value} value={kind.value} aria-label={kind.label}>
-                <kind.icon />
-                {kind.label}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </Field>
-
         <Field>
           <FieldLabel className="text-muted-foreground">Does this</FieldLabel>
           <ToggleGroup

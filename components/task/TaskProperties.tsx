@@ -25,11 +25,11 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ENERGY_LEVELS, STATUSES, getEnergyOption, getStatusOption } from "@/lib/constants";
+import { ENERGY_LEVELS, KINDS, STATUSES, getEnergyOption, getKindOption, getStatusOption } from "@/lib/constants";
 import { taskDatesLabel } from "@/lib/time/labels";
 import { isAllDay, isValidLocal } from "@/lib/time/local";
 import { cn } from "@/lib/utils";
-import type { EnergyLevel, TaskStatus } from "@/types";
+import type { EnergyLevel, ItemKind, TaskStatus } from "@/types";
 
 function PropertyChip({ className, ...props }: React.ComponentProps<typeof Button>) {
   return (
@@ -71,6 +71,37 @@ export function StatusChip({ value, onChange }: StatusChipProps) {
             <DropdownMenuRadioItem key={status.value} value={status.value}>
               <status.icon className={status.className} />
               {status.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+interface KindChipProps {
+  value: ItemKind;
+  onChange: (kind: ItemKind) => void;
+}
+
+export function KindChip({ value, onChange }: KindChipProps) {
+  const option = getKindOption(value);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <PropertyChip aria-label={`Kind: ${option.label}`}>
+          <option.icon />
+          {option.label}
+        </PropertyChip>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuLabel>Kind</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={value} onValueChange={(next) => onChange(next as ItemKind)}>
+          {KINDS.map((kind) => (
+            <DropdownMenuRadioItem key={kind.value} value={kind.value}>
+              <kind.icon />
+              {kind.label}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>

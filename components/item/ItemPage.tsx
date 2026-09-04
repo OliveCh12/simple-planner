@@ -5,8 +5,8 @@ import Link from "next/link";
 import { ArrowLeft, Bot, CalendarRange, StickyNote, Waypoints } from "lucide-react";
 import { CopyForAi } from "@/components/item/CopyForAi";
 import { ItemProperties } from "@/components/item/ItemProperties";
-import { ItemTree, KindBadge } from "@/components/item/ItemTree";
-import { StatusChip } from "@/components/task/TaskProperties";
+import { ItemTree } from "@/components/item/ItemTree";
+import { KindChip, StatusChip } from "@/components/task/TaskProperties";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -32,12 +32,13 @@ import {
   InputGroupTextarea,
 } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
+import { useSaveItem } from "@/hooks/useSaveItem";
 import { itemDocumentForAi } from "@/lib/copy-for-ai";
-import { completeItem, DomainError, reopenItem, updateItem } from "@/lib/domain/items";
+import { applyStatus, DomainError, setKind, updateItem } from "@/lib/domain/items";
 import { expandRecurrence } from "@/lib/time/recurrence";
 import { cn, containerClasses } from "@/lib/utils";
 import { usePlannerStore } from "@/store/plannerStore";
-import type { ItemStatus, Plan, PlanItem } from "@/types";
+import type { Plan, PlanItem } from "@/types";
 import { toast } from "sonner";
 
 interface ItemPageProps {
@@ -49,7 +50,7 @@ export function ItemPage({ plan, item }: ItemPageProps) {
   const items = usePlannerStore((s) => s.items);
   const people = usePlannerStore((s) => s.people);
   const categories = usePlannerStore((s) => s.categories);
-  const putItem = usePlannerStore((s) => s.putItem);
+  const save = useSaveItem();
   const [title, setTitle] = useState(item.title);
   const [notes, setNotes] = useState(item.notes);
   const [brief, setBrief] = useState(item.agentBrief ?? "");
@@ -62,14 +63,6 @@ export function ItemPage({ plan, item }: ItemPageProps) {
     end.setFullYear(end.getFullYear() + 1);
     return expandRecurrence(item, { start, end }).slice(0, 8);
   }, [item]);
-
-  const save = async (next: PlanItem) => {
-    try {
-      await putItem(next);
-    } catch (error) {
-      toast.error(error instanceof DomainError ? error.message : "Failed to save item.");
-    }
-  };
 
   const commitTitle = () => {
     const next = title.trim();
@@ -115,7 +108,16 @@ export function ItemPage({ plan, item }: ItemPageProps) {
           </Breadcrumb>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <KindBadge kind={item.kind} />
+            <KindChip
+              value={item.kind}
+              onChange={(kind) => {
+                try {
+                  void save(setKind(item, kind, items));
+                } catch (error) {
+                  toast.error(error instanceof DomainError ? error.message : "Failed to save item.");
+                }
+              }}
+            />
             <Input
               value={title}
               aria-label="Title"
@@ -132,17 +134,7 @@ export function ItemPage({ plan, item }: ItemPageProps) {
             <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
               <StatusChip
                 value={item.status}
-                onChange={(status: ItemStatus) => {
-                  if (status === "completed") {
-                    void save(completeItem(item));
-                    return;
-                  }
-                  if (item.status === "completed") {
-                    void save(updateItem(reopenItem(item), { status }));
-                    return;
-                  }
-                  void save(updateItem(item, { status }));
-                }}
+                onChange={(status) => void save(applyStatus(item, status))}
               />
               <ButtonGroup>
                 <Button variant="outline" size="sm" asChild>

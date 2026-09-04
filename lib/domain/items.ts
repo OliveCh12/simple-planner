@@ -105,6 +105,12 @@ export function completeItem(item: PlanItem, at = nowIso()): PlanItem {
   });
 }
 
+export function applyStatus(item: PlanItem, status: ItemStatus): PlanItem {
+  if (status === "completed") return completeItem(item);
+  if (item.status === "completed") return updateItem(reopenItem(item), { status });
+  return updateItem(item, { status });
+}
+
 export function setExecutor(item: PlanItem, executor: Executor): PlanItem {
   return parseItem({ ...item, executor, updatedAt: nowIso() });
 }
