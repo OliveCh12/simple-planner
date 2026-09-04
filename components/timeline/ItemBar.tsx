@@ -42,13 +42,21 @@ export const ItemBar = memo(function ItemBar({
   const stuck = Math.max(0, Math.min(Math.max(0, barWidth - 24), fromX - barX + 4));
   const kind = getKindOption(item.itemKind ?? planItem.kind);
   const color = item.categoryColor;
-  const draggable = item.primary !== false;
+  const occurrenceStart = item.occurrenceStart ?? planItem.start;
+  const occurrenceEnd = item.occurrenceEnd ?? planItem.end ?? occurrenceStart;
 
   return (
-    <TaskDetailsPanel item={planItem} open={open && !dragging} onOpenChange={setOpen}>
+    <TaskDetailsPanel
+      item={planItem}
+      occurrenceStart={planItem.recurrence ? occurrenceStart : undefined}
+      open={open && !dragging}
+      onOpenChange={setOpen}
+    >
       <button
         type="button"
-        data-task-bar={draggable ? planItem.id : undefined}
+        data-task-bar={planItem.id}
+        data-occurrence-start={occurrenceStart}
+        data-occurrence-end={occurrenceEnd}
         data-bar-x={item.x}
         data-bar-width={item.width}
         title={`${kind.label}: ${planItem.title}`}
@@ -57,7 +65,7 @@ export const ItemBar = memo(function ItemBar({
           "absolute cursor-pointer bg-transparent text-left text-sm leading-tight",
           labelFits ? "overflow-hidden" : "overflow-visible",
           completed && "opacity-60",
-          highlight && "z-10"
+          highlight && "z-10 ring-2 ring-ring ring-offset-1"
         )}
       >
         <span
@@ -81,16 +89,12 @@ export const ItemBar = memo(function ItemBar({
               : undefined,
           }}
         />
-        {draggable && (
-          <>
-            <span data-resize="start" className="absolute inset-y-0 left-0 z-[2] w-1.5 cursor-ew-resize" />
-            <span
-              data-resize="end"
-              className="absolute inset-y-0 z-[2] w-1.5 cursor-ew-resize"
-              style={{ left: Math.max(0, barWidth - 6) }}
-            />
-          </>
-        )}
+        <span data-resize="start" className="absolute inset-y-0 left-0 z-[2] w-1.5 cursor-ew-resize" />
+        <span
+          data-resize="end"
+          className="absolute inset-y-0 z-[2] w-1.5 cursor-ew-resize"
+          style={{ left: Math.max(0, barWidth - 6) }}
+        />
         <span
           className={cn(
             "relative z-[1] flex h-full items-center gap-1 truncate px-1.5",

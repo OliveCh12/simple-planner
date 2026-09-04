@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { ExternalLink, Trash2 } from "lucide-react";
 import { DateRangeField } from "@/components/item/DateRangeField";
@@ -11,22 +12,30 @@ import { KindChip, StatusChip } from "@/components/task/TaskProperties";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { OccurrenceEditDialog } from "@/components/item/OccurrenceEditDialog";
 import { useDeleteItem } from "@/hooks/useItemActions";
 import { useItemMutations } from "@/hooks/useItemMutations";
+import { useSaveItem } from "@/hooks/useSaveItem";
+import { excludeOccurrence, splitOccurrence } from "@/lib/domain/items";
 import { usePlannerStore } from "@/store/plannerStore";
 import type { PlanItem } from "@/types";
 
 interface ItemEditorProps {
   item: PlanItem;
+  occurrenceStart?: string;
   onClose?: () => void;
 }
 
-export function ItemEditor({ item, onClose }: ItemEditorProps) {
+export function ItemEditor({ item, occurrenceStart, onClose }: ItemEditorProps) {
   const items = usePlannerStore((s) => s.items);
   const people = usePlannerStore((s) => s.people);
   const categories = usePlannerStore((s) => s.categories);
+  const putItem = usePlannerStore((s) => s.putItem);
   const { saveTitle, saveNotes, saveBrief, setStatus, changeKind, setDates } = useItemMutations(item);
   const deleteItem = useDeleteItem();
+  const save = useSaveItem();
+  const recurring = Boolean(item.recurrence);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -61,6 +70,10 @@ export function ItemEditor({ item, onClose }: ItemEditorProps) {
                 aria-label="Delete item"
                 className="text-muted-foreground hover:text-destructive"
                 onClick={() => {
+                  if (recurring) {
+                    setDeleteOpen(true);
+                    return;
+                  }
                   onClose();
                   void deleteItem(item);
                 }}
@@ -74,6 +87,25 @@ export function ItemEditor({ item, onClose }: ItemEditorProps) {
       </div>
 
       <div className="flex-1 space-y-6 overflow-y-auto px-4 py-4">
+        {recurring && (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm">
+            <p className="text-muted-foreground">This item repeats.</p>
+            {occurrenceStart && (
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                onClick={() => {
+                  const { series, detached } = splitOccurrence(item, occurrenceStart);
+                  void putItem(series).then(() => putItem(detached));
+                  onClose?.();
+                }}
+              >
+                Edit this occurrence
+              </Button>
+            )}
+          </div>
+        )}
         <FieldGroup className="gap-0">
           <PropertyRow label="Date">
             <DateRangeField start={item.start} end={item.end} onChange={setDates} />
@@ -108,6 +140,22 @@ export function ItemEditor({ item, onClose }: ItemEditorProps) {
           includeDate={false}
         />
       </div>
+      <OccurrenceEditDialog
+        open={deleteOpen}
+        title="Delete recurring item"
+        description="Remove only this occurrence, or delete the whole series."
+        onThis={() => {
+          void save(excludeOccurrence(item, occurrenceStart ?? item.start));
+          setDeleteOpen(false);
+          onClose?.();
+        }}
+        onSeries={() => {
+          setDeleteOpen(false);
+          onClose?.();
+          void deleteItem(item);
+        }}
+        onOpenChange={setDeleteOpen}
+      />
     </div>
   );
 }

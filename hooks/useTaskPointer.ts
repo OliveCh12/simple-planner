@@ -32,7 +32,12 @@ interface UseTaskPointerOptions {
   weekStartsOn: 0 | 1;
   enabled: boolean;
   tasksById: Map<string, Task>;
-  onCommit: (taskId: string, start: string, end: string) => void;
+  onCommit: (
+    taskId: string,
+    start: string,
+    end: string,
+    meta?: { occurrenceStart: string; mode: "move" | "resize" }
+  ) => void;
   onDelete: (task: Task) => void;
   onCreate: (start: string, end: string) => void;
 }
@@ -62,6 +67,7 @@ export function useTaskPointer({
     let suppressClick = false;
     let mode: "move" | "resize-start" | "resize-end" | "create" | null = null;
     let task: Task | null = null;
+    let occurrenceStart: string | null = null;
     let allDay = false;
     let barX = 0;
     let barWidth = 0;
@@ -90,8 +96,11 @@ export function useTaskPointer({
         const id = bar.getAttribute("data-task-bar");
         const found = id ? tasksById.get(id) : undefined;
         if (!found) return;
-        task = found;
-        allDay = isAllDay(found.start);
+        const occStart = bar.getAttribute("data-occurrence-start") || found.start;
+        const occEnd = bar.getAttribute("data-occurrence-end") || found.end;
+        task = { ...found, start: occStart, end: occEnd };
+        occurrenceStart = occStart;
+        allDay = isAllDay(occStart);
         mode = handle.getAttribute("data-resize") === "start" ? "resize-start" : "resize-end";
         barX = Number(bar.getAttribute("data-bar-x")) || originCanvasX;
         barWidth = Number(bar.getAttribute("data-bar-width")) || 8;
@@ -102,8 +111,11 @@ export function useTaskPointer({
         const id = bar.getAttribute("data-task-bar");
         const found = id ? tasksById.get(id) : undefined;
         if (!found) return;
-        task = found;
-        allDay = isAllDay(found.start);
+        const occStart = bar.getAttribute("data-occurrence-start") || found.start;
+        const occEnd = bar.getAttribute("data-occurrence-end") || found.end;
+        task = { ...found, start: occStart, end: occEnd };
+        occurrenceStart = occStart;
+        allDay = isAllDay(occStart);
         mode = "move";
         barX = Number(bar.getAttribute("data-bar-x")) || originCanvasX;
         barWidth = Number(bar.getAttribute("data-bar-width")) || 8;
@@ -165,12 +177,14 @@ export function useTaskPointer({
       pointerId = null;
       const currentMode = mode;
       const currentTask = task;
+      const currentOccurrence = occurrenceStart;
       const currentAllDay = allDay;
       const origin = originCanvasX;
       const didMove = moved;
       if (didMove) suppressClick = true;
       mode = null;
       task = null;
+      occurrenceStart = null;
       moved = false;
       setDragging(false);
       setPreview(null);
@@ -187,10 +201,14 @@ export function useTaskPointer({
       const delta = Math.round((x - origin) / step);
       const options = { weekStartsOn };
 
+      const meta = currentOccurrence
+        ? { occurrenceStart: currentOccurrence, mode: currentMode === "move" ? ("move" as const) : ("resize" as const) }
+        : undefined;
+
       if (currentMode === "move" && currentTask) {
         const next = shiftBySnap(currentTask, scale, delta);
         if (next.start !== currentTask.start || next.end !== currentTask.end) {
-          onCommit(currentTask.id, next.start, next.end);
+          onCommit(currentTask.id, next.start, next.end, meta);
         }
         return;
       }
@@ -208,7 +226,7 @@ export function useTaskPointer({
           instant
         );
         if (next.start !== currentTask.start || next.end !== currentTask.end) {
-          onCommit(currentTask.id, next.start, next.end);
+          onCommit(currentTask.id, next.start, next.end, meta);
         }
         return;
       }

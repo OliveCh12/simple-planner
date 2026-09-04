@@ -13,12 +13,19 @@ import type { PlanItem } from "@/types";
 
 interface TaskDetailsPanelProps {
   item: PlanItem;
+  occurrenceStart?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children?: React.ReactNode;
 }
 
-export function TaskDetailsPanel({ item, open, onOpenChange, children }: TaskDetailsPanelProps) {
+export function TaskDetailsPanel({
+  item,
+  occurrenceStart,
+  open,
+  onOpenChange,
+  children,
+}: TaskDetailsPanelProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       {children ? <SheetTrigger asChild>{children}</SheetTrigger> : null}
@@ -27,7 +34,11 @@ export function TaskDetailsPanel({ item, open, onOpenChange, children }: TaskDet
           <SheetTitle>{item.title}</SheetTitle>
           <SheetDescription>Edit this item without leaving the plan.</SheetDescription>
         </SheetHeader>
-        <ItemEditor item={item} onClose={() => onOpenChange(false)} />
+        <ItemEditor
+          item={item}
+          occurrenceStart={occurrenceStart}
+          onClose={() => onOpenChange(false)}
+        />
       </SheetContent>
     </Sheet>
   );

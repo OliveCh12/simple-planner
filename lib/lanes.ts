@@ -29,6 +29,8 @@ export interface LaneTask {
   categoryColor?: string;
   recurring?: boolean;
   primary?: boolean;
+  occurrenceStart?: string;
+  occurrenceEnd?: string;
 }
 
 export interface LaneItem {
@@ -47,6 +49,8 @@ export interface LaneItem {
   categoryColor?: string;
   recurring?: boolean;
   primary?: boolean;
+  occurrenceStart?: string;
+  occurrenceEnd?: string;
 }
 
 export interface LaneGroup {
@@ -169,6 +173,8 @@ function toItem(placed: Placed): LaneItem {
     categoryColor: placed.task.categoryColor,
     recurring: placed.task.recurring,
     primary: placed.task.primary ?? true,
+    occurrenceStart: placed.task.occurrenceStart,
+    occurrenceEnd: placed.task.occurrenceEnd,
   };
 }
 
@@ -231,6 +237,8 @@ export function laneTasksFromItems(
         status: item.status,
         recurring: Boolean(item.recurrence),
         primary: !item.recurrence || occurrence.start === item.start,
+        occurrenceStart: occurrence.start,
+        occurrenceEnd: occurrence.end ?? occurrence.start,
       };
       if (item.categoryId) {
         const color = colorById.get(item.categoryId);

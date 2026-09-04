@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Bot, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { CalendarBoard } from "@/components/calendar/CalendarBoard";
 import { CalendarCreateButton } from "@/components/calendar/CalendarCreateButton";
+import { OccurrenceEditDialog } from "@/components/item/OccurrenceEditDialog";
 import { QuickAdd } from "@/components/item/QuickAdd";
 import { TaskDetailsPanel } from "@/components/item/TaskDetailsPanel";
 import { LaneGroup } from "@/components/timeline/LaneGroup";
@@ -27,11 +28,11 @@ import { useVisibleRange } from "@/hooks/useVisibleRange";
 import { periodLabel } from "@/lib/calendar";
 import { formatDateDisplay } from "@/lib/date-utils";
 import { itemToTask } from "@/lib/domain/convert";
-import { createItem } from "@/lib/domain/items";
+import { createItem, moveItem, shiftSeries, splitOccurrence } from "@/lib/domain/items";
 import { groupByObjective, laneTasksFromItems, layoutLanes, type LaneItem } from "@/lib/lanes";
-import { createTask, defaultTaskRange } from "@/lib/plan";
+import { defaultTaskRange } from "@/lib/plan";
 import type { QuickAddResult } from "@/lib/quickadd";
-import { addUnits, formatLocalDate, formatLocalDateTime, isAllDay, parseLocal } from "@/lib/time/local";
+import { addUnits, formatLocal, formatLocalDate, formatLocalDateTime, isAllDay, parseLocal } from "@/lib/time/local";
 import { instantAt, layoutFor, xOf } from "@/lib/time/layout";
 import {
   CALENDAR_SCALES,
@@ -47,7 +48,15 @@ import { cn, containerClasses } from "@/lib/utils";
 import { useSaveItem } from "@/hooks/useSaveItem";
 import { usePlannerStore } from "@/store/plannerStore";
 import { useUIStore, type TimelineView } from "@/store/uiStore";
-import type { HydratedPlan, PlanItem, TimeScale } from "@/types";
+import type { Executor, HydratedPlan, ItemKind, PlanItem, TimeScale } from "@/types";
+
+interface PendingOccurrenceEdit {
+  item: PlanItem;
+  occurrenceStart: string;
+  start: string;
+  end: string;
+  mode: "move" | "resize";
+}
 
 function FocusedItemSheet({ item }: { item: PlanItem }) {
   const [open, setOpen] = useState(true);
@@ -97,7 +106,6 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
   const setTimelineView = useUIStore((s) => s.setTimelineView);
   const gantt = view === "gantt";
   const updatePlan = usePlannerStore((s) => s.updatePlan);
-  const addTask = usePlannerStore((s) => s.addTask);
   const updateTask = usePlannerStore((s) => s.updateTask);
   const items = usePlannerStore((s) => s.items);
   const categories = usePlannerStore((s) => s.categories);
@@ -124,6 +132,10 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
   const [showCompleted, setShowCompleted] = useState(false);
   const [aiQueue, setAiQueue] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [createKind, setCreateKind] = useState<ItemKind>("task");
+  const [createExecutor, setCreateExecutor] = useState<Executor>("human");
+  const [pendingEdit, setPendingEdit] = useState<PendingOccurrenceEdit | null>(null);
+  const putItem = usePlannerStore((s) => s.putItem);
 
   const queueItems = useMemo(
     () =>
@@ -151,16 +163,42 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
   const [boardEl, setBoardEl] = useState<HTMLDivElement | null>(null);
 
   const onCommitDates = useCallback(
-    (taskId: string, start: string, end: string) => {
+    (
+      taskId: string,
+      start: string,
+      end: string,
+      meta?: { occurrenceStart: string; mode: "move" | "resize" }
+    ) => {
+      const item = items.find((entry) => entry.id === taskId);
+      if (!item) return;
+      if (item.recurrence && meta?.occurrenceStart) {
+        setPendingEdit({
+          item,
+          occurrenceStart: meta.occurrenceStart,
+          start,
+          end,
+          mode: meta.mode,
+        });
+        return;
+      }
       void updateTask(taskId, { start, end });
     },
-    [updateTask]
+    [items, updateTask]
   );
   const onCreateRange = useCallback(
     (start: string, end: string) => {
-      void addTask(createTask({ title: "New task", start, end }));
+      void saveItem(
+        createItem({
+          planId: plan.id,
+          title: "New item",
+          start,
+          end,
+          kind: createKind,
+          executor: aiQueue ? "ai" : createExecutor,
+        })
+      );
     },
-    [addTask]
+    [aiQueue, createExecutor, createKind, plan.id, saveItem]
   );
 
   const { preview, dragging, overRemove } = useTaskPointer({
@@ -259,11 +297,15 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     initialised.current = true;
     if (anchorRef.current) return;
     const frame = window.requestAnimationFrame(() => {
+      if (focusItem) {
+        scrollToX(xOf(layout, parseLocal(focusItem.start)), "auto");
+        return;
+      }
       if (todayIndex >= 0) scrollToX(nowX, "auto");
       else scrollToUnit(homeIndex, "auto");
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [boardEl, homeIndex, nowX, scrollToUnit, scrollToX, todayIndex]);
+  }, [boardEl, focusItem, homeIndex, layout, nowX, scrollToUnit, scrollToX, todayIndex]);
 
   useLayoutEffect(() => {
     const anchor = anchorRef.current;
@@ -379,6 +421,8 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
 
   const applyQuickAdd = useCallback(
     (draft: QuickAddResult) => {
+      setCreateKind(draft.kind);
+      setCreateExecutor(draft.executor);
       void saveItem(
         createItem({
           planId: plan.id,
@@ -674,6 +718,36 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
         </div>
         )}
         <RemoveDropZone active={dragging} hot={overRemove} />
+        <OccurrenceEditDialog
+          open={Boolean(pendingEdit)}
+          description="Move or resize this occurrence only, or shift the whole series."
+          onThis={() => {
+            if (!pendingEdit) return;
+            const { series, detached } = splitOccurrence(pendingEdit.item, pendingEdit.occurrenceStart);
+            const moved = moveItem(detached, pendingEdit.start, pendingEdit.end);
+            void putItem(series).then(() => putItem(moved));
+            setPendingEdit(null);
+          }}
+          onSeries={() => {
+            if (!pendingEdit) return;
+            const { item, occurrenceStart, start, end, mode } = pendingEdit;
+            if (mode === "move" && occurrenceStart !== item.start) {
+              void saveItem(shiftSeries(item, occurrenceStart, start));
+            } else if (mode === "resize" && occurrenceStart !== item.start) {
+              const duration = parseLocal(end).getTime() - parseLocal(start).getTime();
+              const nextEnd = item.end
+                ? formatLocal(new Date(parseLocal(item.start).getTime() + duration), isAllDay(item.end))
+                : undefined;
+              void saveItem(moveItem(item, item.start, nextEnd));
+            } else {
+              void updateTask(item.id, { start, end });
+            }
+            setPendingEdit(null);
+          }}
+          onOpenChange={(open) => {
+            if (!open) setPendingEdit(null);
+          }}
+        />
       </div>
     </div>
   );

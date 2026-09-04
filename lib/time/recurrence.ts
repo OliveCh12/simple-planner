@@ -115,7 +115,7 @@ export function parseRRule(body: string): RecurrenceRule {
   return rule;
 }
 
-function occurrenceEnd(start: LocalDateTime, template: { start: LocalDateTime; end?: LocalDateTime }): LocalDateTime | undefined {
+export function occurrenceEnd(start: LocalDateTime, template: { start: LocalDateTime; end?: LocalDateTime }): LocalDateTime | undefined {
   if (template.end === undefined) return undefined;
   const delta = parseLocal(template.end).getTime() - parseLocal(template.start).getTime();
   return formatLocal(new Date(parseLocal(start).getTime() + delta), isAllDay(template.end));

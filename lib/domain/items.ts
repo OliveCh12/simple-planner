@@ -1,5 +1,7 @@
 import { planItemSchema } from "@/lib/validation";
 import { createId } from "@/lib/id";
+import { formatLocal, isAllDay, parseLocal } from "@/lib/time/local";
+import { occurrenceEnd } from "@/lib/time/recurrence";
 import type { Executor, ItemKind, ItemStatus, LocalDateTime, PlanItem } from "@/types";
 
 export class DomainError extends Error {
@@ -169,4 +171,51 @@ export function setKind(item: PlanItem, kind: ItemKind, items: PlanItem[]): Plan
     throw new DomainError("Events cannot have children");
   }
   return updateItem(item, { kind });
+}
+
+export function excludeOccurrence(item: PlanItem, occurrenceStart: LocalDateTime): PlanItem {
+  if (!item.recurrence) throw new DomainError("Item is not recurring");
+  const exceptions = new Set(item.recurrenceExceptions ?? []);
+  exceptions.add(occurrenceStart);
+  return updateItem(item, { recurrenceExceptions: [...exceptions].sort() });
+}
+
+/** EXDATE the occurrence and return a standalone copy at that start. */
+export function splitOccurrence(
+  item: PlanItem,
+  occurrenceStart: LocalDateTime
+): { series: PlanItem; detached: PlanItem } {
+  const series = excludeOccurrence(item, occurrenceStart);
+  const end = occurrenceEnd(occurrenceStart, item);
+  const detached = createItem({
+    planId: item.planId,
+    title: item.title,
+    notes: item.notes,
+    start: occurrenceStart,
+    end,
+    kind: item.kind,
+    parentId: item.parentId,
+    status: item.status,
+    energy: item.energy,
+    executor: item.executor,
+    agentBrief: item.agentBrief,
+    assigneeIds: item.assigneeIds,
+    attendeeIds: item.attendeeIds,
+    categoryId: item.categoryId,
+    location: item.location,
+  });
+  return { series, detached };
+}
+
+export function shiftByDelta(value: LocalDateTime, from: LocalDateTime, to: LocalDateTime): LocalDateTime {
+  const delta = parseLocal(to).getTime() - parseLocal(from).getTime();
+  return formatLocal(new Date(parseLocal(value).getTime() + delta), isAllDay(value));
+}
+
+export function shiftSeries(item: PlanItem, from: LocalDateTime, to: LocalDateTime): PlanItem {
+  return moveItem(
+    item,
+    shiftByDelta(item.start, from, to),
+    item.end ? shiftByDelta(item.end, from, to) : undefined
+  );
 }

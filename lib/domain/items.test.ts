@@ -5,11 +5,14 @@ import {
   completeItem,
   createItem,
   DomainError,
+  excludeOccurrence,
   moveItem,
   setExecutor,
   setKind,
   setParent,
+  splitOccurrence,
 } from "@/lib/domain/items";
+import { expandRecurrence } from "@/lib/time/recurrence";
 
 describe("createItem", () => {
   it("defaults a human task", () => {
@@ -116,5 +119,38 @@ describe("setParent / setKind", () => {
 
   it("rejects turning a parent into an event", () => {
     expect(() => setKind(task, "event", [task, child])).toThrow(/cannot have children/);
+  });
+});
+
+describe("splitOccurrence", () => {
+  const gym = createItem({
+    planId: "plan-1",
+    title: "Gym",
+    start: "2026-06-01T07:00",
+    end: "2026-06-01T08:00",
+    recurrence: "FREQ=DAILY;COUNT=5",
+  });
+
+  it("excludes the occurrence from the series and copies it as a standalone item", () => {
+    const { series, detached } = splitOccurrence(gym, "2026-06-03T07:00");
+    expect(series.recurrenceExceptions).toEqual(["2026-06-03T07:00"]);
+    expect(detached.recurrence).toBeUndefined();
+    expect(detached.start).toBe("2026-06-03T07:00");
+    expect(detached.end).toBe("2026-06-03T08:00");
+    expect(detached.title).toBe("Gym");
+    const starts = expandRecurrence(series, {
+      start: new Date(2026, 5, 1),
+      end: new Date(2026, 5, 10),
+    }).map((occurrence) => occurrence.start);
+    expect(starts).not.toContain("2026-06-03T07:00");
+    expect(starts).toContain("2026-06-01T07:00");
+  });
+
+  it("refuses to split a non-recurring item", () => {
+    expect(() => excludeOccurrence(createItem({
+      planId: "plan-1",
+      title: "Once",
+      start: "2026-06-01",
+    }), "2026-06-01")).toThrow(/not recurring/);
   });
 });

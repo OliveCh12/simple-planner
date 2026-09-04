@@ -26,7 +26,12 @@ export function CalendarEvent({ occurrence, time, className, highlight }: Calend
   const label = time ?? timedLabel(occurrence);
 
   return (
-    <TaskDetailsPanel item={item} open={detailsOpen} onOpenChange={setDetailsOpen}>
+    <TaskDetailsPanel
+      item={item}
+      occurrenceStart={item.recurrence ? occurrence.start : undefined}
+      open={detailsOpen}
+      onOpenChange={setDetailsOpen}
+    >
       <button
         type="button"
         title={`${kind.label}: ${occurrence.title}`}
