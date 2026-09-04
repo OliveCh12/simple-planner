@@ -6,6 +6,7 @@ import { AddTaskItem } from "@/components/task/AddTaskItem";
 import { SubHeader } from "@/components/layout/SubHeader";
 import { LaneLayer } from "@/components/timeline/LaneLayer";
 import { NowLine } from "@/components/timeline/NowLine";
+import { RemoveDropZone } from "@/components/timeline/RemoveDropZone";
 import { ScaleControl } from "@/components/timeline/ScaleControl";
 import { TimelineGrid } from "@/components/timeline/TimelineGrid";
 import { TimelineHeader } from "@/components/timeline/TimelineHeader";
@@ -13,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useDeleteTask } from "@/hooks/useTaskActions";
+import { useTaskPointer } from "@/hooks/useTaskPointer";
 import { useTimelinePan } from "@/hooks/useTimelinePan";
 import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { useVisibleRange } from "@/hooks/useVisibleRange";
@@ -74,6 +77,8 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
   const dateFormat = useUIStore((s) => s.settings.dateFormat);
   const updatePlan = usePlanStore((s) => s.updatePlan);
   const addTask = usePlanStore((s) => s.addTask);
+  const updateTask = usePlanStore((s) => s.updateTask);
+  const deleteTask = useDeleteTask();
 
   const [scale, setScaleState] = useState<TimeScale>(
     () => plan.scale ?? defaultScaleFor(plan.start, plan.end)
@@ -98,7 +103,32 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
   const tasksById = useMemo(() => new Map(plan.tasks.map((task) => [task.id, task])), [plan.tasks]);
 
   const [boardEl, setBoardEl] = useState<HTMLDivElement | null>(null);
-  const { panning, panReady } = useTimelinePan(boardEl, true);
+
+  const onCommitDates = useCallback(
+    (taskId: string, start: string, end: string) => {
+      void updateTask(taskId, { start, end });
+    },
+    [updateTask]
+  );
+  const onCreateRange = useCallback(
+    (start: string, end: string) => {
+      void addTask(createTask({ title: "New task", start, end }));
+    },
+    [addTask]
+  );
+
+  const { preview, dragging, overRemove } = useTaskPointer({
+    boardEl,
+    layout,
+    scale,
+    weekStartsOn,
+    enabled: true,
+    tasksById,
+    onCommit: onCommitDates,
+    onDelete: deleteTask,
+    onCreate: onCreateRange,
+  });
+  const { panning, panReady } = useTimelinePan(boardEl, !dragging);
   const { fromX, toX, visibleFrom } = useVisibleRange(boardEl, layout.totalWidth);
 
   const [now, setNow] = useState(() => new Date());
@@ -365,6 +395,13 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
                 />
               )}
               <NowLine x={nowX} totalWidth={layout.totalWidth} />
+              {preview?.kind === "create" && (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute top-2 z-30 h-7 rounded-md border border-dashed border-primary bg-primary/20"
+                  style={{ left: preview.x, width: preview.width }}
+                />
+              )}
               <LaneLayer
                 stack={lanes.allDay}
                 items={allDayItems}
@@ -372,6 +409,7 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
                 variant="allDay"
                 scale={scale}
                 fromX={visibleFrom}
+                preview={preview}
               />
               <div data-timed-scroll className="relative min-h-0 flex-1 overflow-y-auto">
                 <LaneLayer
@@ -381,11 +419,13 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
                   variant="timed"
                   scale={scale}
                   fromX={visibleFrom}
+                  preview={preview}
                 />
               </div>
             </div>
           </div>
         </div>
+        <RemoveDropZone active={dragging} hot={overRemove} />
       </div>
     </div>
   );

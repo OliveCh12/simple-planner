@@ -2,6 +2,7 @@
 
 import { ClusterBar } from "@/components/timeline/ClusterBar";
 import { TaskBar } from "@/components/timeline/TaskBar";
+import type { DragPreview } from "@/hooks/useTaskPointer";
 import {
   ALL_DAY_LANE_PX,
   TIMED_LANE_PX,
@@ -18,6 +19,7 @@ interface LaneLayerProps {
   variant: "allDay" | "timed";
   scale: TimeScale;
   fromX: number;
+  preview: DragPreview | null;
 }
 
 function laneHeight(variant: "allDay" | "timed", scale: TimeScale): number {
@@ -25,7 +27,7 @@ function laneHeight(variant: "allDay" | "timed", scale: TimeScale): number {
   return scale === "day" || scale === "hour" ? TIMED_LANE_PX.fine : TIMED_LANE_PX.coarse;
 }
 
-export function LaneLayer({ stack, items, tasksById, variant, scale, fromX }: LaneLayerProps) {
+export function LaneLayer({ stack, items, tasksById, variant, scale, fromX, preview }: LaneLayerProps) {
   const height = laneHeight(variant, scale);
   const lanes = Math.max(stack.laneCount, 1);
   const pad = 6;
@@ -68,6 +70,7 @@ export function LaneLayer({ stack, items, tasksById, variant, scale, fromX }: La
             height={height - 2}
             variant={variant}
             fromX={fromX}
+            preview={preview}
           />
         );
       })}
