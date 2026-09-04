@@ -19,7 +19,7 @@ import { packInRange } from "@/lib/calendar";
 import { createTask, defaultTaskRange } from "@/lib/plan";
 import { formatLocalDateTime, intervalOf, isAllDay } from "@/lib/time/local";
 import { cn } from "@/lib/utils";
-import { usePlanStore } from "@/store/planStore";
+import { usePlannerStore } from "@/store/plannerStore";
 import type { HydratedPlan, Task, TimeScale } from "@/types";
 
 const WEEKDAY_COUNT = 7;
@@ -45,7 +45,7 @@ function dayRange(date: Date): { start: Date; end: Date } {
 }
 
 export function CalendarBoard({ plan, scale, focus, weekStartsOn, onFocusMonth }: CalendarBoardProps) {
-  const addTask = usePlanStore((s) => s.addTask);
+  const addTask = usePlannerStore((s) => s.addTask);
   const tasksById = useMemo(() => new Map(plan.tasks.map((task) => [task.id, task])), [plan.tasks]);
   const placed = useMemo(
     () => plan.tasks.map((task) => ({ task, interval: intervalOf(task) })),

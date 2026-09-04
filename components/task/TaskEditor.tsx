@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useDeleteTask } from "@/hooks/useTaskActions";
-import { usePlanStore } from "@/store/planStore";
+import { useDeleteTask } from "@/hooks/useItemActions";
+import { usePlannerStore } from "@/store/plannerStore";
 import type { Task, TaskStatus } from "@/types";
 
 interface TaskEditorProps {
@@ -17,7 +17,7 @@ interface TaskEditorProps {
 }
 
 export function TaskEditor({ task, onClose }: TaskEditorProps) {
-  const updateTask = usePlanStore((s) => s.updateTask);
+  const updateTask = usePlannerStore((s) => s.updateTask);
   const deleteTask = useDeleteTask();
   const [title, setTitle] = useState(task.title);
   const [notes, setNotes] = useState(task.notes);

@@ -18,14 +18,10 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  clearAllData,
-  downloadBackup,
-  getAllPlans,
-  getDefaultSettings,
-  importData,
-} from "@/lib/db";
-import { usePlanStore } from "@/store/planStore";
+import { downloadBackup, importJson } from "@/lib/repository/backup";
+import { getRepository } from "@/lib/repository/create";
+import { getDefaultSettings } from "@/lib/settings";
+import { usePlannerStore } from "@/store/plannerStore";
 import { useUIStore } from "@/store/uiStore";
 
 interface StorageStats {
@@ -50,12 +46,13 @@ export default function DataSettingsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    getAllPlans()
-      .then((plans) => {
+    const repository = getRepository();
+    Promise.all([repository.plans.list(), repository.items.query({})])
+      .then(([plans, items]) => {
         if (cancelled) return;
         setStats({
           plans: plans.length,
-          tasks: plans.reduce((sum, plan) => sum + plan.tasks.length, 0),
+          tasks: items.filter((item) => item.kind === "task").length,
         });
       })
       .catch((error) => console.error("Failed to read storage stats:", error));
@@ -68,9 +65,9 @@ export default function DataSettingsPage() {
     setIsImporting(true);
     try {
       const json = await file.text();
-      const importedSettings = await importData(json);
+      const importedSettings = await importJson(json);
       replaceSettings(importedSettings);
-      usePlanStore.getState().reset();
+      usePlannerStore.getState().reset();
       toast.success("Backup imported");
       router.push("/");
     } catch (error) {
@@ -87,9 +84,9 @@ export default function DataSettingsPage() {
   const handleClearAllData = async () => {
     setIsClearing(true);
     try {
-      await clearAllData();
+      await getRepository().clear();
       replaceSettings(getDefaultSettings());
-      usePlanStore.getState().reset();
+      usePlannerStore.getState().reset();
       setShowClearDialog(false);
       toast.success("All data cleared");
       router.push("/");

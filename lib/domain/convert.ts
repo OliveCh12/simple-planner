@@ -1,4 +1,4 @@
-import type { PlanItem, Task } from "@/types";
+import type { HydratedPlan, Plan, PlanItem, Task } from "@/types";
 
 /** Flatten a plan item into the task shape the current timeline still renders. */
 export function itemToTask(item: PlanItem): Task {
@@ -44,4 +44,11 @@ export function taskToItem(task: Task, planId: string, existing?: PlanItem): Pla
   if (task.completedAt) item.completedAt = task.completedAt;
   else if (existing?.completedAt && task.status === "completed") item.completedAt = existing.completedAt;
   return item;
+}
+
+export function hydratePlan(plan: Plan, items: PlanItem[]): HydratedPlan {
+  return {
+    ...plan,
+    tasks: items.filter((item) => item.kind === "task").map(itemToTask),
+  };
 }

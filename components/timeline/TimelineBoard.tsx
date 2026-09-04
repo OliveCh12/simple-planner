@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useDeleteTask } from "@/hooks/useTaskActions";
+import { useDeleteTask } from "@/hooks/useItemActions";
 import { useTaskPointer } from "@/hooks/useTaskPointer";
 import { useTimelinePan } from "@/hooks/useTimelinePan";
 import { useTimelineZoom } from "@/hooks/useTimelineZoom";
@@ -37,7 +37,7 @@ import {
   type TimeColumn,
 } from "@/lib/time/scale";
 import { cn } from "@/lib/utils";
-import { usePlanStore } from "@/store/planStore";
+import { usePlannerStore } from "@/store/plannerStore";
 import { useUIStore, type TimelineView } from "@/store/uiStore";
 import type { HydratedPlan, TimeScale } from "@/types";
 
@@ -82,9 +82,9 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
   const view = useUIStore((s) => s.timelineView);
   const setTimelineView = useUIStore((s) => s.setTimelineView);
   const gantt = view === "gantt";
-  const updatePlan = usePlanStore((s) => s.updatePlan);
-  const addTask = usePlanStore((s) => s.addTask);
-  const updateTask = usePlanStore((s) => s.updateTask);
+  const updatePlan = usePlannerStore((s) => s.updatePlan);
+  const addTask = usePlannerStore((s) => s.addTask);
+  const updateTask = usePlannerStore((s) => s.updateTask);
   const deleteTask = useDeleteTask();
 
   const [scale, setScaleState] = useState<TimeScale>(

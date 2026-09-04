@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { getDefaultSettings } from "@/lib/db";
+import { getDefaultSettings } from "@/lib/settings";
 import type { AppSettings } from "@/types";
 
 export type TimelineView = "gantt" | "calendar";

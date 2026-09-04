@@ -1,82 +1,83 @@
 import Dexie from "dexie";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  DB_NAME,
-  PlannerDB,
-  clearAllData,
-  db,
-  exportData,
-  getDefaultSettings,
-  getPlan,
-  importData,
-  savePlan,
-} from "@/lib/db";
+import { taskToItem } from "@/lib/domain/convert";
+import { createPlanRecord } from "@/lib/domain/plans";
 import { createTask } from "@/lib/plan";
-import type { HydratedPlan } from "@/types";
+import { exportJson, importJson } from "@/lib/repository/backup";
+import { getRepository } from "@/lib/repository/create";
+import { loadHydratedPlan } from "@/lib/repository/hydrate";
+import { DB_NAME, PlannerDB } from "@/lib/repository/indexeddb";
+import { getDefaultSettings } from "@/lib/settings";
+import type { HydratedPlan, Plan } from "@/types";
 
 const now = "2026-01-15T12:00:00.000Z";
 
-function samplePlan(): HydratedPlan {
-  return {
+function samplePlan(): Plan {
+  return createPlanRecord({
     id: "plan-1",
     title: "Career",
     start: "2026-01-01",
     end: "2026-12-31",
-    tasks: [],
-    createdAt: now,
-    updatedAt: now,
-    lastAccessedAt: now,
-  };
+  });
+}
+
+function sampleHydrated(): HydratedPlan {
+  return { ...samplePlan(), tasks: [] };
+}
+
+async function saveHydrated(plan: HydratedPlan) {
+  const { tasks, ...record } = plan;
+  const repository = getRepository();
+  await repository.plans.put({ ...record, updatedAt: new Date().toISOString() });
+  if (tasks.length) {
+    await repository.items.putMany(tasks.map((task) => taskToItem(task, record.id)));
+  }
 }
 
 afterEach(async () => {
-  await db.plans.clear();
-  await db.items.clear();
-  await db.people.clear();
-  await db.categories.clear();
-  await db.appSettings.clear();
+  await getRepository().clear();
 });
 
-describe("savePlan / getPlan", () => {
+describe("repository persistence", () => {
   it("persists a copy and does not mutate the input object", async () => {
     const plan = samplePlan();
     const originalUpdatedAt = plan.updatedAt;
+    const stored = { ...plan, updatedAt: new Date().toISOString() };
 
-    await savePlan(plan);
+    await getRepository().plans.put(stored);
 
     expect(plan.updatedAt).toBe(originalUpdatedAt);
-
-    const loaded = await getPlan(plan.id);
+    const loaded = await loadHydratedPlan(plan.id, getRepository());
     expect(loaded?.title).toBe("Career");
     expect(loaded?.updatedAt).not.toBe(originalUpdatedAt);
   });
 });
 
-describe("importData", () => {
+describe("importJson", () => {
   it("rejects invalid JSON and does not wipe existing data", async () => {
-    await savePlan(samplePlan());
+    await saveHydrated(sampleHydrated());
 
-    await expect(importData("{not-json")).rejects.toThrow(/not valid JSON/);
-    await expect(getPlan("plan-1")).resolves.toMatchObject({ title: "Career" });
+    await expect(importJson("{not-json")).rejects.toThrow(/not valid JSON/);
+    await expect(loadHydratedPlan("plan-1", getRepository())).resolves.toMatchObject({ title: "Career" });
   });
 
   it("rejects an unexpected payload shape", async () => {
-    await expect(importData(JSON.stringify({ version: 99, plans: [] }))).rejects.toThrow(
+    await expect(importJson(JSON.stringify({ version: 99, plans: [] }))).rejects.toThrow(
       /unexpected data shape|Invalid backup/
     );
   });
 
   it("replaces plans from a valid v2 backup", async () => {
-    await savePlan(samplePlan());
+    await saveHydrated(sampleHydrated());
 
     const incoming: HydratedPlan = {
-      ...samplePlan(),
+      ...sampleHydrated(),
       id: "plan-2",
       title: "Health",
       tasks: [createTask({ title: "Run", start: "2026-03-01", end: "2026-03-05" })],
     };
 
-    const settings = await importData(
+    const settings = await importJson(
       JSON.stringify({
         version: 2,
         plans: [incoming],
@@ -86,12 +87,12 @@ describe("importData", () => {
 
     expect(settings.theme).toBe("auto");
     expect(settings.font).toBe("ubuntu");
-    await expect(getPlan("plan-1")).resolves.toBeUndefined();
-    await expect(getPlan("plan-2")).resolves.toMatchObject({ title: "Health" });
+    await expect(loadHydratedPlan("plan-1", getRepository())).resolves.toBeUndefined();
+    await expect(loadHydratedPlan("plan-2", getRepository())).resolves.toMatchObject({ title: "Health" });
   });
 
   it("migrates a v1 backup into plans", async () => {
-    await importData(
+    await importJson(
       JSON.stringify({
         version: 1,
         roadmaps: [
@@ -136,7 +137,7 @@ describe("importData", () => {
       })
     );
 
-    const plan = await getPlan("roadmap-1");
+    const plan = await loadHydratedPlan("roadmap-1", getRepository());
     expect(plan).toMatchObject({ title: "Legacy", start: "2025-01-01", end: "2025-12-31" });
     expect(plan?.tasks).toEqual([
       expect.objectContaining({
@@ -153,12 +154,12 @@ describe("importData", () => {
 
   it("rejects tasks with malformed dates", async () => {
     await expect(
-      importData(
+      importJson(
         JSON.stringify({
           version: 2,
           plans: [
             {
-              ...samplePlan(),
+              ...sampleHydrated(),
               tasks: [createTask({ title: "Bad", start: "2026-13-01", end: "2026-13-02" })],
             },
           ],
@@ -169,9 +170,9 @@ describe("importData", () => {
   });
 });
 
-describe("importData font default", () => {
+describe("importJson font default", () => {
   it("defaults font when the backup omits it", async () => {
-    const settings = await importData(
+    const settings = await importJson(
       JSON.stringify({
         version: 2,
         plans: [],
@@ -191,13 +192,13 @@ describe("importData font default", () => {
   });
 });
 
-describe("exportData", () => {
+describe("exportJson", () => {
   it("serializes plans, items and the provided settings as version 3", async () => {
-    await savePlan({
-      ...samplePlan(),
+    await saveHydrated({
+      ...sampleHydrated(),
       tasks: [createTask({ title: "Run", start: "2026-03-01", end: "2026-03-05" })],
     });
-    const json = await exportData({ ...getDefaultSettings(), theme: "dark" });
+    const json = await exportJson({ ...getDefaultSettings(), theme: "dark" });
     const parsed = JSON.parse(json) as {
       version: number;
       settings: { theme: string };
@@ -215,11 +216,11 @@ describe("exportData", () => {
   });
 });
 
-describe("clearAllData", () => {
+describe("clear", () => {
   it("empties plans", async () => {
-    await savePlan(samplePlan());
-    await clearAllData();
-    await expect(getPlan("plan-1")).resolves.toBeUndefined();
+    await saveHydrated(sampleHydrated());
+    await getRepository().clear();
+    await expect(loadHydratedPlan("plan-1", getRepository())).resolves.toBeUndefined();
   });
 });
 

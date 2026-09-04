@@ -1,15 +1,61 @@
+import Dexie, { type EntityTable } from "dexie";
 import type { AppData, AppSettings, Category, Person, Plan, PlanItem } from "@/types";
-import { getDefaultSettings, type PlannerDB } from "@/lib/db";
-import { db as defaultDb } from "@/lib/db";
-import { itemMatches } from "@/lib/repository/memory";
+import { migratePlansToItems, migrateRoadmapToPlan, type LegacyRoadmap, type PlanV2 } from "@/lib/migrations";
+import { itemMatches } from "@/lib/repository/filter";
 import type { CrudCollection, ItemFilter, PlannerRepository, RepositoryChange } from "@/lib/repository/types";
+import { DB_NAME, getDefaultSettings } from "@/lib/settings";
+
+export { DB_NAME };
+
+export class PlannerDB extends Dexie {
+  plans!: EntityTable<Plan, "id">;
+  items!: EntityTable<PlanItem, "id">;
+  people!: EntityTable<Person, "id">;
+  categories!: EntityTable<Category, "id">;
+  appSettings!: EntityTable<AppSettings & { id: string }, "id">;
+
+  constructor(name = DB_NAME) {
+    super(name);
+
+    this.version(1).stores({
+      roadmaps: "id, category, createdAt, lastAccessedAt",
+      appSettings: "id",
+    });
+
+    this.version(2)
+      .stores({ plans: "id, createdAt, lastAccessedAt" })
+      .upgrade(async (tx) => {
+        const roadmaps = (await tx.table("roadmaps").toArray()) as LegacyRoadmap[];
+        await tx.table("plans").bulkAdd(roadmaps.map(migrateRoadmapToPlan));
+      });
+
+    this.version(3).stores({ roadmaps: null });
+
+    this.version(4)
+      .stores({
+        plans: "id, createdAt, lastAccessedAt",
+        items: "id, planId, parentId, start, kind, executor, status, categoryId",
+        people: "id",
+        categories: "id",
+      })
+      .upgrade(async (tx) => {
+        const plans = (await tx.table("plans").toArray()) as PlanV2[];
+        const migrated = migratePlansToItems(plans);
+        await tx.table("plans").clear();
+        if (migrated.plans.length) await tx.table("plans").bulkAdd(migrated.plans);
+        if (migrated.items.length) await tx.table("items").bulkAdd(migrated.items);
+      });
+  }
+}
+
+export const db = new PlannerDB();
 
 export class IndexedDbRepository implements PlannerRepository {
   private listeners = new Set<(change: RepositoryChange) => void>();
   people: CrudCollection<Person>;
   categories: CrudCollection<Category>;
 
-  constructor(private database: PlannerDB = defaultDb) {
+  constructor(private database: PlannerDB = db) {
     this.people = {
       list: () => this.database.people.toArray(),
       get: (id) => this.database.people.get(id),

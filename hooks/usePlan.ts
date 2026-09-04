@@ -1,55 +1,22 @@
-import { useEffect } from "react";
-import { usePlanStore } from "@/store/planStore";
-import { getPlan, touchPlan } from "@/lib/db";
+import { useEffect, useMemo } from "react";
+import { hydratePlan } from "@/lib/domain/convert";
+import { usePlannerStore } from "@/store/plannerStore";
 
 export function usePlan(planId: string | null) {
-  const plan = usePlanStore((s) => s.currentPlan);
-  const isLoading = usePlanStore((s) => s.isLoading);
-  const error = usePlanStore((s) => s.error);
-  const setCurrentPlan = usePlanStore((s) => s.setCurrentPlan);
-  const setIsLoading = usePlanStore((s) => s.setIsLoading);
-  const setError = usePlanStore((s) => s.setError);
-  const reset = usePlanStore((s) => s.reset);
+  const currentPlan = usePlannerStore((s) => s.currentPlan);
+  const items = usePlannerStore((s) => s.items);
+  const isLoading = usePlannerStore((s) => s.isLoading);
+  const error = usePlannerStore((s) => s.error);
+  const loadPlan = usePlannerStore((s) => s.loadPlan);
 
   useEffect(() => {
-    if (!planId) {
-      reset();
-      return;
-    }
+    void loadPlan(planId);
+  }, [planId, loadPlan]);
 
-    const id = planId;
-    let cancelled = false;
-
-    async function loadPlan() {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const loaded = await getPlan(id);
-        if (cancelled) return;
-
-        if (!loaded) {
-          setCurrentPlan(null);
-          setError("Plan not found");
-          return;
-        }
-
-        const lastAccessedAt = new Date().toISOString();
-        setCurrentPlan({ ...loaded, lastAccessedAt });
-        await touchPlan(id);
-      } catch (loadError) {
-        console.error("Failed to load plan:", loadError);
-        if (!cancelled) setError("Failed to load plan");
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    }
-
-    void loadPlan();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [planId, setCurrentPlan, setIsLoading, setError, reset]);
+  const plan = useMemo(
+    () => (currentPlan && currentPlan.id === planId ? hydratePlan(currentPlan, items) : null),
+    [currentPlan, items, planId]
+  );
 
   return {
     plan,

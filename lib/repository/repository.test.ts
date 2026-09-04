@@ -1,6 +1,7 @@
 import Dexie from "dexie";
 import { afterEach, describe, expect, it } from "vitest";
-import { getDefaultSettings, PlannerDB } from "@/lib/db";
+import { PlannerDB } from "@/lib/repository/indexeddb";
+import { getDefaultSettings } from "@/lib/settings";
 import { createItem } from "@/lib/domain/items";
 import { createPlanRecord } from "@/lib/domain/plans";
 import { IndexedDbRepository } from "@/lib/repository/indexeddb";

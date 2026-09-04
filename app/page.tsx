@@ -19,7 +19,8 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
-import { deletePlan, getAllPlans } from "@/lib/db";
+import { getRepository } from "@/lib/repository/create";
+import { listHydratedPlans } from "@/lib/repository/hydrate";
 import { cn, containerClasses } from "@/lib/utils";
 import type { HydratedPlan } from "@/types";
 
@@ -37,7 +38,7 @@ export default function Home() {
     async function loadPlans() {
       setIsLoading(true);
       try {
-        const allPlans = await getAllPlans();
+        const allPlans = await listHydratedPlans(getRepository());
         if (!cancelled) setPlans(allPlans);
       } catch (error) {
         console.error("Failed to load plans:", error);
@@ -57,7 +58,7 @@ export default function Home() {
     if (!pendingDelete) return;
     setIsDeleting(true);
     try {
-      await deletePlan(pendingDelete.id);
+      await getRepository().plans.delete(pendingDelete.id);
       setPlans((prev) => prev.filter((plan) => plan.id !== pendingDelete.id));
       setPendingDelete(null);
       toast.success("Plan deleted");

@@ -23,8 +23,9 @@ import {
 } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { samplePlan, sampleTasks } from "@/data/sampleData";
-import { savePlan } from "@/lib/db";
+import { taskToItem } from "@/lib/domain/convert";
 import { createPlan } from "@/lib/plan";
+import { getRepository } from "@/lib/repository/create";
 import { isValidLocal, parseLocal } from "@/lib/time/local";
 import type { HydratedPlan } from "@/types";
 
@@ -80,7 +81,12 @@ export function CreatePlanDialog({ open, onClose, onCreated }: CreatePlanDialogP
         tasks: isSample ? sampleTasks(start) : [],
       });
 
-      await savePlan(plan);
+      const { tasks, ...record } = plan;
+      const repository = getRepository();
+      await repository.plans.put(record);
+      if (tasks.length) {
+        await repository.items.putMany(tasks.map((task) => taskToItem(task, record.id)));
+      }
       onCreated?.(plan);
       reset();
       onClose();
