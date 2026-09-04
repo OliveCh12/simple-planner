@@ -30,6 +30,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { DEFAULT_SWATCH } from "@/lib/colors";
 import { createCategory, updateCategory } from "@/lib/domain/categories";
 import { DomainError } from "@/lib/domain/items";
+import { startDemoSeed } from "@/lib/seed";
 import { usePlannerStore } from "@/store/plannerStore";
 import type { Category } from "@/types";
 
@@ -51,7 +52,7 @@ export default function CategoriesSettingsPage() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    void loadDirectory();
+    void startDemoSeed().then(() => loadDirectory());
   }, [loadDirectory]);
 
   const sorted = useMemo(

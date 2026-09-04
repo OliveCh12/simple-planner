@@ -195,8 +195,16 @@ function offsetDate(base: Date, [month, day]: Offset): string {
   return formatLocalDate(setDate(target, Math.min(day, getDaysInMonth(target))));
 }
 
+export const DEFAULT_USER_ID = "person-olivier";
+
 export const samplePeople = [
-  createPerson({ id: "person-you", name: "You", kind: "human", color: "#2563eb" }),
+  createPerson({
+    id: DEFAULT_USER_ID,
+    name: "Olivier Chemla",
+    kind: "human",
+    email: "olivierchemla@gmail.com",
+    color: "#2563eb",
+  }),
   createPerson({
     id: "person-agent",
     name: "Planner agent",

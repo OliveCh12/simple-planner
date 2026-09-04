@@ -33,6 +33,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { DEFAULT_SWATCH } from "@/lib/colors";
 import { DomainError } from "@/lib/domain/items";
 import { createPerson, updatePerson } from "@/lib/domain/people";
+import { startDemoSeed } from "@/lib/seed";
 import { usePlannerStore } from "@/store/plannerStore";
 import type { Person } from "@/types";
 
@@ -73,7 +74,7 @@ export default function PeopleSettingsPage() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    void loadDirectory();
+    void startDemoSeed().then(() => loadDirectory());
   }, [loadDirectory]);
 
   const sorted = useMemo(

@@ -21,6 +21,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { getRepository } from "@/lib/repository/create";
 import { listHydratedPlans } from "@/lib/repository/hydrate";
+import { startDemoSeed } from "@/lib/seed";
 import { cn, containerClasses } from "@/lib/utils";
 import type { HydratedPlan } from "@/types";
 
@@ -38,6 +39,8 @@ export default function Home() {
     async function loadPlans() {
       setIsLoading(true);
       try {
+        const forcePlan = new URLSearchParams(window.location.search).get("seed") === "1";
+        await startDemoSeed(forcePlan);
         const allPlans = await listHydratedPlans(getRepository());
         if (!cancelled) setPlans(allPlans);
       } catch (error) {
