@@ -5,12 +5,11 @@ import { TaskDetailsPanel } from "@/components/item/TaskDetailsPanel";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { LaneItem } from "@/lib/lanes";
 import { cn } from "@/lib/utils";
-import { usePlannerStore } from "@/store/plannerStore";
-import type { Task } from "@/types";
+import type { PlanItem } from "@/types";
 
 interface ClusterBarProps {
   item: LaneItem;
-  tasks: Task[];
+  tasks: PlanItem[];
   top: number;
   height: number;
   fromX: number;
@@ -19,8 +18,7 @@ interface ClusterBarProps {
 export function ClusterBar({ item, tasks, top, height, fromX }: ClusterBarProps) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const items = usePlannerStore((s) => s.items);
-  const editing = items.find((entry) => entry.id === editingId);
+  const editing = tasks.find((entry) => entry.id === editingId);
   const boxWidth = Math.max(item.width, item.labelWidth);
   const stuck = Math.max(0, Math.min(Math.max(0, boxWidth - 8), fromX - item.x + 4));
 

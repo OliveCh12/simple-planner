@@ -5,11 +5,14 @@ import {
   LABEL_PAD_PX,
   MILESTONE_PX,
   estimateLabelWidth,
+  groupByObjective,
+  laneTasksFromItems,
   layoutLanes,
   type LaneItem,
   type LaneTask,
 } from "@/lib/lanes";
 import { intervalOf, isAllDay } from "@/lib/time/local";
+import type { PlanItem } from "@/types";
 
 const DAY_MS = 86_400_000;
 const origin = new Date(2027, 0, 1).getTime();
@@ -121,5 +124,100 @@ describe("layoutLanes", () => {
     expect(layout.timed.laneCount).toBe(1);
     expect(layout.allDay.items[0].id).toBe("day");
     expect(layout.timed.items[0].id).toBe("meet");
+  });
+});
+
+function planItem(overrides: Partial<PlanItem> & Pick<PlanItem, "id" | "title" | "start" | "kind">): PlanItem {
+  return {
+    planId: "plan",
+    notes: "",
+    status: "pending",
+    energy: "medium",
+    executor: "human",
+    assigneeIds: [],
+    attendeeIds: [],
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+describe("laneTasksFromItems", () => {
+  it("expands recurrences only inside the visible window", () => {
+    const gym = planItem({
+      id: "gym",
+      title: "Gym",
+      kind: "task",
+      start: "2026-06-01T07:00",
+      end: "2026-06-01T08:00",
+      recurrence: "FREQ=WEEKLY;BYDAY=MO;UNTIL=20260831",
+    });
+    const range = { start: new Date(2026, 7, 3), end: new Date(2026, 7, 10) };
+    const tasks = laneTasksFromItems([gym], range);
+    expect(tasks.length).toBeGreaterThan(0);
+    expect(tasks.length).toBeLessThan(8);
+    expect(tasks.every((entry) => entry.interval.start >= range.start && entry.interval.start < range.end)).toBe(
+      true
+    );
+    expect(tasks.every((entry) => entry.recurring)).toBe(true);
+  });
+
+  it("keeps a missing end as a timed milestone", () => {
+    const visa = planItem({
+      id: "visa",
+      title: "Visa",
+      kind: "task",
+      start: "2026-10-03T09:30",
+    });
+    const tasks = laneTasksFromItems([visa], {
+      start: new Date(2026, 9, 1),
+      end: new Date(2026, 10, 1),
+    });
+    const { timed } = layoutLanes(tasks, xOf);
+    expect(timed.items[0]?.kind).toBe("milestone");
+  });
+});
+
+describe("groupByObjective", () => {
+  it("groups descendants under the root objective and leaves the rest unsorted", () => {
+    const items = [
+      planItem({
+        id: "obj",
+        title: "Ship",
+        kind: "objective",
+        start: "2026-01-01",
+        end: "2026-12-31",
+        status: "in-progress",
+      }),
+      planItem({
+        id: "child",
+        title: "Build",
+        kind: "task",
+        start: "2026-09-01",
+        end: "2026-09-10",
+        parentId: "obj",
+        status: "completed",
+      }),
+      planItem({
+        id: "nested",
+        title: "Page",
+        kind: "task",
+        start: "2026-09-01",
+        end: "2026-09-05",
+        parentId: "child",
+      }),
+      planItem({ id: "jazz", title: "Jazz", kind: "event", start: "2026-09-20T20:00", end: "2026-09-20T23:00" }),
+    ];
+    const tasks = laneTasksFromItems(items, {
+      start: new Date(2026, 0, 1),
+      end: new Date(2027, 0, 1),
+    });
+    const groups = groupByObjective(items, tasks);
+    expect(groups.map((group) => group.id)).toEqual(["obj", "unsorted"]);
+    expect(groups[0].title).toBe("Ship");
+    expect(groups[0].done).toBe(1);
+    expect(groups[0].total).toBe(3);
+    expect(groups[1].title).toBe("Unsorted");
+    expect(groups[1].tasks.map((entry) => entry.itemId)).toEqual(["jazz"]);
   });
 });

@@ -7,6 +7,7 @@ import { CalendarBoard } from "@/components/calendar/CalendarBoard";
 import { CalendarCreateButton } from "@/components/calendar/CalendarCreateButton";
 import { QuickAdd } from "@/components/item/QuickAdd";
 import { TaskDetailsPanel } from "@/components/item/TaskDetailsPanel";
+import { LaneGroup } from "@/components/timeline/LaneGroup";
 import { LaneLayer } from "@/components/timeline/LaneLayer";
 import { NowLine } from "@/components/timeline/NowLine";
 import { RemoveDropZone } from "@/components/timeline/RemoveDropZone";
@@ -25,11 +26,12 @@ import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { useVisibleRange } from "@/hooks/useVisibleRange";
 import { periodLabel } from "@/lib/calendar";
 import { formatDateDisplay } from "@/lib/date-utils";
+import { itemToTask } from "@/lib/domain/convert";
 import { createItem } from "@/lib/domain/items";
-import { layoutLanes, type LaneItem, type LaneTask } from "@/lib/lanes";
+import { groupByObjective, laneTasksFromItems, layoutLanes, type LaneItem } from "@/lib/lanes";
 import { createTask, defaultTaskRange } from "@/lib/plan";
 import type { QuickAddResult } from "@/lib/quickadd";
-import { addUnits, formatLocalDate, formatLocalDateTime, intervalOf, isAllDay, parseLocal } from "@/lib/time/local";
+import { addUnits, formatLocalDate, formatLocalDateTime, isAllDay, parseLocal } from "@/lib/time/local";
 import { instantAt, layoutFor, xOf } from "@/lib/time/layout";
 import {
   CALENDAR_SCALES,
@@ -121,6 +123,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
   );
   const [showCompleted, setShowCompleted] = useState(false);
   const [aiQueue, setAiQueue] = useState(false);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const queueItems = useMemo(
     () =>
@@ -139,19 +142,11 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     [scale, plan.start, plan.end, weekStartsOn]
   );
 
-  const laneTasks = useMemo<LaneTask[]>(() => {
-    const allowed = aiQueue ? new Set(queueItems.map((item) => item.id)) : null;
-    return plan.tasks
-      .filter((task) => !allowed || allowed.has(task.id))
-      .map((task) => ({
-        id: task.id,
-        title: task.title,
-        interval: intervalOf(task),
-        allDay: isAllDay(task.start),
-      }));
-  }, [aiQueue, plan.tasks, queueItems]);
-  const lanes = useMemo(() => layoutLanes(laneTasks, (date) => xOf(layout, date)), [laneTasks, layout]);
-  const tasksById = useMemo(() => new Map(plan.tasks.map((task) => [task.id, task])), [plan.tasks]);
+  const itemsById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
+  const tasksById = useMemo(
+    () => new Map(visibleItemsForView.map((item) => [item.id, itemToTask(item)])),
+    [visibleItemsForView]
+  );
 
   const [boardEl, setBoardEl] = useState<HTMLDivElement | null>(null);
 
@@ -201,8 +196,28 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     () => visibleUnits(layout.majorUnits, layout, fromX, toX),
     [layout, fromX, toX]
   );
-  const allDayItems = useMemo(() => visibleItems(lanes.allDay.items, fromX, toX), [lanes, fromX, toX]);
-  const timedItems = useMemo(() => visibleItems(lanes.timed.items, fromX, toX), [lanes, fromX, toX]);
+
+  const visibleRange = useMemo(() => {
+    const start = instantAt(layout, fromX) ?? layout.origin;
+    const end = instantAt(layout, toX) ?? layout.end;
+    if (!start.getTime() || !end.getTime() || end <= start) {
+      return { start: layout.origin, end: layout.end };
+    }
+    return { start, end };
+  }, [layout, fromX, toX]);
+
+  const laneTasks = useMemo(
+    () => laneTasksFromItems(visibleItemsForView, visibleRange, categories),
+    [visibleItemsForView, visibleRange, categories]
+  );
+
+  const groups = useMemo(() => {
+    const xOfDate = (date: Date) => xOf(layout, date);
+    return groupByObjective(visibleItemsForView, laneTasks, categories).map((group) => ({
+      ...group,
+      layout: layoutLanes(group.tasks, xOfDate),
+    }));
+  }, [visibleItemsForView, laneTasks, categories, layout]);
 
   const scrollToX = useCallback(
     (x: number, behavior: ScrollBehavior = "smooth") => {
@@ -618,25 +633,41 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
                   style={{ left: preview.x, width: preview.width }}
                 />
               )}
-              <LaneLayer
-                stack={lanes.allDay}
-                items={allDayItems}
-                tasksById={tasksById}
-                variant="allDay"
-                scale={scale}
-                fromX={visibleFrom}
-                preview={preview}
-              />
               <div data-timed-scroll className="relative min-h-0 flex-1 overflow-y-auto">
-                <LaneLayer
-                  stack={lanes.timed}
-                  items={timedItems}
-                  tasksById={tasksById}
-                  variant="timed"
-                  scale={scale}
-                  fromX={visibleFrom}
-                  preview={preview}
-                />
+                {groups.map((group) => (
+                  <LaneGroup
+                    key={group.id}
+                    title={group.title}
+                    done={group.done}
+                    total={group.total}
+                    color={group.color}
+                    collapsed={Boolean(collapsed[group.id])}
+                    onCollapsedChange={(next) =>
+                      setCollapsed((current) => ({ ...current, [group.id]: next }))
+                    }
+                  >
+                    <LaneLayer
+                      stack={group.layout.allDay}
+                      items={visibleItems(group.layout.allDay.items, fromX, toX)}
+                      itemsById={itemsById}
+                      variant="allDay"
+                      scale={scale}
+                      fromX={visibleFrom}
+                      preview={preview}
+                      highlightId={focusItemId}
+                    />
+                    <LaneLayer
+                      stack={group.layout.timed}
+                      items={visibleItems(group.layout.timed.items, fromX, toX)}
+                      itemsById={itemsById}
+                      variant="timed"
+                      scale={scale}
+                      fromX={visibleFrom}
+                      preview={preview}
+                      highlightId={focusItemId}
+                    />
+                  </LaneGroup>
+                ))}
               </div>
             </div>
           </div>
