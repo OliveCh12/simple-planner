@@ -246,7 +246,7 @@ Supprimé : `TimeColumn`, `AllDayBand`, `TimelineViewport`, `TaskItem`, `useVirt
 Deux vues, même échelle :
 
 - **Gantt** : axe horizontal continu, une barre par tâche, lanes. Unités plus larges (mois 168 px) pour que les titres tiennent.
-- **Calendrier** : année (12 mois), mois (grille 7×n avec barres qui spannen), semaine (7 colonnes + bande all-day), jour (agenda). Pas d’échelle heure : le jour suffit.
+- **Calendrier** : année (12 mois), mois (grille 7×n avec barres qui spannen), semaine (7 colonnes + bande all-day), jour (bande all-day + grille 24 h). Pas d’échelle heure séparée : le jour suffit.
 
 ### Interactions
 
