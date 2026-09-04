@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { AddTaskItem } from "@/components/task/AddTaskItem";
+import { CalendarBoard } from "@/components/calendar/CalendarBoard";
 import { SubHeader } from "@/components/layout/SubHeader";
 import { LaneLayer } from "@/components/timeline/LaneLayer";
 import { NowLine } from "@/components/timeline/NowLine";
@@ -10,6 +11,7 @@ import { RemoveDropZone } from "@/components/timeline/RemoveDropZone";
 import { ScaleControl } from "@/components/timeline/ScaleControl";
 import { TimelineGrid } from "@/components/timeline/TimelineGrid";
 import { TimelineHeader } from "@/components/timeline/TimelineHeader";
+import { ViewToggle } from "@/components/timeline/ViewToggle";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Kbd } from "@/components/ui/kbd";
@@ -22,19 +24,21 @@ import { useVisibleRange } from "@/hooks/useVisibleRange";
 import { formatDateDisplay } from "@/lib/date-utils";
 import { layoutLanes, type LaneItem, type LaneTask } from "@/lib/lanes";
 import { createTask, defaultTaskRange } from "@/lib/plan";
-import { intervalOf, isAllDay } from "@/lib/time/local";
+import { addUnits, intervalOf, isAllDay } from "@/lib/time/local";
 import { instantAt, layoutFor, xOf } from "@/lib/time/layout";
 import {
+  CALENDAR_SCALES,
   columnIndexContaining,
   defaultScaleFor,
   nearestColumnIndex,
+  startOfUnit,
   zoomIn,
   zoomOut,
   type TimeColumn,
 } from "@/lib/time/scale";
 import { cn } from "@/lib/utils";
 import { usePlanStore } from "@/store/planStore";
-import { useUIStore } from "@/store/uiStore";
+import { useUIStore, type TimelineView } from "@/store/uiStore";
 import type { HydratedPlan, TimeScale } from "@/types";
 
 const SMOOTH_SCROLL_VIEWPORTS = 4;
@@ -75,6 +79,9 @@ interface TimelineBoardProps {
 export function TimelineBoard({ plan }: TimelineBoardProps) {
   const weekStartsOn = useUIStore((s) => s.settings.firstDayOfWeek);
   const dateFormat = useUIStore((s) => s.settings.dateFormat);
+  const view = useUIStore((s) => s.timelineView);
+  const setTimelineView = useUIStore((s) => s.setTimelineView);
+  const gantt = view === "gantt";
   const updatePlan = usePlanStore((s) => s.updatePlan);
   const addTask = usePlanStore((s) => s.addTask);
   const updateTask = usePlanStore((s) => s.updateTask);
@@ -83,6 +90,7 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
   const [scale, setScaleState] = useState<TimeScale>(
     () => plan.scale ?? defaultScaleFor(plan.start, plan.end)
   );
+  const [focus, setFocus] = useState(() => new Date());
 
   const layout = useMemo(
     () => layoutFor(scale, plan.start, plan.end, { weekStartsOn }),
@@ -122,13 +130,13 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
     layout,
     scale,
     weekStartsOn,
-    enabled: true,
+    enabled: gantt,
     tasksById,
     onCommit: onCommitDates,
     onDelete: deleteTask,
     onCreate: onCreateRange,
   });
-  const { panning, panReady } = useTimelinePan(boardEl, !dragging);
+  const { panning, panReady } = useTimelinePan(boardEl, gantt && !dragging);
   const { fromX, toX, visibleFrom } = useVisibleRange(boardEl, layout.totalWidth);
 
   const [now, setNow] = useState(() => new Date());
@@ -187,9 +195,11 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
   }, [boardEl, layout.units, instantAtOffset]);
 
   const initialised = useRef(false);
+  const anchorRef = useRef<Anchor | null>(null);
   useEffect(() => {
     if (!boardEl || initialised.current) return;
     initialised.current = true;
+    if (anchorRef.current) return;
     const frame = window.requestAnimationFrame(() => {
       if (todayIndex >= 0) scrollToX(nowX, "auto");
       else scrollToUnit(homeIndex, "auto");
@@ -197,7 +207,6 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
     return () => window.cancelAnimationFrame(frame);
   }, [boardEl, homeIndex, nowX, scrollToUnit, scrollToX, todayIndex]);
 
-  const anchorRef = useRef<Anchor | null>(null);
   useLayoutEffect(() => {
     const anchor = anchorRef.current;
     if (!anchor || !boardEl) return;
@@ -211,32 +220,67 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
   const setScale = useCallback(
     (next: TimeScale | null, clientX?: number) => {
       if (!next || next === scale) return;
-      if (boardEl) {
+      if (view === "calendar" && next === "hour") return;
+      if (gantt && boardEl) {
         const offset =
           clientX === undefined
             ? boardEl.clientWidth / 2
             : clientX - boardEl.getBoundingClientRect().left;
         const instant = instantAtOffset(offset);
-        if (instant) anchorRef.current = { instant, offset };
+        if (instant) {
+          anchorRef.current = { instant, offset };
+          setFocus(instant);
+        }
       }
       setScaleState(next);
       void updatePlan({ scale: next });
     },
-    [boardEl, instantAtOffset, scale, updatePlan]
+    [boardEl, gantt, instantAtOffset, scale, updatePlan, view]
   );
 
-  useTimelineZoom(boardEl, (direction, clientX) => {
+  const [calendarEl, setCalendarEl] = useState<HTMLDivElement | null>(null);
+  useTimelineZoom(gantt ? boardEl : calendarEl, (direction, clientX) => {
     setScale(direction > 0 ? zoomIn(scale) : zoomOut(scale), clientX);
   });
 
   const shiftUnit = useCallback(
     (delta: number) => {
+      if (!gantt) {
+        setFocus((current) =>
+          addUnits(startOfUnit(current, scale, { weekStartsOn }), scale, delta)
+        );
+        return;
+      }
       if (layout.units.length === 0) return;
       const centered = centeredIndex();
       const current = centered >= 0 ? centered : homeIndex;
       scrollToUnit(Math.min(layout.units.length - 1, Math.max(0, current + delta)));
     },
-    [centeredIndex, homeIndex, layout.units.length, scrollToUnit]
+    [centeredIndex, gantt, homeIndex, layout.units.length, scale, scrollToUnit, weekStartsOn]
+  );
+
+  const goToday = useCallback(() => {
+    setFocus(new Date());
+    if (gantt) {
+      if (todayIndex >= 0) scrollToX(nowX);
+      else scrollToUnit(homeIndex);
+    }
+  }, [gantt, homeIndex, nowX, scrollToUnit, scrollToX, todayIndex]);
+
+  const switchView = useCallback(
+    (next: TimelineView) => {
+      if (next === view) return;
+      if (next === "calendar") {
+        const instant = gantt ? instantAtOffset(boardEl?.clientWidth ? boardEl.clientWidth / 2 : 0) : null;
+        if (instant) setFocus(instant);
+        if (scale === "hour") setScale("day");
+      } else {
+        anchorRef.current = { instant: focus, offset: window.innerWidth / 2 };
+        initialised.current = false;
+      }
+      setTimelineView(next);
+    },
+    [boardEl, focus, gantt, instantAtOffset, scale, setScale, setTimelineView, view]
   );
 
   useEffect(() => {
@@ -263,23 +307,28 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
         case "t":
         case "T":
           event.preventDefault();
-          if (todayIndex >= 0) scrollToX(nowX);
-          else scrollToUnit(homeIndex);
+          goToday();
           break;
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [homeIndex, nowX, scale, scrollToUnit, scrollToX, setScale, shiftUnit, todayIndex]);
+  }, [goToday, scale, setScale, shiftUnit]);
 
   const createAtCenter = useCallback(
     (title: string) => {
+      if (!gantt) {
+        const start = startOfUnit(focus, scale, { weekStartsOn });
+        const end = addUnits(start, scale, 1);
+        void addTask(createTask({ title, ...defaultTaskRange({ scale, start, end }) }));
+        return;
+      }
       const index = centeredIndex();
       const unit = layout.units[index >= 0 ? index : homeIndex];
       if (!unit) return;
       void addTask(createTask({ title, ...defaultTaskRange(unit) }));
     },
-    [addTask, centeredIndex, homeIndex, layout.units]
+    [addTask, centeredIndex, focus, gantt, homeIndex, layout.units, scale, weekStartsOn]
   );
 
   const range = `${formatDateDisplay(plan.start, dateFormat)} – ${formatDateDisplay(plan.end, dateFormat)}`;
@@ -294,6 +343,7 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
         <p
           className={cn(
             "hidden items-center gap-1.5 text-xs transition-colors lg:flex",
+            !gantt && "lg:hidden",
             panReady ? "text-foreground" : "text-muted-foreground"
           )}
         >
@@ -306,7 +356,12 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
           </Kbd>
           {!panReady && "to pan"}
         </p>
-        <ScaleControl value={scale} onChange={(next) => setScale(next)} />
+        <ViewToggle value={view} onChange={switchView} />
+        <ScaleControl
+          value={gantt || scale !== "hour" ? scale : "day"}
+          onChange={(next) => setScale(next)}
+          scales={gantt ? undefined : CALENDAR_SCALES}
+        />
         <ButtonGroup className="hidden md:flex">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -328,7 +383,7 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => (todayIndex >= 0 ? scrollToX(nowX) : scrollToUnit(homeIndex))}
+                onClick={goToday}
               >
                 <CalendarDays />
                 Today
@@ -359,13 +414,27 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
           size="icon-sm"
           aria-label="Today"
           className="md:hidden"
-          onClick={() => (todayIndex >= 0 ? scrollToX(nowX) : scrollToUnit(homeIndex))}
+          onClick={goToday}
         >
           <CalendarDays />
         </Button>
       </SubHeader>
 
       <div className="relative min-h-0 flex-1">
+        {!gantt ? (
+          <div ref={setCalendarEl} className="flex h-full min-h-0 flex-1 flex-col">
+            <CalendarBoard
+              plan={plan}
+              scale={scale}
+              focus={focus}
+              weekStartsOn={weekStartsOn}
+              onFocusMonth={(date) => {
+                setFocus(date);
+                setScale("month");
+              }}
+            />
+          </div>
+        ) : (
         <div
           ref={setBoardEl}
           style={{ "--unit-w": `${layout.pxPerUnit}px` } as React.CSSProperties}
@@ -425,6 +494,7 @@ export function TimelineBoard({ plan }: TimelineBoardProps) {
             </div>
           </div>
         </div>
+        )}
         <RemoveDropZone active={dragging} hot={overRemove} />
       </div>
     </div>

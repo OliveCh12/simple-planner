@@ -3,11 +3,11 @@ import type { Interval } from "@/lib/time/local";
 export const MIN_BAR_PX = 8;
 export const MILESTONE_PX = 10;
 export const LANE_GAP_PX = 4;
-export const LABEL_CHAR_PX = 7.5;
-export const LABEL_PAD_PX = 20;
+export const LABEL_CHAR_PX = 8.5;
+export const LABEL_PAD_PX = 24;
 export const CLUSTER_PX = 24;
-export const ALL_DAY_LANE_PX = 28;
-export const TIMED_LANE_PX = { coarse: 22, fine: 32 } as const;
+export const ALL_DAY_LANE_PX = 32;
+export const TIMED_LANE_PX = { coarse: 26, fine: 36 } as const;
 const MILESTONE_MS = 60_000;
 
 export function estimateLabelWidth(title: string): number {

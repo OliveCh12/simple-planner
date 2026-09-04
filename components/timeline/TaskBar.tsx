@@ -34,7 +34,7 @@ export const TaskBar = memo(function TaskBar({
   const boxWidth = Math.max(barWidth, item.labelWidth);
   const milestone = item.kind === "milestone";
   const labelFits = item.labelWidth <= barWidth;
-  const stuck = Math.max(0, Math.min(Math.max(0, boxWidth - 8), fromX - barX + 4));
+  const stuck = Math.max(0, Math.min(Math.max(0, barWidth - 24), fromX - barX + 4));
 
   return (
     <TaskPopover task={task} open={open && !dragging} onOpenChange={setOpen}>
@@ -71,14 +71,15 @@ export const TaskBar = memo(function TaskBar({
         />
         <span
           className={cn(
-            "relative z-[1] flex h-full items-center px-1.5",
-            labelFits && "truncate",
+            "relative z-[1] flex h-full items-center truncate px-1.5",
+            !labelFits && "rounded-r-md bg-background",
             variant === "timed" && labelFits ? "text-primary-foreground" : "text-foreground"
           )}
           style={{
             width: labelFits ? barWidth : item.labelWidth,
             transform: stuck > 0 ? `translateX(${stuck}px)` : undefined,
           }}
+          title={task.title}
         >
           {task.title}
         </span>
