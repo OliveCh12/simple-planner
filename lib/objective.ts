@@ -60,3 +60,13 @@ export function createObjective(input: {
     updatedAt: now,
   };
 }
+
+/** Month-long objectives first, then chronological by start day. */
+export function sortObjectives(objectives: Objective[]): Objective[] {
+  return [...objectives].sort((a, b) => {
+    if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+    const byStart = a.startDate.localeCompare(b.startDate);
+    if (byStart !== 0) return byStart;
+    return a.createdAt.localeCompare(b.createdAt);
+  });
+}

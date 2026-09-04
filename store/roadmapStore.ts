@@ -12,7 +12,7 @@ interface RoadmapStore {
   setIsLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 
-  addObjective: (monthKey: string, objective: Objective) => Promise<void>;
+  addObjective: (monthKey: string, objective: Objective, index?: number) => Promise<void>;
   updateObjective: (
     monthKey: string,
     objectiveId: string,
@@ -54,12 +54,14 @@ export const useRoadmapStore = create<RoadmapStore>((set) => ({
   setIsLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
 
-  addObjective: async (monthKey, objective) => {
+  addObjective: async (monthKey, objective, index) => {
     set((state) => {
       if (!state.currentRoadmap) return state;
 
       const month = state.currentRoadmap.months[monthKey];
       const updatedAt = nowIso();
+      const objectives = month ? [...month.objectives] : [];
+      objectives.splice(index ?? objectives.length, 0, objective);
 
       return {
         currentRoadmap: {
@@ -67,12 +69,8 @@ export const useRoadmapStore = create<RoadmapStore>((set) => ({
           months: {
             ...state.currentRoadmap.months,
             [monthKey]: month
-              ? {
-                  ...month,
-                  objectives: [...month.objectives, objective],
-                  updatedAt,
-                }
-              : createMonthBlock(monthKey, [objective]),
+              ? { ...month, objectives, updatedAt }
+              : createMonthBlock(monthKey, objectives),
           },
           updatedAt,
         },

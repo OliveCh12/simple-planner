@@ -1,14 +1,13 @@
 "use client";
 
+import { useMemo } from "react";
 import { useDroppable } from "@dnd-kit/react";
-import { ObjectiveItem } from "@/components/objective/ObjectiveItem";
 import { AddObjectiveItem } from "@/components/objective/AddObjectiveItem";
-import {
-  formatMonthName,
-  isMonthPast,
-  getCurrentMonthKey,
-} from "@/lib/date-utils";
-import { createObjective } from "@/lib/objective";
+import { ObjectiveItem } from "@/components/objective/ObjectiveItem";
+import { Badge } from "@/components/ui/badge";
+import { formatMonthName, getCurrentMonthKey, isMonthPast } from "@/lib/date-utils";
+import { createObjective, sortObjectives } from "@/lib/objective";
+import { cn } from "@/lib/utils";
 import { useRoadmapStore } from "@/store/roadmapStore";
 import type { Roadmap } from "@/types";
 
@@ -19,15 +18,12 @@ interface MonthColumnProps {
   onSelect: () => void;
 }
 
-export function MonthColumn({
-  monthKey,
-  roadmap,
-  selected,
-  onSelect,
-}: MonthColumnProps) {
+export function MonthColumn({ monthKey, roadmap, selected, onSelect }: MonthColumnProps) {
   const addObjective = useRoadmapStore((s) => s.addObjective);
   const [year, month] = monthKey.split("-").map(Number);
-  const monthData = roadmap.months[monthKey];
+  const monthObjectives = roadmap.months[monthKey]?.objectives;
+  const objectives = useMemo(() => sortObjectives(monthObjectives ?? []), [monthObjectives]);
+  const completedCount = objectives.filter((objective) => objective.status === "completed").length;
   const current = monthKey === getCurrentMonthKey();
   const past = isMonthPast(year, month);
   const { ref, isDropTarget } = useDroppable({ id: monthKey });
@@ -36,14 +32,15 @@ export function MonthColumn({
     <section
       ref={ref}
       data-month-key={monthKey}
-      className={`flex shrink-0 flex-col self-stretch rounded-2xl border bg-card/90 backdrop-blur-sm transition-colors ${
-        current ? "border-primary/50" : "border-border/70"
-      } ${selected ? "border-secondary" : "border-secondary"} ${
-        isDropTarget ? "border-primary bg-primary/5" : ""
-      } ${past && !selected ? "opacity-70 hover:opacity-100" : ""}`}
+      className={cn(
+        "flex shrink-0 flex-col self-stretch rounded-2xl border bg-card/90 backdrop-blur-sm transition-colors",
+        current ? "border-primary/50" : "border-border/70",
+        isDropTarget && "border-primary bg-primary/5",
+        past && !selected && "opacity-70 hover:opacity-100"
+      )}
     >
       <header
-        className="flex cursor-pointer items-start justify-between gap-2 px-4 pb-3 pt-4"
+        className="flex cursor-pointer items-start justify-between gap-2 px-4 pb-2 pt-4"
         onClick={onSelect}
       >
         <div>
@@ -54,15 +51,18 @@ export function MonthColumn({
             {formatMonthName(month)}
           </h3>
         </div>
-        {current && (
-          <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
-            Now
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {objectives.length > 0 && (
+            <span className="text-[11px] tabular-nums text-muted-foreground">
+              {completedCount}/{objectives.length}
+            </span>
+          )}
+          {current && <Badge>Now</Badge>}
+        </div>
       </header>
 
-      <div className="month-scroll min-h-0 flex-1 space-y-1.5 overflow-y-auto px-2.5 py-0.5">
-        {monthData?.objectives.map((objective) => (
+      <div className="month-scroll min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 py-1">
+        {objectives.map((objective) => (
           <ObjectiveItem
             key={objective.id}
             objective={objective}

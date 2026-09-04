@@ -11,6 +11,11 @@ export function getCurrentMonthKey(): string {
   return getMonthKey(now.getFullYear(), now.getMonth() + 1);
 }
 
+/** Day of month for today when `monthKey` is the current month, otherwise null. */
+export function getTodayInMonth(monthKey: string): number | null {
+  return monthKey === getCurrentMonthKey() ? new Date().getDate() : null;
+}
+
 export function isMonthPast(year: number, month: number): boolean {
   const now = new Date();
   const monthDate = new Date(year, month - 1);

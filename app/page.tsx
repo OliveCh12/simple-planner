@@ -1,19 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Folder, Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { SubHeader } from "@/components/layout/SubHeader";
-import { RoadmapCard } from "@/components/roadmap/RoadmapCard";
-import { CreateRoadmapSheet } from "@/components/roadmap/CreateRoadmapSheet";
-import { getAllRoadmaps, deleteRoadmap } from "@/lib/db";
-import type { Roadmap } from "@/types";
-import RoadmapCardNew from "@/components/roadmap/RoadmapCardNew";
-import { containerClasses } from "@/lib/utils";
+import { Plus, Waypoints } from "lucide-react";
+import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
-import { useUIStore } from "@/store/uiStore";
-
+import { SubHeader } from "@/components/layout/SubHeader";
+import { CreateRoadmapDialog } from "@/components/roadmap/CreateRoadmapDialog";
+import { NewRoadmapCard } from "@/components/roadmap/NewRoadmapCard";
+import { RoadmapCard } from "@/components/roadmap/RoadmapCard";
+import { Button } from "@/components/ui/button";
 import {
   Empty,
   EmptyContent,
@@ -22,15 +18,18 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Spinner } from "@/components/ui/spinner";
+import { deleteRoadmap, getAllRoadmaps } from "@/lib/db";
+import { cn, containerClasses } from "@/lib/utils";
+import type { Roadmap } from "@/types";
 
 export default function Home() {
   const router = useRouter();
   const [roadmaps, setRoadmaps] = useState<Roadmap[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Roadmap | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const notify = useUIStore((s) => s.notify);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,6 +41,7 @@ export default function Home() {
         if (!cancelled) setRoadmaps(allRoadmaps);
       } catch (error) {
         console.error("Failed to load roadmaps:", error);
+        if (!cancelled) toast.error("Failed to load roadmaps.");
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -60,9 +60,10 @@ export default function Home() {
       await deleteRoadmap(pendingDelete.id);
       setRoadmaps((prev) => prev.filter((r) => r.id !== pendingDelete.id));
       setPendingDelete(null);
+      toast.success("Roadmap deleted");
     } catch (error) {
       console.error("Failed to delete roadmap:", error);
-      notify("Failed to delete roadmap. Please try again.");
+      toast.error("Failed to delete roadmap. Please try again.");
     } finally {
       setIsDeleting(false);
     }
@@ -73,75 +74,66 @@ export default function Home() {
     router.push(`/roadmap/${roadmap.id}`);
   }
 
+  const subtitle =
+    isLoading || roadmaps.length === 0
+      ? undefined
+      : roadmaps.length === 1
+        ? "1 roadmap"
+        : `${roadmaps.length} roadmaps`;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <SubHeader
-        title="Timeline Planner"
-        subtitle="Plan and track your goals across time"
-        showActionButton={true}
-        actionButtonLabel="New Roadmap"
-        actionButtonIcon={<Plus className="h-4 w-4 mr-2" />}
-        onActionClick={() => setIsCreateModalOpen(true)}
-      />
+      <SubHeader title="Roadmaps" subtitle={subtitle}>
+        <Button size="sm" onClick={() => setIsCreateOpen(true)}>
+          <Plus />
+          New roadmap
+        </Button>
+      </SubHeader>
 
-      <div className={`${containerClasses()} min-h-0 flex-1 w-full overflow-y-auto py-4`}>
+      <div className={cn(containerClasses(), "flex min-h-0 flex-1 flex-col overflow-y-auto py-6")}>
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <p className="text-muted-foreground">Loading roadmaps...</p>
+          <div className="flex flex-1 items-center justify-center">
+            <Spinner className="text-muted-foreground" />
           </div>
         ) : roadmaps.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <Empty>
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <Folder className="h-12 w-12 text-muted-foreground" />
-                </EmptyMedia>
-                <EmptyTitle>
-                  No roadmaps yet. Create your first one to get started!
-                </EmptyTitle>
-                <EmptyDescription>
-                  Timeline Planner helps you organize and track your goals across time. Create roadmaps to break down your objectives into manageable steps and monitor your progress towards achieving them.
-                </EmptyDescription>
-              </EmptyHeader>
-              <EmptyContent>
-                <div className="flex flex-col gap-4">
-                  <Button onClick={() => setIsCreateModalOpen(true)} size={"lg"}>
-                    <Plus className="h-5 w-5 mr-2" />
-                    Create Your First Roadmap
-                  </Button>
-                </div>
-              </EmptyContent>
-            </Empty>
-          </div>
+          <Empty className="flex-1">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Waypoints />
+              </EmptyMedia>
+              <EmptyTitle>No roadmaps yet</EmptyTitle>
+              <EmptyDescription>
+                A roadmap is a month-by-month timeline for one life area or project. Create
+                one, then add objectives to each month.
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button onClick={() => setIsCreateOpen(true)}>
+                <Plus />
+                Create a roadmap
+              </Button>
+            </EmptyContent>
+          </Empty>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {roadmaps.map((roadmap) => (
-              <RoadmapCard
-                key={roadmap.id}
-                roadmap={roadmap}
-                onDelete={setPendingDelete}
-              />
+              <RoadmapCard key={roadmap.id} roadmap={roadmap} onDelete={setPendingDelete} />
             ))}
-            <RoadmapCardNew
-              onClick={() => setIsCreateModalOpen(true)}
-              ariaLabel="Create new roadmap"
-            />
+            <NewRoadmapCard onClick={() => setIsCreateOpen(true)} />
           </div>
         )}
       </div>
 
-      <CreateRoadmapSheet
-        open={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+      <CreateRoadmapDialog
+        open={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
         onCreated={handleRoadmapCreated}
       />
       <ConfirmDialog
         open={pendingDelete !== null}
         title="Delete roadmap"
         description={
-          pendingDelete
-            ? `Delete “${pendingDelete.title}”? This cannot be undone.`
-            : ""
+          pendingDelete ? `Delete “${pendingDelete.title}” and all its objectives? This cannot be undone.` : ""
         }
         confirmLabel="Delete"
         destructive

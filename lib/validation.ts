@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { FONT_IDS } from "@/lib/fonts";
+import { ACCENT_IDS, DEFAULT_ACCENT } from "@/lib/themes";
 import type { AppData } from "@/types";
 
 const energyLevelSchema = z.enum(["low", "medium", "high", "critical"]);
@@ -76,6 +77,7 @@ const roadmapSchema = z.object({
 
 export const appSettingsSchema = z.object({
   theme: z.enum(["light", "dark", "auto"]),
+  accent: z.enum(ACCENT_IDS).default(DEFAULT_ACCENT),
   font: z.enum(FONT_IDS).default("ubuntu"),
   defaultView: z.enum(["timeline", "list"]),
   firstDayOfWeek: z.union([z.literal(0), z.literal(1)]),

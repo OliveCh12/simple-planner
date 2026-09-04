@@ -1,17 +1,32 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, Waypoints } from "lucide-react";
 import { DragDropProvider, type DragEndEvent } from "@dnd-kit/react";
-import { Button } from "@/components/ui/button";
 import { SubHeader } from "@/components/layout/SubHeader";
-import { useRoadmap } from "@/hooks/useRoadmap";
-import { getCenteredMonthKey, useTimelinePan } from "@/hooks/useTimelinePan";
-import { useRoadmapStore } from "@/store/roadmapStore";
 import { MonthColumn } from "@/components/roadmap/MonthColumn";
 import { RemoveDropZone } from "@/components/roadmap/RemoveDropZone";
+import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Kbd } from "@/components/ui/kbd";
+import { Spinner } from "@/components/ui/spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useDeleteObjective } from "@/hooks/useObjectiveActions";
+import { useRoadmap } from "@/hooks/useRoadmap";
+import { getCenteredMonthKey, useTimelinePan } from "@/hooks/useTimelinePan";
 import { generateMonthKeys, getCurrentMonthKey } from "@/lib/date-utils";
+import { cn } from "@/lib/utils";
+import { useRoadmapStore } from "@/store/roadmapStore";
 import type { Objective } from "@/types";
 
 function defaultMonthKey(startYear: number, endYear: number): string {
@@ -23,10 +38,9 @@ function defaultMonthKey(startYear: number, endYear: number): string {
 
 export default function RoadmapPage() {
   const params = useParams();
-  const router = useRouter();
   const roadmapId = typeof params.roadmapId === "string" ? params.roadmapId : "";
   const { roadmap, isLoading } = useRoadmap(roadmapId || null);
-  const deleteObjective = useRoadmapStore((s) => s.deleteObjective);
+  const deleteObjective = useDeleteObjective();
   const moveObjective = useRoadmapStore((s) => s.moveObjective);
 
   const [boardEl, setBoardEl] = useState<HTMLDivElement | null>(null);
@@ -44,10 +58,13 @@ export default function RoadmapPage() {
     selectedMonthKey ??
     (roadmap ? defaultMonthKey(roadmap.startYear, roadmap.endYear) : null);
 
-  const scrollToMonth = useCallback((monthKey: string, behavior: ScrollBehavior = "smooth") => {
-    const column = boardEl?.querySelector(`[data-month-key="${monthKey}"]`);
-    column?.scrollIntoView({ inline: "center", block: "nearest", behavior });
-  }, [boardEl]);
+  const scrollToMonth = useCallback(
+    (monthKey: string, behavior: ScrollBehavior = "smooth") => {
+      const column = boardEl?.querySelector(`[data-month-key="${monthKey}"]`);
+      column?.scrollIntoView({ inline: "center", block: "nearest", behavior });
+    },
+    [boardEl]
+  );
 
   useEffect(() => {
     if (!roadmap) return;
@@ -112,7 +129,7 @@ export default function RoadmapPage() {
 
     const targetId = String(target.id);
     if (targetId === "remove-zone") {
-      void deleteObjective(sourceMonthKey, objective.id);
+      void deleteObjective(sourceMonthKey, objective);
       return;
     }
     if (targetId !== sourceMonthKey) {
@@ -122,84 +139,98 @@ export default function RoadmapPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        Loading timeline…
+      <div className="flex flex-1 items-center justify-center">
+        <Spinner className="text-muted-foreground" />
       </div>
     );
   }
 
   if (!roadmap) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3">
-        <p className="text-sm text-muted-foreground">Roadmap not found</p>
-        <Button onClick={() => router.push("/")}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
-      </div>
+      <Empty className="flex-1">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Waypoints />
+          </EmptyMedia>
+          <EmptyTitle>Roadmap not found</EmptyTitle>
+          <EmptyDescription>It may have been deleted, or the link is out of date.</EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button variant="outline" asChild>
+            <Link href="/">
+              <ArrowLeft />
+              All roadmaps
+            </Link>
+          </Button>
+        </EmptyContent>
+      </Empty>
     );
   }
 
+  const years =
+    roadmap.startYear === roadmap.endYear
+      ? String(roadmap.startYear)
+      : `${roadmap.startYear} – ${roadmap.endYear}`;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <SubHeader
-        backUrl="/"
-        title={roadmap.title}
-        subtitle={`${roadmap.startYear}${
-          roadmap.endYear !== roadmap.startYear ? ` – ${roadmap.endYear}` : ""
-        }`}
-        trailing={
-          <div className="flex items-center gap-2">
-            <p
-              className={`hidden items-center gap-1.5 text-xs sm:flex ${
-                panReady ? "text-foreground" : "text-muted-foreground"
-              }`}
-            >
-              {panReady ? "Drag to pan" : "Hold"}
-              <kbd
-                aria-pressed={panReady}
-                className={`inline-flex h-5 min-w-[2.75rem] items-center justify-center rounded-md border px-1.5 font-mono text-[10px] font-semibold leading-none transition-[transform,box-shadow,background-color,color,border-color] duration-100 ${
-                  panReady
-                    ? "translate-y-[2px] border-foreground/30 bg-foreground text-background shadow-none"
-                    : "border-border bg-muted text-foreground shadow-[0_2px_0_0_var(--border)]"
-                }`}
+      <SubHeader backUrl="/" title={roadmap.title} subtitle={years}>
+        <p
+          className={cn(
+            "hidden items-center gap-1.5 text-xs transition-colors md:flex",
+            panReady ? "text-foreground" : "text-muted-foreground"
+          )}
+        >
+          {panReady ? "Drag to pan" : "Hold"}
+          <Kbd
+            aria-pressed={panReady}
+            className={cn("transition-colors", panReady && "bg-foreground text-background")}
+          >
+            Space
+          </Kbd>
+          {!panReady && "to pan"}
+        </p>
+        <ButtonGroup>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                aria-label="Previous month"
+                onClick={() => shiftMonth(-1)}
               >
-                Space
-              </kbd>
-              {panReady ? "" : "to pan"}
-            </p>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => shiftMonth(-1)}
-              aria-label="Previous month"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5"
-              onClick={() =>
-                handleSelectMonth(defaultMonthKey(roadmap.startYear, roadmap.endYear))
-              }
-            >
-              <CalendarDays className="h-3.5 w-3.5" />
-              Today
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => shiftMonth(1)}
-              aria-label="Next month"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        }
-      />
+                <ChevronLeft />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Previous month <Kbd>←</Kbd>
+            </TooltipContent>
+          </Tooltip>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleSelectMonth(defaultMonthKey(roadmap.startYear, roadmap.endYear))}
+          >
+            <CalendarDays />
+            Today
+          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                aria-label="Next month"
+                onClick={() => shiftMonth(1)}
+              >
+                <ChevronRight />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Next month <Kbd>→</Kbd>
+            </TooltipContent>
+          </Tooltip>
+        </ButtonGroup>
+      </SubHeader>
 
       <div className="relative min-h-0 flex-1">
         <DragDropProvider
@@ -208,9 +239,11 @@ export default function RoadmapPage() {
         >
           <div
             ref={setBoardEl}
-            className={`timeline-board flex h-full min-h-[24rem] items-stretch overflow-x-auto overflow-y-hidden ${
-              panning ? "is-panning" : ""
-            } ${panReady ? "is-pan-ready" : ""}`}
+            className={cn(
+              "timeline-board flex h-full min-h-[24rem] items-stretch overflow-x-auto overflow-y-hidden",
+              panning && "is-panning",
+              panReady && "is-pan-ready"
+            )}
           >
             {monthKeys.map((monthKey) => (
               <MonthColumn

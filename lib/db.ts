@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from "dexie";
 import type { AppData, AppSettings, Roadmap } from "@/types";
+import { DEFAULT_ACCENT } from "@/lib/themes";
 import { parseAppData } from "@/lib/validation";
 
 export class RoadmapDB extends Dexie {
@@ -21,6 +22,7 @@ export const db = new RoadmapDB();
 export function getDefaultSettings(): AppSettings {
   return {
     theme: "auto",
+    accent: DEFAULT_ACCENT,
     font: "ubuntu",
     defaultView: "timeline",
     firstDayOfWeek: 1,

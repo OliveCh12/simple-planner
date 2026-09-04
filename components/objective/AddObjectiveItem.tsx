@@ -24,13 +24,15 @@ export function AddObjectiveItem({ onCreate }: AddObjectiveItemProps) {
   };
 
   return (
-    <InputGroup className="bg-background/60">
+    <InputGroup className="h-8 border-transparent bg-transparent shadow-none transition-colors hover:bg-muted/60 has-[[data-slot=input-group-control]:focus-visible]:bg-background dark:bg-transparent">
       <InputGroupAddon>
-        <Plus className="text-muted-foreground" />
+        <Plus />
       </InputGroupAddon>
       <InputGroupInput
         value={title}
         placeholder="Add a goal"
+        aria-label="New goal"
+        className="h-8"
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
@@ -42,7 +44,9 @@ export function AddObjectiveItem({ onCreate }: AddObjectiveItemProps) {
       />
       {title.trim() ? (
         <InputGroupAddon align="inline-end">
-          <InputGroupButton onClick={submit}>Add</InputGroupButton>
+          <InputGroupButton variant="secondary" onClick={submit}>
+            Add
+          </InputGroupButton>
         </InputGroupAddon>
       ) : null}
     </InputGroup>

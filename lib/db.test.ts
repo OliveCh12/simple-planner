@@ -99,6 +99,7 @@ describe("importData font default", () => {
     );
 
     expect(settings.font).toBe("ubuntu");
+    expect(settings.accent).toBe("green");
     expect(settings.theme).toBe("dark");
   });
 });

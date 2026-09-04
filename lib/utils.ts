@@ -1,10 +1,5 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
+export { cn } from "cn";
 
 export function containerClasses() {
-  return "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+  return "mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8";
 }

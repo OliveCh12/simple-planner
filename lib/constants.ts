@@ -1,23 +1,50 @@
-import type { EnergyLevel, ObjectiveStatus, Priority } from "@/types";
+import {
+  Circle,
+  CircleAlert,
+  CircleCheck,
+  CircleDotDashed,
+  CircleX,
+  Signal,
+  SignalHigh,
+  SignalLow,
+  SignalMedium,
+  type LucideIcon,
+} from "lucide-react";
+import type { EnergyLevel, ObjectiveStatus } from "@/types";
 
-export const ENERGY_LEVELS: { value: EnergyLevel; label: string; color: string }[] = [
-  { value: "low", label: "Low", color: "bg-green-500" },
-  { value: "medium", label: "Medium", color: "bg-yellow-500" },
-  { value: "high", label: "High", color: "bg-orange-500" },
-  { value: "critical", label: "Critical", color: "bg-red-500" },
+export interface StatusOption {
+  value: ObjectiveStatus;
+  label: string;
+  icon: LucideIcon;
+  className: string;
+}
+
+export const STATUSES: StatusOption[] = [
+  { value: "pending", label: "Pending", icon: Circle, className: "text-muted-foreground" },
+  { value: "in-progress", label: "In progress", icon: CircleDotDashed, className: "text-sky-500" },
+  { value: "completed", label: "Completed", icon: CircleCheck, className: "text-emerald-500" },
+  { value: "blocked", label: "Blocked", icon: CircleAlert, className: "text-amber-500" },
+  { value: "cancelled", label: "Cancelled", icon: CircleX, className: "text-muted-foreground/60" },
 ];
 
-export const PRIORITIES: { value: Priority; label: string; color: string }[] = [
-  { value: "low", label: "Low", color: "text-gray-500" },
-  { value: "medium", label: "Medium", color: "text-blue-500" },
-  { value: "high", label: "High", color: "text-orange-500" },
-  { value: "urgent", label: "Urgent", color: "text-red-500" },
+export interface EnergyOption {
+  value: EnergyLevel;
+  label: string;
+  icon: LucideIcon;
+  className: string;
+}
+
+export const ENERGY_LEVELS: EnergyOption[] = [
+  { value: "low", label: "Low", icon: SignalLow, className: "text-muted-foreground" },
+  { value: "medium", label: "Medium", icon: SignalMedium, className: "text-sky-500" },
+  { value: "high", label: "High", icon: SignalHigh, className: "text-amber-500" },
+  { value: "critical", label: "Critical", icon: Signal, className: "text-red-500" },
 ];
 
-export const STATUSES: { value: ObjectiveStatus; label: string; color: string }[] = [
-  { value: "pending", label: "Pending", color: "bg-gray-200 text-gray-700" },
-  { value: "in-progress", label: "In Progress", color: "bg-blue-200 text-blue-700" },
-  { value: "completed", label: "Completed", color: "bg-green-200 text-green-700" },
-  { value: "cancelled", label: "Cancelled", color: "bg-red-200 text-red-700" },
-  { value: "blocked", label: "Blocked", color: "bg-yellow-200 text-yellow-700" },
-];
+export function getStatusOption(status: ObjectiveStatus): StatusOption {
+  return STATUSES.find((option) => option.value === status) ?? STATUSES[0];
+}
+
+export function getEnergyOption(level: EnergyLevel): EnergyOption {
+  return ENERGY_LEVELS.find((option) => option.value === level) ?? ENERGY_LEVELS[1];
+}

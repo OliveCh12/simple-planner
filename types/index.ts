@@ -1,4 +1,5 @@
 import type { FontId } from '@/lib/fonts';
+import type { AccentId } from '@/lib/themes';
 
 /**
  * Represents the energy or effort required for an objective.
@@ -27,39 +28,39 @@ export interface Objective {
   id: string; // UUID for unique identification
   title: string;
   description: string;
-  
+
   // Temporal properties that define when this objective lives
   startDate: string; // ISO date string for the start within the month
   endDate: string; // ISO date string for the end within the month
   duration: number; // Number of days this objective spans
-  
+
   // Properties that help with planning and prioritization
   energyLevel: EnergyLevel;
   priority: Priority;
   status: ObjectiveStatus;
-  
+
   // For organizing and filtering across the roadmap
   tags: string[];
   category?: string;
-  
+
   // Tracking actual completion vs planned completion
   completedAt?: string; // ISO date string when actually completed
-  
+
   // Rich metadata
   notes?: string;
   progress: number; // 0-100 percentage for month-long objectives
-  
+
   // For breaking down complex objectives
   subtasks?: Array<{
     id: string;
     title: string;
     completed: boolean;
   }>;
-  
+
   // Determines if this objective is pinned to the top of the month
   // This happens automatically when duration equals the full month
   isPinned: boolean;
-  
+
   // Audit trail
   createdAt: string;
   updatedAt: string;
@@ -73,13 +74,13 @@ export interface MonthBlock {
   id: string;
   year: number;
   month: number; // 1-12, matching JavaScript Date conventions
-  
+
   // Visual customization for this month
   colorTheme?: string; // Hex color or theme name
-  
+
   // Collection of objectives for this month
   objectives: Objective[];
-  
+
   // Optional monthly reflection after the month has passed
   reflection?: {
     summary: string;
@@ -87,7 +88,7 @@ export interface MonthBlock {
     rating?: number; // 1-5 stars
     addedAt: string;
   };
-  
+
   // Audit trail
   createdAt: string;
   updatedAt: string;
@@ -101,22 +102,22 @@ export interface Roadmap {
   id: string;
   title: string;
   description?: string;
-  
+
   // Temporal boundaries of this roadmap
   startYear: number;
   endYear: number;
-  
+
   // The actual data structure containing all months
   // Organized as a Map for O(1) lookup by year-month key
   months: Record<string, MonthBlock>; // Key format: "2024-10"
-  
+
   // Metadata
   colorTheme?: string; // Overall theme for this roadmap
   icon?: string; // Emoji or icon identifier
-  
+
   // For organizing multiple roadmaps
   category?: string; // "Personal", "Career", "Health", etc.
-  
+
   // Audit trail
   createdAt: string;
   updatedAt: string;
@@ -128,6 +129,7 @@ export interface Roadmap {
  */
 export interface AppSettings {
   theme: 'light' | 'dark' | 'auto';
+  accent: AccentId;
   font: FontId;
   defaultView: 'timeline' | 'list';
   firstDayOfWeek: 0 | 1; // 0 = Sunday, 1 = Monday
@@ -142,13 +144,13 @@ export interface AppSettings {
 export interface AppData {
   version: number; // For handling migrations in future versions
   roadmaps: Roadmap[];
-  
+
   // User preferences
   settings: AppSettings;
-  
+
   // Application state
   activeRoadmapId?: string; // Currently selected roadmap
-  
+
   // Backup metadata
   lastBackup?: string;
   lastExport?: string;
