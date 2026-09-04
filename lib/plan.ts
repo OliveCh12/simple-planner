@@ -58,6 +58,16 @@ export function createTask(input: {
   };
 }
 
+export interface PlacedTask {
+  task: Task;
+  interval: Interval;
+}
+
+/** Parses every task's dates once so columns can be filtered cheaply. */
+export function placeTasks(tasks: Task[]): PlacedTask[] {
+  return tasks.map((task) => ({ task, interval: intervalOf(task) }));
+}
+
 export interface ColumnTasks {
   /** Tasks that overflow the column: same order in every column, so they line up. */
   spanning: Task[];
@@ -65,12 +75,7 @@ export interface ColumnTasks {
   contained: Task[];
 }
 
-interface Placed {
-  task: Task;
-  interval: Interval;
-}
-
-function bySpanningOrder(a: Placed, b: Placed): number {
+function bySpanningOrder(a: PlacedTask, b: PlacedTask): number {
   const byStart = a.interval.start.getTime() - b.interval.start.getTime();
   if (byStart !== 0) return byStart;
   const byEnd = b.interval.end.getTime() - a.interval.end.getTime();
@@ -78,7 +83,7 @@ function bySpanningOrder(a: Placed, b: Placed): number {
   return a.task.id.localeCompare(b.task.id);
 }
 
-function byContainedOrder(a: Placed, b: Placed): number {
+function byContainedOrder(a: PlacedTask, b: PlacedTask): number {
   const byStart = a.interval.start.getTime() - b.interval.start.getTime();
   if (byStart !== 0) return byStart;
   const byCreated = a.task.createdAt.localeCompare(b.task.createdAt);
@@ -86,19 +91,18 @@ function byContainedOrder(a: Placed, b: Placed): number {
   return a.task.id.localeCompare(b.task.id);
 }
 
-export function tasksInColumn(tasks: Task[], column: Interval): ColumnTasks {
-  const spanning: Placed[] = [];
-  const contained: Placed[] = [];
+export function tasksInColumn(placed: PlacedTask[], column: Interval): ColumnTasks {
+  const spanning: PlacedTask[] = [];
+  const contained: PlacedTask[] = [];
 
-  for (const task of tasks) {
-    const interval = intervalOf(task);
-    if (!intersects(interval, column)) continue;
-    (contains(column, interval) ? contained : spanning).push({ task, interval });
+  for (const item of placed) {
+    if (!intersects(item.interval, column)) continue;
+    (contains(column, item.interval) ? contained : spanning).push(item);
   }
 
   return {
-    spanning: spanning.sort(bySpanningOrder).map((placed) => placed.task),
-    contained: contained.sort(byContainedOrder).map((placed) => placed.task),
+    spanning: spanning.sort(bySpanningOrder).map((item) => item.task),
+    contained: contained.sort(byContainedOrder).map((item) => item.task),
   };
 }
 

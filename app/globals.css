@@ -150,6 +150,7 @@
 
 .timeline-board [data-column] {
   width: var(--column-w);
+  contain: layout style;
 }
 
 .timeline-board.is-pan-ready,

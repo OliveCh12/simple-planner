@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { useDraggable } from "@dnd-kit/react";
 import { Check, GripVertical, Trash2, X } from "lucide-react";
 import { DateRangeChip, EnergyChip, StatusChip } from "@/components/task/TaskProperties";
@@ -33,7 +33,7 @@ interface TaskItemProps {
   contained: boolean;
 }
 
-export function TaskItem({ task, column, planId, contained }: TaskItemProps) {
+export const TaskItem = memo(function TaskItem({ task, column, planId, contained }: TaskItemProps) {
   const updateTask = usePlanStore((s) => s.updateTask);
   const deleteTask = useDeleteTask();
   const [expanded, setExpanded] = useState(false);
@@ -270,4 +270,4 @@ export function TaskItem({ task, column, planId, contained }: TaskItemProps) {
       </div>
     </div>
   );
-}
+});

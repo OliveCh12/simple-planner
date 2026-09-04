@@ -1,7 +1,6 @@
 import {
   differenceInCalendarDays,
   endOfDay,
-  format,
   startOfDay,
   startOfHour,
   startOfMonth,
@@ -51,8 +50,12 @@ export function startOfUnit(date: Date, scale: TimeScale, options: ScaleOptions)
   }
 }
 
+function pad(value: number): string {
+  return value < 10 ? `0${value}` : String(value);
+}
+
 export function columnKey(scale: TimeScale, start: Date): string {
-  return `${scale}:${format(start, "yyyy-MM-dd'T'HH")}`;
+  return `${scale}:${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}T${pad(start.getHours())}`;
 }
 
 /** Whole units of `scale` covering the inclusive `[planStart, planEnd]` date range. */

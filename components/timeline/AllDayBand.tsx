@@ -1,28 +1,27 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { useDroppable } from "@dnd-kit/react";
 import { AddTaskItem } from "@/components/task/AddTaskItem";
 import { TaskItem } from "@/components/task/TaskItem";
-import { createTask, defaultTaskRange, tasksInColumn } from "@/lib/plan";
+import { createTask, defaultTaskRange, tasksInColumn, type PlacedTask } from "@/lib/plan";
 import { columnLabel } from "@/lib/time/labels";
 import type { TimeColumn } from "@/lib/time/scale";
 import { cn } from "@/lib/utils";
 import { usePlanStore } from "@/store/planStore";
 import { useUIStore } from "@/store/uiStore";
-import type { Task } from "@/types";
 
 export const ALL_DAY_PREFIX = "allday:";
 
 interface AllDayCellProps {
   day: TimeColumn;
-  tasks: Task[];
+  tasks: PlacedTask[];
   planId: string;
   current: boolean;
   width: number;
 }
 
-function AllDayCell({ day, tasks, planId, current, width }: AllDayCellProps) {
+const AllDayCell = memo(function AllDayCell({ day, tasks, planId, current, width }: AllDayCellProps) {
   const addTask = usePlanStore((s) => s.addTask);
   const weekStartsOn = useUIStore((s) => s.settings.firstDayOfWeek);
   const showWeekNumbers = useUIStore((s) => s.settings.showWeekNumbers);
@@ -36,7 +35,7 @@ function AllDayCell({ day, tasks, planId, current, width }: AllDayCellProps) {
       data-allday-cell={day.key}
       style={{ width }}
       className={cn(
-        "flex shrink-0 flex-col rounded-2xl border bg-card/90 backdrop-blur-sm transition-colors",
+        "flex shrink-0 flex-col rounded-2xl border bg-card transition-colors",
         current ? "border-primary/50" : "border-border/70",
         isDropTarget && "border-primary bg-primary/5"
       )}
@@ -70,7 +69,7 @@ function AllDayCell({ day, tasks, planId, current, width }: AllDayCellProps) {
       </div>
     </section>
   );
-}
+});
 
 interface AllDayBandProps {
   days: TimeColumn[];
@@ -79,7 +78,7 @@ interface AllDayBandProps {
   /** Width of one hour column plus its gap. */
   pitch: number;
   gap: number;
-  tasks: Task[];
+  tasks: PlacedTask[];
   planId: string;
   todayIndex: number;
 }
@@ -89,10 +88,19 @@ function hoursOf(day: TimeColumn): number {
 }
 
 export function AllDayBand({ days, from, to, pitch, gap, tasks, planId, todayIndex }: AllDayBandProps) {
-  if (days.length === 0) return null;
-  const leading = from > 0 ? days.slice(0, from).reduce((sum, day) => sum + hoursOf(day), 0) * pitch - gap : 0;
-  const trailing =
-    to < days.length - 1 ? days.slice(to + 1).reduce((sum, day) => sum + hoursOf(day), 0) * pitch - gap : 0;
+  const offsets = useMemo(() => {
+    const result = new Array<number>(days.length + 1);
+    result[0] = 0;
+    days.forEach((day, index) => {
+      result[index + 1] = result[index] + hoursOf(day);
+    });
+    return result;
+  }, [days]);
+
+  if (days.length === 0 || to < from) return null;
+  const totalHours = offsets[days.length];
+  const leading = from > 0 ? offsets[from] * pitch - gap : 0;
+  const trailing = to < days.length - 1 ? (totalHours - offsets[to + 1]) * pitch - gap : 0;
 
   return (
     <div className="flex shrink-0 items-stretch" style={{ gap }}>

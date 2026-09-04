@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { useDroppable } from "@dnd-kit/react";
 import { AddTaskItem } from "@/components/task/AddTaskItem";
 import { TaskItem } from "@/components/task/TaskItem";
@@ -11,25 +11,25 @@ import {
   defaultTaskRange,
   groupTasksByMonth,
   tasksInColumn,
+  type PlacedTask,
 } from "@/lib/plan";
 import { columnLabel } from "@/lib/time/labels";
 import type { TimeColumn as TimeColumnModel } from "@/lib/time/scale";
 import { cn } from "@/lib/utils";
 import { usePlanStore } from "@/store/planStore";
 import { useUIStore } from "@/store/uiStore";
-import type { Task } from "@/types";
 
 interface TimeColumnProps {
   column: TimeColumnModel;
-  tasks: Task[];
+  tasks: PlacedTask[];
   planId: string;
   selected: boolean;
   current: boolean;
   past: boolean;
-  onSelect: () => void;
+  onSelect: (index: number) => void;
 }
 
-export function TimeColumn({
+export const TimeColumn = memo(function TimeColumn({
   column,
   tasks,
   planId,
@@ -56,7 +56,7 @@ export function TimeColumn({
       ref={ref}
       data-column={column.key}
       className={cn(
-        "flex shrink-0 flex-col self-stretch rounded-2xl border bg-card/90 backdrop-blur-sm transition-colors",
+        "flex shrink-0 flex-col self-stretch rounded-2xl border bg-card transition-colors",
         current ? "border-primary/50" : "border-border/70",
         isDropTarget && "border-primary bg-primary/5",
         past && !selected && "opacity-70 hover:opacity-100"
@@ -64,7 +64,7 @@ export function TimeColumn({
     >
       <header
         className="flex cursor-pointer items-start justify-between gap-2 px-4 pb-2 pt-4"
-        onClick={onSelect}
+        onClick={() => onSelect(column.index)}
       >
         <div>
           {label.eyebrow && (
@@ -94,7 +94,7 @@ export function TimeColumn({
         {groups
           ? groups.map((group) => (
               <div key={group.key}>
-                <p className="sticky top-0 z-10 bg-card/95 px-1.5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground backdrop-blur-sm">
+                <p className="sticky top-0 z-10 bg-card px-1.5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                   {group.label}
                 </p>
                 {group.tasks.map((task) => (
@@ -116,4 +116,4 @@ export function TimeColumn({
       </div>
     </section>
   );
-}
+});
