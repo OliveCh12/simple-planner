@@ -3,7 +3,7 @@ import type { appDataSchemaV1, roadmapSchemaV1 } from "@/lib/validation";
 import { createId } from "@/lib/plan";
 import { isValidLocal } from "@/lib/time/local";
 import { createISODate, getDaysInMonthForDate } from "@/lib/date-utils";
-import type { AppDataV2, Plan, Task } from "@/types";
+import type { AppData, Plan, Task } from "@/types";
 
 export type LegacyAppData = z.infer<typeof appDataSchemaV1>;
 export type LegacyRoadmap = z.infer<typeof roadmapSchemaV1>;
@@ -81,8 +81,8 @@ export function migrateRoadmapToPlan(roadmap: LegacyRoadmap): Plan {
   return plan;
 }
 
-export function migrateAppData(data: LegacyAppData): AppDataV2 {
-  const migrated: AppDataV2 = {
+export function migrateAppData(data: LegacyAppData): AppData {
+  const migrated: AppData = {
     version: 2,
     plans: data.roadmaps.map(migrateRoadmapToPlan),
     settings: data.settings,

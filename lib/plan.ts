@@ -1,5 +1,14 @@
+import { subDays } from "date-fns";
 import type { EnergyLevel, Plan, Task, TaskStatus } from "@/types";
-import { contains, intersects, intervalOf, type Interval } from "@/lib/time/local";
+import {
+  contains,
+  formatLocalDate,
+  formatLocalDateTime,
+  intersects,
+  intervalOf,
+  type Interval,
+} from "@/lib/time/local";
+import type { TimeColumn } from "@/lib/time/scale";
 
 export function createId(): string {
   return crypto.randomUUID();
@@ -94,4 +103,14 @@ export function tasksInColumn(tasks: Task[], column: Interval): ColumnTasks {
 
 export function countCompleted(tasks: Task[]): number {
   return tasks.filter((task) => task.status === "completed").length;
+}
+
+/** Range of a new task created from a column: the whole unit, timed only at hour scale. */
+export function defaultTaskRange(
+  column: Pick<TimeColumn, "scale" | "start" | "end">
+): { start: string; end: string } {
+  if (column.scale === "hour") {
+    return { start: formatLocalDateTime(column.start), end: formatLocalDateTime(column.end) };
+  }
+  return { start: formatLocalDate(column.start), end: formatLocalDate(subDays(column.end, 1)) };
 }

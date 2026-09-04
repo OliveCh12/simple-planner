@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { FONT_IDS } from "@/lib/fonts";
 import { ACCENT_IDS, DEFAULT_ACCENT } from "@/lib/themes";
+import { migrateAppData } from "@/lib/migrations";
 import { isValidLocal } from "@/lib/time/local";
 import type { AppData } from "@/types";
 
@@ -134,6 +135,8 @@ export const appDataSchemaV2 = z.object({
   lastExport: z.string().optional(),
 });
 
+export const appDataSchema = z.discriminatedUnion("version", [appDataSchemaV1, appDataSchemaV2]);
+
 export function parseAppData(jsonString: string): AppData {
   let raw: unknown;
   try {
@@ -142,10 +145,10 @@ export function parseAppData(jsonString: string): AppData {
     throw new Error("Invalid backup file: not valid JSON");
   }
 
-  const parsed = appDataSchemaV1.safeParse(raw);
+  const parsed = appDataSchema.safeParse(raw);
   if (!parsed.success) {
     throw new Error("Invalid backup file: unexpected data shape");
   }
 
-  return parsed.data;
+  return parsed.data.version === 1 ? migrateAppData(parsed.data) : parsed.data;
 }

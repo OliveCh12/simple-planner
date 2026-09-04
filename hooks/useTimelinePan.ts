@@ -111,7 +111,7 @@ export function useTimelinePan(el: HTMLDivElement | null, enabled: boolean) {
 
     const onWheel = (event: WheelEvent) => {
       const column =
-        event.target instanceof Element ? event.target.closest(".month-scroll") : null;
+        event.target instanceof Element ? event.target.closest("[data-column-scroll]") : null;
       if (column instanceof HTMLElement && column.scrollHeight > column.clientHeight + 1) {
         const atTop = column.scrollTop <= 0 && event.deltaY < 0;
         const atBottom =
@@ -174,24 +174,4 @@ export function useTimelinePan(el: HTMLDivElement | null, enabled: boolean) {
   }, [el, enabled]);
 
   return { panning, panReady };
-}
-
-export function getCenteredMonthKey(board: HTMLElement): string | null {
-  const columns = [...board.querySelectorAll<HTMLElement>("[data-month-key]")];
-  if (columns.length === 0) return null;
-
-  const mid = board.getBoundingClientRect().left + board.clientWidth / 2;
-  let best: string | null = null;
-  let bestDist = Infinity;
-
-  for (const column of columns) {
-    const rect = column.getBoundingClientRect();
-    const dist = Math.abs(rect.left + rect.width / 2 - mid);
-    if (dist < bestDist) {
-      bestDist = dist;
-      best = column.dataset.monthKey ?? null;
-    }
-  }
-
-  return best;
 }

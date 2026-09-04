@@ -3,76 +3,78 @@
 import { useEffect, useRef, useState } from "react";
 import { useDraggable } from "@dnd-kit/react";
 import { Check, GripVertical, Trash2, X } from "lucide-react";
-import { DaysChip, EnergyChip, StatusChip } from "@/components/objective/ObjectiveProperties";
+import { DateRangeChip, EnergyChip, StatusChip } from "@/components/task/TaskProperties";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useDeleteObjective } from "@/hooks/useObjectiveActions";
+import { useDeleteTask } from "@/hooks/useTaskActions";
 import { getStatusOption } from "@/lib/constants";
-import {
-  createISODate,
-  dayFromISO,
-  getDaysInMonthForDate,
-  getTodayInMonth,
-} from "@/lib/date-utils";
+import { taskRangeLabel } from "@/lib/time/labels";
+import { intervalOf } from "@/lib/time/local";
+import type { TimeColumn } from "@/lib/time/scale";
 import { cn } from "@/lib/utils";
-import { useRoadmapStore } from "@/store/roadmapStore";
-import type { Objective, ObjectiveStatus } from "@/types";
+import { usePlanStore } from "@/store/planStore";
+import type { Task, TaskStatus } from "@/types";
 
-interface ObjectiveItemProps {
-  objective: Objective;
-  monthKey: string;
-  roadmapId: string;
+export interface TaskDragData {
+  taskId: string;
+  planId: string;
+  columnIndex: number;
 }
 
-function notesOf(objective: Objective) {
-  return objective.notes ?? objective.description ?? "";
+interface TaskItemProps {
+  task: Task;
+  column: TimeColumn;
+  planId: string;
+  /** Whether the task fits entirely inside `column`. */
+  contained: boolean;
 }
 
-export function ObjectiveItem({ objective, monthKey, roadmapId }: ObjectiveItemProps) {
-  const updateObjective = useRoadmapStore((s) => s.updateObjective);
-  const deleteObjective = useDeleteObjective();
+export function TaskItem({ task, column, planId, contained }: TaskItemProps) {
+  const updateTask = usePlanStore((s) => s.updateTask);
+  const deleteTask = useDeleteTask();
   const [expanded, setExpanded] = useState(false);
-  const [title, setTitle] = useState(objective.title);
-  const [notes, setNotes] = useState(() => notesOf(objective));
+  const [title, setTitle] = useState(task.title);
+  const [notes, setNotes] = useState(task.notes);
   const didDrag = useRef(false);
   const closeRef = useRef<(save?: boolean) => void>(() => {});
 
+  const instanceId = `${column.key}/${task.id}`;
   const { ref, handleRef, isDragging } = useDraggable({
-    id: objective.id,
-    data: { objective, roadmapId },
+    id: instanceId,
+    data: { taskId: task.id, planId, columnIndex: column.index } satisfies TaskDragData,
   });
 
   useEffect(() => {
     if (isDragging) didDrag.current = true;
   }, [isDragging]);
 
-  const [year, month] = monthKey.split("-").map(Number);
-  const daysInMonth = getDaysInMonthForDate(year, month);
-  const startDay = dayFromISO(objective.startDate);
-  const endDay = dayFromISO(objective.endDate);
-  const wholeMonth = startDay === 1 && endDay === daysInMonth;
-  const today = getTodayInMonth(monthKey);
-  const activeToday = today !== null && startDay <= today && today <= endDay;
-  const completed = objective.status === "completed";
-  const status = getStatusOption(objective.status);
+  const interval = intervalOf(task);
+  const startsBefore = interval.start < column.start;
+  const endsAfter = interval.end > column.end;
+  const fillsColumn = interval.start <= column.start && interval.end >= column.end;
+  const now = new Date();
+  const activeNow = interval.start <= now && now < interval.end;
+  const rangeLabel = contained && fillsColumn ? null : taskRangeLabel(task, column.scale, contained);
+  const completed = task.status === "completed";
+  const status = getStatusOption(task.status);
 
-  const persist = (updates: Partial<Objective>) => {
-    void updateObjective(monthKey, objective.id, updates);
+  const persist = (updates: Partial<Task>) => {
+    void updateTask(task.id, updates);
   };
 
   const commitTitle = (value: string) => {
     const next = value.trim();
     if (!next) {
-      setTitle(objective.title);
+      setTitle(task.title);
       return;
     }
-    if (next !== objective.title) persist({ title: next });
+    if (next !== task.title) persist({ title: next });
   };
 
   const commitNotes = (value: string) => {
-    if (value !== notesOf(objective)) persist({ notes: value, description: value });
+    if (value !== task.notes) persist({ notes: value });
   };
 
   const open = () => {
@@ -80,8 +82,8 @@ export function ObjectiveItem({ objective, monthKey, roadmapId }: ObjectiveItemP
       didDrag.current = false;
       return;
     }
-    setTitle(objective.title);
-    setNotes(notesOf(objective));
+    setTitle(task.title);
+    setNotes(task.notes);
     setExpanded(true);
   };
 
@@ -103,42 +105,32 @@ export function ObjectiveItem({ objective, monthKey, roadmapId }: ObjectiveItemP
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
-      if (target.closest(`[data-objective-id="${objective.id}"]`)) return;
+      if (target.closest(`[data-task-instance="${CSS.escape(instanceId)}"]`)) return;
       if (target.closest("[data-radix-popper-content-wrapper]")) return;
       closeRef.current();
     };
 
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [expanded, objective.id]);
+  }, [expanded, instanceId]);
 
-  const setStatus = (next: ObjectiveStatus) => {
+  const setStatus = (next: TaskStatus) => {
     persist({
       status: next,
-      progress: next === "completed" ? 100 : next === "pending" ? 0 : objective.progress,
       completedAt: next === "completed" ? new Date().toISOString() : undefined,
-    });
-  };
-
-  const setDays = (start: number, end: number) => {
-    const from = Math.max(1, Math.min(daysInMonth, start));
-    const to = Math.max(from, Math.min(daysInMonth, end));
-    persist({
-      startDate: createISODate(year, month, from),
-      endDate: createISODate(year, month, to),
-      duration: to - from + 1,
-      isPinned: to - from + 1 >= 28,
     });
   };
 
   return (
     <div
       ref={ref}
-      data-objective
-      data-objective-id={objective.id}
+      data-task-instance={instanceId}
       className={cn(
         "group/item rounded-lg border border-transparent transition-[background-color,border-color,box-shadow,opacity] duration-150",
         expanded ? "border-border bg-background shadow-sm" : "hover:bg-muted/60",
+        !contained && "bg-primary/5",
+        !contained && startsBefore && "rounded-l-none border-l-2 border-l-primary/40",
+        !contained && endsAfter && "rounded-r-none border-r-2 border-r-primary/40",
         isDragging && "border-primary/40 bg-background opacity-90 shadow-md",
         completed && !expanded && "opacity-60 hover:opacity-100"
       )}
@@ -147,7 +139,7 @@ export function ObjectiveItem({ objective, monthKey, roadmapId }: ObjectiveItemP
         <button
           type="button"
           ref={handleRef}
-          aria-label="Drag objective"
+          aria-label="Drag task"
           className={cn(
             "shrink-0 cursor-grab rounded p-0.5 text-muted-foreground/60 opacity-0 transition-opacity group-hover/item:opacity-100 hover:text-foreground focus-visible:opacity-100 active:cursor-grabbing",
             (expanded || isDragging) && "opacity-100"
@@ -175,13 +167,11 @@ export function ObjectiveItem({ objective, monthKey, roadmapId }: ObjectiveItemP
               }}
             >
               {completed && <Check className="size-2.5" strokeWidth={3} />}
-              {objective.status === "in-progress" && (
+              {task.status === "in-progress" && (
                 <span className="size-1.5 rounded-full bg-current" />
               )}
-              {objective.status === "blocked" && (
-                <span className="h-0.5 w-1.5 rounded-full bg-current" />
-              )}
-              {objective.status === "cancelled" && <X className="size-2.5" strokeWidth={2.5} />}
+              {task.status === "blocked" && <span className="h-0.5 w-1.5 rounded-full bg-current" />}
+              {task.status === "cancelled" && <X className="size-2.5" strokeWidth={2.5} />}
             </button>
           </TooltipTrigger>
           <TooltipContent side="left">
@@ -215,9 +205,9 @@ export function ObjectiveItem({ objective, monthKey, roadmapId }: ObjectiveItemP
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    aria-label="Delete objective"
+                    aria-label="Delete task"
                     className="-mr-1 shrink-0 text-muted-foreground hover:text-destructive"
-                    onClick={() => void deleteObjective(monthKey, objective)}
+                    onClick={() => void deleteTask(task)}
                   >
                     <Trash2 />
                   </Button>
@@ -241,16 +231,13 @@ export function ObjectiveItem({ objective, monthKey, roadmapId }: ObjectiveItemP
               className="-mx-1 mt-0.5 min-h-0 w-[calc(100%+0.5rem)] resize-none rounded-sm border-0 bg-transparent px-1 py-1 text-xs text-muted-foreground shadow-none focus-visible:bg-muted/60 focus-visible:ring-0 md:text-xs dark:bg-transparent"
             />
             <div className="mt-1.5 flex flex-wrap items-center gap-1">
-              <StatusChip value={objective.status} onChange={setStatus} />
-              <EnergyChip
-                value={objective.energyLevel}
-                onChange={(energyLevel) => persist({ energyLevel })}
-              />
-              <DaysChip
-                start={startDay}
-                end={endDay}
-                daysInMonth={daysInMonth}
-                onChange={setDays}
+              <StatusChip value={task.status} onChange={setStatus} />
+              <EnergyChip value={task.energy} onChange={(energy) => persist({ energy })} />
+              <DateRangeChip
+                start={task.start}
+                end={task.end}
+                column={column}
+                onChange={(start, end) => persist({ start, end })}
               />
             </div>
           </div>
@@ -264,18 +251,16 @@ export function ObjectiveItem({ objective, monthKey, roadmapId }: ObjectiveItemP
               )}
               onClick={open}
             >
-              {objective.title}
+              {task.title}
             </button>
-            {!wholeMonth && (
+            {rangeLabel && (
               <span
                 className={cn(
                   "shrink-0 text-[11px] tabular-nums",
-                  activeToday && !completed
-                    ? "font-medium text-primary"
-                    : "text-muted-foreground/70"
+                  activeNow && !completed ? "font-medium text-primary" : "text-muted-foreground/70"
                 )}
               >
-                {startDay === endDay ? startDay : `${startDay}–${endDay}`}
+                {rangeLabel}
               </span>
             )}
           </>

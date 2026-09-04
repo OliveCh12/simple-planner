@@ -13,6 +13,8 @@ import { addUnits, parseLocal } from "@/lib/time/local";
 
 export const SCALES: readonly TimeScale[] = ["year", "month", "week", "day", "hour"];
 
+export const COLUMN_GAP = 12;
+
 export const COLUMN_WIDTH: Record<TimeScale, number> = {
   year: 320,
   month: 300,

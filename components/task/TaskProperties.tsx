@@ -26,8 +26,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ENERGY_LEVELS, STATUSES, getEnergyOption, getStatusOption } from "@/lib/constants";
+import { defaultTaskRange } from "@/lib/plan";
+import { shortDateRange } from "@/lib/time/labels";
+import { isAllDay, isValidLocal, parseLocal } from "@/lib/time/local";
+import type { TimeColumn } from "@/lib/time/scale";
 import { cn } from "@/lib/utils";
-import type { EnergyLevel, ObjectiveStatus } from "@/types";
+import type { EnergyLevel, TaskStatus } from "@/types";
 
 function PropertyChip({ className, ...props }: React.ComponentProps<typeof Button>) {
   return (
@@ -44,8 +48,8 @@ function PropertyChip({ className, ...props }: React.ComponentProps<typeof Butto
 }
 
 interface StatusChipProps {
-  value: ObjectiveStatus;
-  onChange: (status: ObjectiveStatus) => void;
+  value: TaskStatus;
+  onChange: (status: TaskStatus) => void;
 }
 
 export function StatusChip({ value, onChange }: StatusChipProps) {
@@ -63,7 +67,7 @@ export function StatusChip({ value, onChange }: StatusChipProps) {
         <DropdownMenuLabel>Status</DropdownMenuLabel>
         <DropdownMenuRadioGroup
           value={value}
-          onValueChange={(next) => onChange(next as ObjectiveStatus)}
+          onValueChange={(next) => onChange(next as TaskStatus)}
         >
           {STATUSES.map((status) => (
             <DropdownMenuRadioItem key={status.value} value={status.value}>
@@ -111,65 +115,67 @@ export function EnergyChip({ value, onChange }: EnergyChipProps) {
   );
 }
 
-interface DaysChipProps {
-  start: number;
-  end: number;
-  daysInMonth: number;
-  onChange: (start: number, end: number) => void;
+interface DateRangeChipProps {
+  start: string;
+  end: string;
+  column: TimeColumn;
+  onChange: (start: string, end: string) => void;
 }
 
-export function DaysChip({ start, end, daysInMonth, onChange }: DaysChipProps) {
-  const wholeMonth = start === 1 && end === daysInMonth;
-  const label = wholeMonth ? "All month" : start === end ? `Day ${start}` : `${start}–${end}`;
+export function DateRangeChip({ start, end, column, onChange }: DateRangeChipProps) {
+  const allDay = isAllDay(start);
+  const wholeColumn = defaultTaskRange(column);
+  const fillsColumn = start === wholeColumn.start && end === wholeColumn.end;
+  const label = fillsColumn
+    ? `Whole ${column.scale}`
+    : shortDateRange(parseLocal(start), parseLocal(end));
 
-  const update = (raw: number, which: "start" | "end") => {
-    if (!Number.isFinite(raw)) return;
-    if (which === "start") onChange(raw, end);
-    else onChange(start, raw);
+  const update = (value: string, which: "start" | "end") => {
+    if (!isValidLocal(value)) return;
+    if (which === "start") onChange(value, end < value ? value : end);
+    else onChange(value < start ? value : start, value);
   };
 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <PropertyChip aria-label={`Days: ${label}`}>
+        <PropertyChip aria-label={`Dates: ${label}`}>
           <CalendarRange className="text-muted-foreground" />
           {label}
         </PropertyChip>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-60 p-3">
+      <PopoverContent align="start" className="w-72 p-3">
         <PopoverHeader>
-          <PopoverTitle>Days</PopoverTitle>
-          <PopoverDescription>Which days of the month this takes.</PopoverDescription>
+          <PopoverTitle>Dates</PopoverTitle>
+          <PopoverDescription>When this task starts and ends.</PopoverDescription>
         </PopoverHeader>
-        <ButtonGroup className="mt-3 w-full [&>*]:flex-1 [&>*]:focus-within:relative [&>*]:focus-within:z-10">
+        <ButtonGroup
+          orientation="vertical"
+          className="mt-3 w-full [&>*]:focus-within:relative [&>*]:focus-within:z-10"
+        >
           <InputGroup className="h-8">
             <InputGroupAddon>
-              <InputGroupText className="text-xs">From</InputGroupText>
+              <InputGroupText className="w-9 text-xs">From</InputGroupText>
             </InputGroupAddon>
             <InputGroupInput
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={daysInMonth}
+              type={allDay ? "date" : "datetime-local"}
               value={start}
-              aria-label="First day"
-              onChange={(e) => update(e.target.valueAsNumber, "start")}
-              className="h-8 text-center"
+              aria-label="Start"
+              onChange={(e) => update(e.target.value, "start")}
+              className="h-8"
             />
           </InputGroup>
           <InputGroup className="h-8">
             <InputGroupAddon>
-              <InputGroupText className="text-xs">To</InputGroupText>
+              <InputGroupText className="w-9 text-xs">To</InputGroupText>
             </InputGroupAddon>
             <InputGroupInput
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={daysInMonth}
+              type={allDay ? "date" : "datetime-local"}
               value={end}
-              aria-label="Last day"
-              onChange={(e) => update(e.target.valueAsNumber, "end")}
-              className="h-8 text-center"
+              aria-label="End"
+              min={start}
+              onChange={(e) => update(e.target.value, "end")}
+              className="h-8"
             />
           </InputGroup>
         </ButtonGroup>
@@ -177,10 +183,10 @@ export function DaysChip({ start, end, daysInMonth, onChange }: DaysChipProps) {
           variant="ghost"
           size="xs"
           className="mt-2 w-full"
-          disabled={wholeMonth}
-          onClick={() => onChange(1, daysInMonth)}
+          disabled={fillsColumn}
+          onClick={() => onChange(wholeColumn.start, wholeColumn.end)}
         >
-          Whole month
+          Whole {column.scale}
         </Button>
       </PopoverContent>
     </Popover>

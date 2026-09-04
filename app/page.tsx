@@ -6,9 +6,9 @@ import { Plus, Waypoints } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { SubHeader } from "@/components/layout/SubHeader";
-import { CreateRoadmapDialog } from "@/components/roadmap/CreateRoadmapDialog";
-import { NewRoadmapCard } from "@/components/roadmap/NewRoadmapCard";
-import { RoadmapCard } from "@/components/roadmap/RoadmapCard";
+import { CreatePlanDialog } from "@/components/plan/CreatePlanDialog";
+import { NewPlanCard } from "@/components/plan/NewPlanCard";
+import { PlanCard } from "@/components/plan/PlanCard";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -19,35 +19,35 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
-import { deleteRoadmap, getAllRoadmaps } from "@/lib/db";
+import { deletePlan, getAllPlans } from "@/lib/db";
 import { cn, containerClasses } from "@/lib/utils";
-import type { Roadmap } from "@/types";
+import type { Plan } from "@/types";
 
 export default function Home() {
   const router = useRouter();
-  const [roadmaps, setRoadmaps] = useState<Roadmap[]>([]);
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<Roadmap | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Plan | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadRoadmaps() {
+    async function loadPlans() {
       setIsLoading(true);
       try {
-        const allRoadmaps = await getAllRoadmaps();
-        if (!cancelled) setRoadmaps(allRoadmaps);
+        const allPlans = await getAllPlans();
+        if (!cancelled) setPlans(allPlans);
       } catch (error) {
-        console.error("Failed to load roadmaps:", error);
-        if (!cancelled) toast.error("Failed to load roadmaps.");
+        console.error("Failed to load plans:", error);
+        if (!cancelled) toast.error("Failed to load plans.");
       } finally {
         if (!cancelled) setIsLoading(false);
       }
     }
 
-    void loadRoadmaps();
+    void loadPlans();
     return () => {
       cancelled = true;
     };
@@ -57,36 +57,36 @@ export default function Home() {
     if (!pendingDelete) return;
     setIsDeleting(true);
     try {
-      await deleteRoadmap(pendingDelete.id);
-      setRoadmaps((prev) => prev.filter((r) => r.id !== pendingDelete.id));
+      await deletePlan(pendingDelete.id);
+      setPlans((prev) => prev.filter((plan) => plan.id !== pendingDelete.id));
       setPendingDelete(null);
-      toast.success("Roadmap deleted");
+      toast.success("Plan deleted");
     } catch (error) {
-      console.error("Failed to delete roadmap:", error);
-      toast.error("Failed to delete roadmap. Please try again.");
+      console.error("Failed to delete plan:", error);
+      toast.error("Failed to delete plan. Please try again.");
     } finally {
       setIsDeleting(false);
     }
   }
 
-  function handleRoadmapCreated(roadmap: Roadmap) {
-    setRoadmaps((prev) => [roadmap, ...prev]);
-    router.push(`/roadmap/${roadmap.id}`);
+  function handlePlanCreated(plan: Plan) {
+    setPlans((prev) => [plan, ...prev]);
+    router.push(`/roadmap/${plan.id}`);
   }
 
   const subtitle =
-    isLoading || roadmaps.length === 0
+    isLoading || plans.length === 0
       ? undefined
-      : roadmaps.length === 1
-        ? "1 roadmap"
-        : `${roadmaps.length} roadmaps`;
+      : plans.length === 1
+        ? "1 plan"
+        : `${plans.length} plans`;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <SubHeader title="Roadmaps" subtitle={subtitle}>
+      <SubHeader title="Plans" subtitle={subtitle}>
         <Button size="sm" onClick={() => setIsCreateOpen(true)}>
           <Plus />
-          New roadmap
+          New plan
         </Button>
       </SubHeader>
 
@@ -95,45 +95,47 @@ export default function Home() {
           <div className="flex flex-1 items-center justify-center">
             <Spinner className="text-muted-foreground" />
           </div>
-        ) : roadmaps.length === 0 ? (
+        ) : plans.length === 0 ? (
           <Empty className="flex-1">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <Waypoints />
               </EmptyMedia>
-              <EmptyTitle>No roadmaps yet</EmptyTitle>
+              <EmptyTitle>No plans yet</EmptyTitle>
               <EmptyDescription>
-                A roadmap is a month-by-month timeline for one life area or project. Create
-                one, then add objectives to each month.
+                A plan is a zoomable timeline for one life area, project, or event. Create one,
+                then add tasks along the way.
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
               <Button onClick={() => setIsCreateOpen(true)}>
                 <Plus />
-                Create a roadmap
+                Create a plan
               </Button>
             </EmptyContent>
           </Empty>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {roadmaps.map((roadmap) => (
-              <RoadmapCard key={roadmap.id} roadmap={roadmap} onDelete={setPendingDelete} />
+            {plans.map((plan) => (
+              <PlanCard key={plan.id} plan={plan} onDelete={setPendingDelete} />
             ))}
-            <NewRoadmapCard onClick={() => setIsCreateOpen(true)} />
+            <NewPlanCard onClick={() => setIsCreateOpen(true)} />
           </div>
         )}
       </div>
 
-      <CreateRoadmapDialog
+      <CreatePlanDialog
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        onCreated={handleRoadmapCreated}
+        onCreated={handlePlanCreated}
       />
       <ConfirmDialog
         open={pendingDelete !== null}
-        title="Delete roadmap"
+        title="Delete plan"
         description={
-          pendingDelete ? `Delete “${pendingDelete.title}” and all its objectives? This cannot be undone.` : ""
+          pendingDelete
+            ? `Delete “${pendingDelete.title}” and all its tasks? This cannot be undone.`
+            : ""
         }
         confirmLabel="Delete"
         destructive

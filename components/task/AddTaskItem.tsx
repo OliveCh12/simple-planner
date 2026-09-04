@@ -9,11 +9,11 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 
-interface AddObjectiveItemProps {
+interface AddTaskItemProps {
   onCreate: (title: string) => void;
 }
 
-export function AddObjectiveItem({ onCreate }: AddObjectiveItemProps) {
+export function AddTaskItem({ onCreate }: AddTaskItemProps) {
   const [title, setTitle] = useState("");
 
   const submit = () => {
@@ -30,8 +30,8 @@ export function AddObjectiveItem({ onCreate }: AddObjectiveItemProps) {
       </InputGroupAddon>
       <InputGroupInput
         value={title}
-        placeholder="Add a goal"
-        aria-label="New goal"
+        placeholder="Add a task"
+        aria-label="New task"
         className="h-8"
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => {
