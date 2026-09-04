@@ -1,0 +1,60 @@
+{
+  "version": 3,
+  "plans": [
+    {
+      "id": "plan-1",
+      "title": "Career",
+      "start": "2026-01-01",
+      "end": "2026-12-31",
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z",
+      "lastAccessedAt": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "items": [
+    {
+      "id": "task-human",
+      "planId": "plan-1",
+      "kind": "task",
+      "title": "Ship planner v3",
+      "notes": "",
+      "start": "2026-09-01",
+      "end": "2026-09-30",
+      "status": "in-progress",
+      "energy": "high",
+      "executor": "human",
+      "assigneeIds": [],
+      "attendeeIds": [],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "task-ai",
+      "planId": "plan-1",
+      "kind": "task",
+      "title": "Draft the launch note",
+      "notes": "for indie hackers",
+      "start": "2026-09-18",
+      "end": "2026-09-22",
+      "status": "pending",
+      "energy": "low",
+      "executor": "ai",
+      "agentBrief": "Write a 200-word launch note.",
+      "assigneeIds": [],
+      "attendeeIds": [],
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "people": [],
+  "categories": [],
+  "settings": {
+    "theme": "auto",
+    "accent": "green",
+    "font": "ubuntu",
+    "defaultView": "timeline",
+    "firstDayOfWeek": 1,
+    "dateFormat": "MMM d, yyyy",
+    "showWeekNumbers": false
+  }
+}

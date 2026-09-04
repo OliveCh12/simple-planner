@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, CalendarDays, Database, Keyboard, Palette, Tags, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, Database, HardDrive, Keyboard, Palette, Tags, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,7 @@ const SECTIONS = [
   { href: "/settings/people", label: "People", icon: Users },
   { href: "/settings/categories", label: "Categories", icon: Tags },
   { href: "/settings/data", label: "Data", icon: Database },
+  { href: "/settings/storage", label: "Storage", icon: HardDrive },
   { href: "/settings/shortcuts", label: "Shortcuts", icon: Keyboard },
 ];
 
