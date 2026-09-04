@@ -6,8 +6,10 @@ import {
   intervalOf,
   isAllDay,
   isValidLocal,
+  joinLocal,
   parseLocal,
   shiftTask,
+  splitLocal,
 } from "@/lib/time/local";
 
 describe("parseLocal / formatLocal", () => {
@@ -31,6 +33,15 @@ describe("parseLocal / formatLocal", () => {
   it("tells all-day from timed", () => {
     expect(isAllDay("2027-09-14")).toBe(true);
     expect(isAllDay("2027-09-14T09:30")).toBe(false);
+  });
+});
+
+describe("splitLocal / joinLocal", () => {
+  it("splits and joins date and time", () => {
+    expect(splitLocal("2027-09-14")).toEqual({ date: "2027-09-14", time: "" });
+    expect(splitLocal("2027-09-14T09:30")).toEqual({ date: "2027-09-14", time: "09:30" });
+    expect(joinLocal("2027-09-14", "")).toBe("2027-09-14");
+    expect(joinLocal("2027-09-14", "09:30")).toBe("2027-09-14T09:30");
   });
 });
 

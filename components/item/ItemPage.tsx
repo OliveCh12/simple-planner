@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
-import { ArrowLeft, Bot, CalendarRange, StickyNote, Waypoints } from "lucide-react";
+import { ArrowLeft, CalendarRange, Waypoints } from "lucide-react";
 import { CopyForAi } from "@/components/item/CopyForAi";
-import { ItemProperties } from "@/components/item/ItemProperties";
+import { InlineEditable } from "@/components/item/InlineEditable";
+import { ItemDateRow, ItemProperties } from "@/components/item/ItemProperties";
 import { ItemTree } from "@/components/item/ItemTree";
 import { KindChip, StatusChip } from "@/components/task/TaskProperties";
 import {
@@ -25,21 +26,14 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Input } from "@/components/ui/input";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupTextarea,
-} from "@/components/ui/input-group";
+import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
-import { useSaveItem } from "@/hooks/useSaveItem";
+import { useItemMutations } from "@/hooks/useItemMutations";
 import { itemDocumentForAi } from "@/lib/copy-for-ai";
-import { applyStatus, DomainError, setKind, updateItem } from "@/lib/domain/items";
 import { expandRecurrence } from "@/lib/time/recurrence";
 import { cn, containerClasses } from "@/lib/utils";
 import { usePlannerStore } from "@/store/plannerStore";
 import type { Plan, PlanItem } from "@/types";
-import { toast } from "sonner";
 
 interface ItemPageProps {
   plan: Plan;
@@ -50,10 +44,7 @@ export function ItemPage({ plan, item }: ItemPageProps) {
   const items = usePlannerStore((s) => s.items);
   const people = usePlannerStore((s) => s.people);
   const categories = usePlannerStore((s) => s.categories);
-  const save = useSaveItem();
-  const [title, setTitle] = useState(item.title);
-  const [notes, setNotes] = useState(item.notes);
-  const [brief, setBrief] = useState(item.agentBrief ?? "");
+  const { saveTitle, saveNotes, saveBrief, setStatus, changeKind } = useItemMutations(item);
 
   const parent = items.find((candidate) => candidate.id === item.parentId);
   const occurrences = useMemo(() => {
@@ -63,15 +54,6 @@ export function ItemPage({ plan, item }: ItemPageProps) {
     end.setFullYear(end.getFullYear() + 1);
     return expandRecurrence(item, { start, end }).slice(0, 8);
   }, [item]);
-
-  const commitTitle = () => {
-    const next = title.trim();
-    if (!next) {
-      setTitle(item.title);
-      return;
-    }
-    if (next !== item.title) void save(updateItem(item, { title: next }));
-  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -108,34 +90,17 @@ export function ItemPage({ plan, item }: ItemPageProps) {
           </Breadcrumb>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <KindChip
-              value={item.kind}
-              onChange={(kind) => {
-                try {
-                  void save(setKind(item, kind, items));
-                } catch (error) {
-                  toast.error(error instanceof DomainError ? error.message : "Failed to save item.");
-                }
-              }}
-            />
-            <Input
-              value={title}
+            <KindChip value={item.kind} onChange={(kind) => void changeKind(kind)} />
+            <InlineEditable
+              value={item.title}
+              required
+              placeholder="Task name…"
               aria-label="Title"
-              onChange={(event) => setTitle(event.target.value)}
-              onBlur={commitTitle}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  commitTitle();
-                }
-              }}
-              className="h-9 min-w-0 flex-1 border-0 bg-transparent px-1 text-xl font-semibold shadow-none focus-visible:bg-muted/60 focus-visible:ring-0 md:text-xl"
+              className="h-9 min-w-0 flex-1 text-xl font-semibold md:text-xl"
+              onSave={saveTitle}
             />
             <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-              <StatusChip
-                value={item.status}
-                onChange={(status) => void save(applyStatus(item, status))}
-              />
+              <StatusChip value={item.status} onChange={(status) => void setStatus(status)} />
               <ButtonGroup>
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/plan/${plan.id}?focus=${item.id}`}>
@@ -152,41 +117,26 @@ export function ItemPage({ plan, item }: ItemPageProps) {
 
       <div className={cn(containerClasses(), "flex flex-col gap-10 py-8 lg:flex-row")}>
         <div className="min-w-0 flex-1 space-y-8 lg:w-2/3">
-          <InputGroup className="h-auto min-h-28 items-start">
-            <InputGroupAddon className="pt-3">
-              <StickyNote />
-            </InputGroupAddon>
-            <InputGroupTextarea
-              value={notes}
-              placeholder="Notes…"
-              aria-label="Notes"
-              className="min-h-28 py-3"
-              onChange={(event) => setNotes(event.target.value)}
-              onBlur={() => {
-                if (notes !== item.notes) void save(updateItem(item, { notes }));
-              }}
-            />
-          </InputGroup>
+          <FieldGroup className="gap-0">
+            <ItemDateRow item={item} />
+          </FieldGroup>
+
+          <InlineEditable
+            multiline
+            value={item.notes}
+            placeholder="Add a description…"
+            aria-label="Notes"
+            onSave={saveNotes}
+          />
 
           {item.executor === "ai" && (
-            <InputGroup className="h-auto min-h-24 items-start">
-              <InputGroupAddon className="pt-3">
-                <Bot />
-              </InputGroupAddon>
-              <InputGroupTextarea
-                value={brief}
-                placeholder="Brief for the AI executor…"
-                aria-label="Agent brief"
-                className="min-h-24 py-3"
-                onChange={(event) => setBrief(event.target.value)}
-                onBlur={() => {
-                  const next = brief.trim();
-                  if (next !== (item.agentBrief ?? "")) {
-                    void save(updateItem(item, { agentBrief: next || undefined }));
-                  }
-                }}
-              />
-            </InputGroup>
+            <InlineEditable
+              multiline
+              value={item.agentBrief ?? ""}
+              placeholder="Brief for the AI executor…"
+              aria-label="Agent brief"
+              onSave={saveBrief}
+            />
           )}
 
           <ItemTree planId={plan.id} parent={item} items={items} />
@@ -199,7 +149,13 @@ export function ItemPage({ plan, item }: ItemPageProps) {
         </div>
 
         <aside className="min-w-0 lg:w-80 lg:shrink-0">
-          <ItemProperties item={item} items={items} people={people} categories={categories} />
+          <ItemProperties
+            item={item}
+            items={items}
+            people={people}
+            categories={categories}
+            includeDate={false}
+          />
         </aside>
       </div>
     </div>

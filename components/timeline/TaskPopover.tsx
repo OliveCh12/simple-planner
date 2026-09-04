@@ -1,7 +1,7 @@
 "use client";
 
-import { TaskEditor } from "@/components/task/TaskEditor";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TaskDetailsPanel } from "@/components/item/TaskDetailsPanel";
+import { usePlannerStore } from "@/store/plannerStore";
 import type { Task } from "@/types";
 
 interface TaskPopoverProps {
@@ -12,12 +12,11 @@ interface TaskPopoverProps {
 }
 
 export function TaskPopover({ task, open, onOpenChange, children }: TaskPopoverProps) {
+  const item = usePlannerStore((s) => s.items.find((entry) => entry.id === task.id));
+  if (!item) return children;
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent align="start" className="w-80 p-3">
-        <TaskEditor key={task.id} task={task} onClose={() => onOpenChange(false)} />
-      </PopoverContent>
-    </Popover>
+    <TaskDetailsPanel key={item.id} item={item} open={open} onOpenChange={onOpenChange}>
+      {children}
+    </TaskDetailsPanel>
   );
 }

@@ -1,8 +1,7 @@
 "use client";
 
-import { CalendarRange, Clock } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
+import { PropertyChip } from "@/components/task/PropertyChip";
+import { DateRangeField } from "@/components/item/DateRangeField";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,39 +10,19 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-  InputGroupText,
-} from "@/components/ui/input-group";
-import {
-  Popover,
-  PopoverContent,
-  PopoverDescription,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { ENERGY_LEVELS, KINDS, STATUSES, getEnergyOption, getKindOption, getStatusOption } from "@/lib/constants";
-import { taskDatesLabel } from "@/lib/time/labels";
-import { isAllDay, isValidLocal } from "@/lib/time/local";
 import { cn } from "@/lib/utils";
 import type { EnergyLevel, ItemKind, TaskStatus } from "@/types";
 
-function PropertyChip({ className, ...props }: React.ComponentProps<typeof Button>) {
-  return (
-    <Button
-      variant="secondary"
-      size="xs"
-      className={cn(
-        "gap-1 px-1.5 font-medium text-foreground/80 hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground",
-        className
-      )}
-      {...props}
-    />
-  );
-}
+export { PropertyChip } from "@/components/task/PropertyChip";
+
+const STATUS_SURFACE: Record<TaskStatus, string> = {
+  pending: "",
+  "in-progress": "bg-sky-500/10 hover:bg-sky-500/15 data-[state=open]:bg-sky-500/15",
+  completed: "bg-emerald-500/10 hover:bg-emerald-500/15 data-[state=open]:bg-emerald-500/15",
+  blocked: "bg-amber-500/10 hover:bg-amber-500/15 data-[state=open]:bg-amber-500/15",
+  cancelled: "text-muted-foreground",
+};
 
 interface StatusChipProps {
   value: TaskStatus;
@@ -56,17 +35,18 @@ export function StatusChip({ value, onChange }: StatusChipProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <PropertyChip aria-label={`Status: ${option.label}`}>
+        <PropertyChip
+          tone="status"
+          aria-label={`Status: ${option.label}`}
+          className={STATUS_SURFACE[value]}
+        >
           <option.icon className={option.className} />
           {option.label}
         </PropertyChip>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
         <DropdownMenuLabel>Status</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={value}
-          onValueChange={(next) => onChange(next as TaskStatus)}
-        >
+        <DropdownMenuRadioGroup value={value} onValueChange={(next) => onChange(next as TaskStatus)}>
           {STATUSES.map((status) => (
             <DropdownMenuRadioItem key={status.value} value={status.value}>
               <status.icon className={status.className} />
@@ -128,13 +108,10 @@ export function EnergyChip({ value, onChange }: EnergyChipProps) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
         <DropdownMenuLabel>Energy</DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={value}
-          onValueChange={(next) => onChange(next as EnergyLevel)}
-        >
+        <DropdownMenuRadioGroup value={value} onValueChange={(next) => onChange(next as EnergyLevel)}>
           {ENERGY_LEVELS.map((level) => (
             <DropdownMenuRadioItem key={level.value} value={level.value}>
-              <level.icon className={level.className} />
+              <level.icon className={cn(level.className)} />
               {level.label}
             </DropdownMenuRadioItem>
           ))}
@@ -151,78 +128,11 @@ interface DateRangeChipProps {
 }
 
 export function DateRangeChip({ start, end, onChange }: DateRangeChipProps) {
-  const allDay = isAllDay(start);
-  const label = taskDatesLabel({ start, end });
-
-  const update = (value: string, which: "start" | "end") => {
-    if (!isValidLocal(value)) return;
-    if (which === "start") onChange(value, end < value ? value : end);
-    else onChange(value < start ? value : start, value);
-  };
-
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <PropertyChip aria-label={`Dates: ${label}`}>
-          <CalendarRange className="text-muted-foreground" />
-          {label}
-        </PropertyChip>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-3">
-        <PopoverHeader>
-          <PopoverTitle>Dates</PopoverTitle>
-          <PopoverDescription>When this task starts and ends.</PopoverDescription>
-        </PopoverHeader>
-        <ButtonGroup
-          orientation="vertical"
-          className="mt-3 w-full [&>*]:focus-within:relative [&>*]:focus-within:z-10"
-        >
-          <InputGroup className="h-8">
-            <InputGroupAddon>
-              <InputGroupText className="w-9 text-xs">From</InputGroupText>
-            </InputGroupAddon>
-            <InputGroupInput
-              type={allDay ? "date" : "datetime-local"}
-              value={start}
-              aria-label="Start"
-              onChange={(e) => update(e.target.value, "start")}
-              className="h-8"
-            />
-          </InputGroup>
-          <InputGroup className="h-8">
-            <InputGroupAddon>
-              <InputGroupText className="w-9 text-xs">To</InputGroupText>
-            </InputGroupAddon>
-            <InputGroupInput
-              type={allDay ? "date" : "datetime-local"}
-              value={end}
-              aria-label="End"
-              min={start}
-              onChange={(e) => update(e.target.value, "end")}
-              className="h-8"
-            />
-          </InputGroup>
-        </ButtonGroup>
-        <Button
-          variant="ghost"
-          size="xs"
-          className="mt-2 w-full"
-          onClick={() =>
-            allDay
-              ? onChange(`${start}T09:00`, `${end}T${start === end ? "10:00" : "18:00"}`)
-              : onChange(start.slice(0, 10), end.slice(0, 10))
-          }
-        >
-          {allDay ? (
-            <>
-              <Clock />
-              Add time
-            </>
-          ) : (
-            "Remove time"
-          )}
-        </Button>
-      </PopoverContent>
-    </Popover>
+    <DateRangeField
+      start={start}
+      end={end}
+      onChange={(nextStart, nextEnd) => onChange(nextStart, nextEnd ?? nextStart)}
+    />
   );
 }

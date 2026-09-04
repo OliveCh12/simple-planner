@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { columnLabel, taskDatesLabel, taskRangeLabel } from "@/lib/time/labels";
+import { columnLabel, itemDatesLabel, taskDatesLabel, taskRangeLabel } from "@/lib/time/labels";
 import { columnsFor } from "@/lib/time/scale";
 
 const options = { weekStartsOn: 1 as const, showWeekNumbers: false };
@@ -69,6 +69,30 @@ describe("taskDatesLabel", () => {
     );
     expect(taskDatesLabel({ start: "2027-09-14T09:00", end: "2027-09-16T18:00" })).toBe(
       "Sep 14 09:00 – Sep 16 18:00"
+    );
+  });
+});
+
+describe("itemDatesLabel", () => {
+  const now = new Date(2026, 8, 4);
+
+  it("omits the year in the current year and includes it otherwise", () => {
+    expect(itemDatesLabel({ start: "2026-09-04" }, now)).toBe("Sep 4");
+    expect(itemDatesLabel({ start: "2026-09-04", end: "2026-09-06" }, now)).toBe("Sep 4–6");
+    expect(itemDatesLabel({ start: "2026-09-04", end: "2026-10-02" }, now)).toBe("Sep 4 – Oct 2");
+    expect(itemDatesLabel({ start: "2027-09-14", end: "2027-09-16" }, now)).toBe("Sep 14–16, 2027");
+    expect(itemDatesLabel({ start: "2026-12-20", end: "2027-01-05" }, now)).toBe(
+      "Dec 20, 2026 – Jan 5, 2027"
+    );
+  });
+
+  it("shows times without truncating the date", () => {
+    expect(itemDatesLabel({ start: "2026-09-04T09:00" }, now)).toBe("Sep 4 · 09:00");
+    expect(itemDatesLabel({ start: "2026-09-04T09:00", end: "2026-09-04T10:00" }, now)).toBe(
+      "Sep 4 · 09:00–10:00"
+    );
+    expect(itemDatesLabel({ start: "2027-09-14T09:00", end: "2027-09-16T18:00" }, now)).toBe(
+      "Sep 14, 2027 09:00 – Sep 16, 2027 18:00"
     );
   });
 });

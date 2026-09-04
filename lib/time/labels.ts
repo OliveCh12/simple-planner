@@ -76,6 +76,56 @@ export function taskDatesLabel(task: Pick<Task, "start" | "end">): string {
   return `${format(start, "MMM d HH:mm")} – ${format(end, "MMM d HH:mm")}`;
 }
 
+function dayLabel(date: Date, withYear: boolean): string {
+  return format(date, withYear ? "MMM d, yyyy" : "MMM d");
+}
+
+/**
+ * Readable date for a property field. Year is included when it is not the current
+ * year, or when a range crosses a year boundary.
+ */
+export function itemDatesLabel(
+  item: { start: string; end?: string },
+  now: Date = new Date()
+): string {
+  const start = parseLocal(item.start);
+  const end = item.end ? parseLocal(item.end) : undefined;
+  const allDay = isAllDay(item.start);
+  const sameDay = !end || endsSameDay(start, end);
+  const yearNeeded =
+    start.getFullYear() !== now.getFullYear() ||
+    (end !== undefined && end.getFullYear() !== now.getFullYear());
+
+  if (sameDay) {
+    const day = dayLabel(start, yearNeeded);
+    if (allDay) return day;
+    if (!end) return `${day} · ${format(start, "HH:mm")}`;
+    return `${day} · ${timeRange(start, end)}`;
+  }
+
+  if (allDay && end) {
+    if (isSameMonth(start, end) && isSameYear(start, end)) {
+      return yearNeeded
+        ? `${format(start, "MMM d")}–${format(end, "d, yyyy")}`
+        : `${format(start, "MMM d")}–${format(end, "d")}`;
+    }
+    if (isSameYear(start, end)) {
+      return yearNeeded
+        ? `${format(start, "MMM d")} – ${format(end, "MMM d, yyyy")}`
+        : `${format(start, "MMM d")} – ${format(end, "MMM d")}`;
+    }
+    return `${format(start, "MMM d, yyyy")} – ${format(end, "MMM d, yyyy")}`;
+  }
+
+  if (end) {
+    const startFmt = format(start, yearNeeded ? "MMM d, yyyy HH:mm" : "MMM d HH:mm");
+    const endFmt = format(end, yearNeeded ? "MMM d, yyyy HH:mm" : "MMM d HH:mm");
+    return `${startFmt} – ${endFmt}`;
+  }
+
+  return dayLabel(start, yearNeeded);
+}
+
 /**
  * Compact range shown next to a task title. `contained` says whether the task
  * fits entirely in the column it is rendered in; null means "nothing to add".

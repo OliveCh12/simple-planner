@@ -14,6 +14,18 @@ export function isAllDay(value: LocalDateTime): boolean {
   return !value.includes("T");
 }
 
+export function splitLocal(value: string): { date: string; time: string } {
+  if (value.includes("T")) {
+    const [date, time] = value.split("T");
+    return { date, time };
+  }
+  return { date: value, time: "" };
+}
+
+export function joinLocal(date: string, time: string): string {
+  return time ? `${date}T${time}` : date;
+}
+
 export function parseLocal(value: LocalDateTime): Date {
   const timed = DATETIME_RE.exec(value);
   if (timed) {

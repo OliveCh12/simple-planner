@@ -7,14 +7,13 @@ import type { PlanItem } from "@/types";
 export function useSaveItem() {
   const putItem = usePlannerStore((s) => s.putItem);
 
-  return useCallback(
-    async (next: PlanItem) => {
-      try {
-        await putItem(next);
-      } catch (error) {
-        toast.error(error instanceof DomainError ? error.message : "Failed to save item.");
-      }
-    },
-    [putItem]
-  );
+  return useCallback(async (next: PlanItem): Promise<boolean> => {
+    try {
+      await putItem(next);
+      return true;
+    } catch (error) {
+      toast.error(error instanceof DomainError ? error.message : "Failed to save item.");
+      return false;
+    }
+  }, [putItem]);
 }

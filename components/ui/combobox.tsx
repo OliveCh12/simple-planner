@@ -30,6 +30,7 @@ interface ComboboxProps {
   empty?: string;
   onCreate?: (label: string) => void;
   createLabel?: string;
+  variant?: "default" | "ghost";
   "aria-label"?: string;
 }
 
@@ -43,6 +44,7 @@ export function Combobox({
   empty = "No results.",
   onCreate,
   createLabel = "Create",
+  variant = "default",
   "aria-label": ariaLabel,
 }: ComboboxProps) {
   const [open, setOpen] = useState(false);
@@ -66,20 +68,25 @@ export function Combobox({
       <PopoverTrigger asChild>
         <Button
           type="button"
-          variant="outline"
-          size="sm"
+          variant={variant === "ghost" ? "ghost" : "outline"}
+          size={variant === "ghost" ? "xs" : "sm"}
           role="combobox"
           aria-expanded={open}
           aria-label={ariaLabel}
-          className="w-full justify-between font-normal"
+          className={cn(
+            "font-normal",
+            variant === "ghost"
+              ? "h-8 max-w-full justify-start px-2 whitespace-normal text-foreground/80 hover:text-foreground sm:h-6 sm:px-1.5"
+              : "w-full justify-between"
+          )}
         >
           <span className={cn("truncate", selectedLabels.length === 0 && "text-muted-foreground")}>
             {selectedLabels.length > 0 ? selectedLabels.join(", ") : placeholder}
           </span>
-          <ChevronsUpDown className="size-3.5 opacity-50" />
+          {variant !== "ghost" && <ChevronsUpDown className="size-3.5 opacity-50" />}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-(--radix-popover-trigger-width) p-0">
+      <PopoverContent align="start" className="w-(--radix-popover-trigger-width) min-w-56 p-0">
         <Command>
           <CommandInput
             placeholder={searchPlaceholder}
