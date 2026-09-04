@@ -1,19 +1,32 @@
 import { z } from "zod";
 import { FONT_IDS } from "@/lib/fonts";
 import { ACCENT_IDS, DEFAULT_ACCENT } from "@/lib/themes";
+import { isValidLocal } from "@/lib/time/local";
 import type { AppData } from "@/types";
 
 const energyLevelSchema = z.enum(["low", "medium", "high", "critical"]);
-const objectiveStatusSchema = z.enum([
-  "pending",
-  "in-progress",
-  "completed",
-  "cancelled",
-  "blocked",
-]);
+const taskStatusSchema = z.enum(["pending", "in-progress", "completed", "cancelled", "blocked"]);
 const prioritySchema = z.enum(["low", "medium", "high", "urgent"]);
+const timeScaleSchema = z.enum(["year", "month", "week", "day", "hour"]);
 
-const objectiveSchema = z.object({
+const localDateSchema = z
+  .string()
+  .refine((value) => isValidLocal(value) && !value.includes("T"), "Expected YYYY-MM-DD");
+const localDateTimeSchema = z.string().refine(isValidLocal, "Expected a local date or datetime");
+
+export const appSettingsSchema = z.object({
+  theme: z.enum(["light", "dark", "auto"]),
+  accent: z.enum(ACCENT_IDS).default(DEFAULT_ACCENT),
+  font: z.enum(FONT_IDS).default("ubuntu"),
+  defaultView: z.enum(["timeline", "list"]),
+  firstDayOfWeek: z.union([z.literal(0), z.literal(1)]),
+  dateFormat: z.string(),
+  showWeekNumbers: z.boolean(),
+});
+
+// --- Version 1: roadmaps → months → objectives -------------------------------
+
+const objectiveSchemaV1 = z.object({
   id: z.string().min(1),
   title: z.string(),
   description: z.string(),
@@ -22,7 +35,7 @@ const objectiveSchema = z.object({
   duration: z.number(),
   energyLevel: energyLevelSchema,
   priority: prioritySchema,
-  status: objectiveStatusSchema,
+  status: taskStatusSchema,
   tags: z.array(z.string()),
   category: z.string().optional(),
   completedAt: z.string().optional(),
@@ -42,12 +55,12 @@ const objectiveSchema = z.object({
   updatedAt: z.string(),
 });
 
-const monthBlockSchema = z.object({
+const monthBlockSchemaV1 = z.object({
   id: z.string().min(1),
   year: z.number(),
   month: z.number().min(1).max(12),
   colorTheme: z.string().optional(),
-  objectives: z.array(objectiveSchema),
+  objectives: z.array(objectiveSchemaV1),
   reflection: z
     .object({
       summary: z.string(),
@@ -60,13 +73,13 @@ const monthBlockSchema = z.object({
   updatedAt: z.string(),
 });
 
-const roadmapSchema = z.object({
+export const roadmapSchemaV1 = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   description: z.string().optional(),
   startYear: z.number(),
   endYear: z.number(),
-  months: z.record(z.string(), monthBlockSchema),
+  months: z.record(z.string(), monthBlockSchemaV1),
   colorTheme: z.string().optional(),
   icon: z.string().optional(),
   category: z.string().optional(),
@@ -75,21 +88,48 @@ const roadmapSchema = z.object({
   lastAccessedAt: z.string(),
 });
 
-export const appSettingsSchema = z.object({
-  theme: z.enum(["light", "dark", "auto"]),
-  accent: z.enum(ACCENT_IDS).default(DEFAULT_ACCENT),
-  font: z.enum(FONT_IDS).default("ubuntu"),
-  defaultView: z.enum(["timeline", "list"]),
-  firstDayOfWeek: z.union([z.literal(0), z.literal(1)]),
-  dateFormat: z.string(),
-  showWeekNumbers: z.boolean(),
-});
-
-export const appDataSchema = z.object({
+export const appDataSchemaV1 = z.object({
   version: z.literal(1),
-  roadmaps: z.array(roadmapSchema),
+  roadmaps: z.array(roadmapSchemaV1),
   settings: appSettingsSchema,
   activeRoadmapId: z.string().optional(),
+  lastBackup: z.string().optional(),
+  lastExport: z.string().optional(),
+});
+
+// --- Version 2: plans → tasks ---------------------------------------------------
+
+export const taskSchema = z.object({
+  id: z.string().min(1),
+  title: z.string(),
+  notes: z.string(),
+  start: localDateTimeSchema,
+  end: localDateTimeSchema,
+  status: taskStatusSchema,
+  energy: energyLevelSchema,
+  completedAt: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const planSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  description: z.string().optional(),
+  start: localDateSchema,
+  end: localDateSchema,
+  tasks: z.array(taskSchema),
+  scale: timeScaleSchema.optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  lastAccessedAt: z.string(),
+});
+
+export const appDataSchemaV2 = z.object({
+  version: z.literal(2),
+  plans: z.array(planSchema),
+  settings: appSettingsSchema,
+  activePlanId: z.string().optional(),
   lastBackup: z.string().optional(),
   lastExport: z.string().optional(),
 });
@@ -102,7 +142,7 @@ export function parseAppData(jsonString: string): AppData {
     throw new Error("Invalid backup file: not valid JSON");
   }
 
-  const parsed = appDataSchema.safeParse(raw);
+  const parsed = appDataSchemaV1.safeParse(raw);
   if (!parsed.success) {
     throw new Error("Invalid backup file: unexpected data shape");
   }
