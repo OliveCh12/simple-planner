@@ -1,17 +1,13 @@
 import type { Metadata } from "next";
-import { Ubuntu} from "next/font/google";
 import "./globals.css";
+import { fontClassNames } from "@/app/fonts";
+import { AppearanceProvider } from "@/components/layout/AppearanceProvider";
 import { Header } from "@/components/layout/Header";
 
-const ubuntu = Ubuntu({
-  variable: "--font-ubuntu",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "700"],
-});
-
 export const metadata: Metadata = {
-  title: "Timeline Planner - Plan Your Goals Across Time",
-  description: "A visual roadmap application to plan and track life goals, projects, and objectives across time with an elegant, minimalist interface.",
+  title: "Timeline Planner",
+  description:
+    "A visual roadmap to plan and track goals, projects, and objectives across time.",
 };
 
 export default function RootLayout({
@@ -20,16 +16,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${ubuntu.variable} antialiased`}
-      >
-        <div className="flex h-screen flex-col">
-          <Header />
-          <main className={`flex flex-1 flex-col overflow-hidden `}>
-            {children}
-          </main>
-        </div>
+    <html lang="en" suppressHydrationWarning className={fontClassNames}>
+      <body>
+        <AppearanceProvider>
+          <div className="flex h-dvh flex-col">
+            <Header />
+            <main className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</main>
+          </div>
+        </AppearanceProvider>
       </body>
     </html>
   );

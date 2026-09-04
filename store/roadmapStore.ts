@@ -1,184 +1,187 @@
-import { create } from 'zustand';
-import type { Roadmap, MonthBlock, Objective } from '@/types';
+import { create } from "zustand";
+import { saveRoadmap } from "@/lib/db";
+import { createMonthBlock } from "@/lib/objective";
+import type { Objective, Roadmap } from "@/types";
 
 interface RoadmapStore {
-  // Current state
   currentRoadmap: Roadmap | null;
-  selectedMonthKey: string | null;
   isLoading: boolean;
   error: string | null;
-  
-  // Actions
+
   setCurrentRoadmap: (roadmap: Roadmap | null) => void;
-  updateRoadmap: (roadmap: Roadmap) => void;
-  setSelectedMonth: (monthKey: string | null) => void;
   setIsLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
-  
-  // Month operations
-  addMonth: (monthKey: string, month: MonthBlock) => void;
-  updateMonth: (monthKey: string, updates: Partial<MonthBlock>) => void;
-  
-  // Objective operations
-  addObjective: (monthKey: string, objective: Objective) => void;
-  updateObjective: (monthKey: string, objectiveId: string, updates: Partial<Objective>) => void;
-  deleteObjective: (monthKey: string, objectiveId: string) => void;
-  
-  // Reset
+
+  addObjective: (monthKey: string, objective: Objective) => Promise<void>;
+  updateObjective: (
+    monthKey: string,
+    objectiveId: string,
+    updates: Partial<Objective>
+  ) => Promise<void>;
+  deleteObjective: (monthKey: string, objectiveId: string) => Promise<void>;
+  moveObjective: (
+    fromMonth: string,
+    toMonth: string,
+    objective: Objective
+  ) => Promise<void>;
+
   reset: () => void;
+}
+
+async function persistCurrentRoadmap() {
+  const roadmap = useRoadmapStore.getState().currentRoadmap;
+  if (!roadmap) return;
+
+  try {
+    await saveRoadmap(roadmap);
+  } catch (error) {
+    console.error("Failed to save roadmap:", error);
+    useRoadmapStore.getState().setError("Failed to save roadmap");
+    throw error;
+  }
+}
+
+function nowIso() {
+  return new Date().toISOString();
 }
 
 export const useRoadmapStore = create<RoadmapStore>((set) => ({
   currentRoadmap: null,
-  selectedMonthKey: null,
   isLoading: false,
   error: null,
-  
+
   setCurrentRoadmap: (roadmap) => set({ currentRoadmap: roadmap, error: null }),
-  
-  updateRoadmap: (roadmap) => set({ currentRoadmap: roadmap }),
-  
-  setSelectedMonth: (monthKey) => set({ selectedMonthKey: monthKey }),
-  
   setIsLoading: (loading) => set({ isLoading: loading }),
-  
   setError: (error) => set({ error }),
-  
-  addMonth: (monthKey, month) => set((state) => {
-    if (!state.currentRoadmap) return state;
-    
-    return {
-      currentRoadmap: {
-        ...state.currentRoadmap,
-        months: {
-          ...state.currentRoadmap.months,
-          [monthKey]: month
-        },
-        updatedAt: new Date().toISOString()
-      }
-    };
-  }),
-  
-  updateMonth: (monthKey, updates) => set((state) => {
-    if (!state.currentRoadmap) return state;
-    
-    const month = state.currentRoadmap.months[monthKey];
-    if (!month) return state;
-    
-    return {
-      currentRoadmap: {
-        ...state.currentRoadmap,
-        months: {
-          ...state.currentRoadmap.months,
-          [monthKey]: {
-            ...month,
-            ...updates,
-            updatedAt: new Date().toISOString()
-          }
-        },
-        updatedAt: new Date().toISOString()
-      }
-    };
-  }),
-  
-  addObjective: (monthKey, objective) => set((state) => {
-    if (!state.currentRoadmap) return state;
-    
-    const month = state.currentRoadmap.months[monthKey];
-    const [year, monthNum] = monthKey.split('-').map(Number);
-    
-    // If month doesn't exist, create it
-    if (!month) {
-      const newMonth = {
-        id: `${monthKey}-${Date.now()}`,
-        year,
-        month: monthNum,
-        objectives: [objective],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
+
+  addObjective: async (monthKey, objective) => {
+    set((state) => {
+      if (!state.currentRoadmap) return state;
+
+      const month = state.currentRoadmap.months[monthKey];
+      const updatedAt = nowIso();
+
       return {
         currentRoadmap: {
           ...state.currentRoadmap,
           months: {
             ...state.currentRoadmap.months,
-            [monthKey]: newMonth
+            [monthKey]: month
+              ? {
+                  ...month,
+                  objectives: [...month.objectives, objective],
+                  updatedAt,
+                }
+              : createMonthBlock(monthKey, [objective]),
           },
-          updatedAt: new Date().toISOString()
-        }
+          updatedAt,
+        },
       };
-    }
-    
-    // If month exists, add objective to it
-    return {
-      currentRoadmap: {
-        ...state.currentRoadmap,
-        months: {
-          ...state.currentRoadmap.months,
-          [monthKey]: {
-            ...month,
-            objectives: [...month.objectives, objective],
-            updatedAt: new Date().toISOString()
-          }
+    });
+
+    await persistCurrentRoadmap();
+  },
+
+  updateObjective: async (monthKey, objectiveId, updates) => {
+    set((state) => {
+      if (!state.currentRoadmap) return state;
+
+      const month = state.currentRoadmap.months[monthKey];
+      if (!month) return state;
+
+      const updatedAt = nowIso();
+
+      return {
+        currentRoadmap: {
+          ...state.currentRoadmap,
+          months: {
+            ...state.currentRoadmap.months,
+            [monthKey]: {
+              ...month,
+              objectives: month.objectives.map((obj) =>
+                obj.id === objectiveId ? { ...obj, ...updates, updatedAt } : obj
+              ),
+              updatedAt,
+            },
+          },
+          updatedAt,
         },
-        updatedAt: new Date().toISOString()
-      }
-    };
-  }),
-  
-  updateObjective: (monthKey, objectiveId, updates) => set((state) => {
-    if (!state.currentRoadmap) return state;
-    
-    const month = state.currentRoadmap.months[monthKey];
-    if (!month) return state;
-    
-    return {
-      currentRoadmap: {
-        ...state.currentRoadmap,
-        months: {
-          ...state.currentRoadmap.months,
-          [monthKey]: {
-            ...month,
-            objectives: month.objectives.map(obj =>
-              obj.id === objectiveId
-                ? { ...obj, ...updates, updatedAt: new Date().toISOString() }
-                : obj
-            ),
-            updatedAt: new Date().toISOString()
-          }
+      };
+    });
+
+    await persistCurrentRoadmap();
+  },
+
+  deleteObjective: async (monthKey, objectiveId) => {
+    set((state) => {
+      if (!state.currentRoadmap) return state;
+
+      const month = state.currentRoadmap.months[monthKey];
+      if (!month) return state;
+
+      const updatedAt = nowIso();
+
+      return {
+        currentRoadmap: {
+          ...state.currentRoadmap,
+          months: {
+            ...state.currentRoadmap.months,
+            [monthKey]: {
+              ...month,
+              objectives: month.objectives.filter((obj) => obj.id !== objectiveId),
+              updatedAt,
+            },
+          },
+          updatedAt,
         },
-        updatedAt: new Date().toISOString()
-      }
-    };
-  }),
-  
-  deleteObjective: (monthKey, objectiveId) => set((state) => {
-    if (!state.currentRoadmap) return state;
-    
-    const month = state.currentRoadmap.months[monthKey];
-    if (!month) return state;
-    
-    return {
-      currentRoadmap: {
-        ...state.currentRoadmap,
-        months: {
-          ...state.currentRoadmap.months,
-          [monthKey]: {
-            ...month,
-            objectives: month.objectives.filter(obj => obj.id !== objectiveId),
-            updatedAt: new Date().toISOString()
-          }
+      };
+    });
+
+    await persistCurrentRoadmap();
+  },
+
+  moveObjective: async (fromMonth, toMonth, objective) => {
+    set((state) => {
+      if (!state.currentRoadmap) return state;
+      if (fromMonth === toMonth) return state;
+
+      const sourceMonth = state.currentRoadmap.months[fromMonth];
+      if (!sourceMonth) return state;
+
+      const updatedAt = nowIso();
+      const targetMonth = state.currentRoadmap.months[toMonth];
+      const remaining = sourceMonth.objectives.filter((obj) => obj.id !== objective.id);
+
+      return {
+        currentRoadmap: {
+          ...state.currentRoadmap,
+          months: {
+            ...state.currentRoadmap.months,
+            [fromMonth]: {
+              ...sourceMonth,
+              objectives: remaining,
+              updatedAt,
+            },
+            [toMonth]: targetMonth
+              ? {
+                  ...targetMonth,
+                  objectives: [...targetMonth.objectives, objective],
+                  updatedAt,
+                }
+              : createMonthBlock(toMonth, [objective]),
+          },
+          updatedAt,
         },
-        updatedAt: new Date().toISOString()
-      }
-    };
-  }),
-  
-  reset: () => set({
-    currentRoadmap: null,
-    selectedMonthKey: null,
-    isLoading: false,
-    error: null
-  })
+      };
+    });
+
+    await persistCurrentRoadmap();
+  },
+
+  reset: () =>
+    set({
+      currentRoadmap: null,
+      isLoading: false,
+      error: null,
+    }),
 }));

@@ -1,123 +1,76 @@
-'use client';
+"use client";
 
-import { v4 as uuidv4 } from 'uuid';
-import { Badge } from "@/components/ui/badge"
-import { ObjectiveItem } from '@/components/objective/ObjectiveItem';
-import { AddObjectiveItem } from '@/components/objective/AddObjectiveItem';
-import { formatMonthDisplay, getCurrentMonthKey, isMonthPast } from '@/lib/date-utils';
-import type { Roadmap, Objective } from '@/types';
-import { Card, CardHeader, CardContent } from '../ui/card';
-import { useRoadmapStore } from '@/store/roadmapStore';
-import { createISODate, getDaysInMonthForDate } from '@/lib/date-utils';
-import { useDroppable } from '@dnd-kit/react';
+import { useDroppable } from "@dnd-kit/react";
+import { ObjectiveItem } from "@/components/objective/ObjectiveItem";
+import { AddObjectiveItem } from "@/components/objective/AddObjectiveItem";
+import { formatMonthName, isMonthPast, getCurrentMonthKey } from "@/lib/date-utils";
+import { createObjective } from "@/lib/objective";
+import { useRoadmapStore } from "@/store/roadmapStore";
+import type { Roadmap } from "@/types";
 
 interface MonthColumnProps {
   monthKey: string;
   roadmap: Roadmap;
-  selectedMonthKey: string | null;
-  onMonthClick: (monthKey: string) => void;
-  editingMonthKey: string | null;
-  onEditingMonthChange: (monthKey: string | null) => void;
-  compact?: boolean;
+  selected: boolean;
+  onSelect: () => void;
 }
 
-export function MonthColumn({
-  monthKey,
-  roadmap,
-  selectedMonthKey,
-  onMonthClick,
-  editingMonthKey,
-  onEditingMonthChange,
-  compact = false
-}: MonthColumnProps) {
-  const { addObjective } = useRoadmapStore();
-  const [year, month] = monthKey.split('-').map(Number);
+export function MonthColumn({ monthKey, roadmap, selected, onSelect }: MonthColumnProps) {
+  const addObjective = useRoadmapStore((s) => s.addObjective);
+  const [year, month] = monthKey.split("-").map(Number);
   const monthData = roadmap.months[monthKey];
-  const isCurrentMonth = monthKey === getCurrentMonthKey();
-  const isSelected = monthKey === selectedMonthKey;
-  const isPast = isMonthPast(year, month);
-
-  const { ref, isDropTarget } = useDroppable({
-    id: monthKey,
-  });
+  const current = monthKey === getCurrentMonthKey();
+  const past = isMonthPast(year, month);
+  const { ref, isDropTarget } = useDroppable({ id: monthKey });
 
   return (
-    <Card
-      key={monthKey}
-      data-month-key={monthKey}
+    <section
       ref={ref}
-      className={`
-        min-w-[320px] w-[320px] min-h-full
-        transition-all cursor-pointer
-        ${isSelected ? 'ring-2 ring-ring shadow-lg bg-primary/10' : 'hover:shadow-md'}
-        ${isCurrentMonth ? 'border-primary' : ''}
-        ${isPast ? 'opacity-50 hover:opacity-100' : 'opacity-100'}
-        ${isDropTarget ? 'ring-2 ring-ring bg-primary/10' : ''}
-      `}
-      onClick={() => onMonthClick(monthKey)}
+      data-month-key={monthKey}
+      className={`flex w-[272px] shrink-0 flex-col self-stretch rounded-2xl border bg-card/90 backdrop-blur-sm transition-colors ${
+        current ? "border-primary/50" : "border-border/70"
+      } ${selected ? "ring-2 ring-primary/25" : ""} ${
+        isDropTarget ? "border-primary bg-primary/5" : ""
+      } ${past && !selected ? "opacity-70 hover:opacity-100" : ""}`}
     >
-      <CardHeader className="flex items-center justify-between flex-shrink-0 px-4">
-        <h3 className="font-semibold">
-          {formatMonthDisplay(year, month)}
-        </h3>
-        {isCurrentMonth && (
-          <Badge variant="default">
-            Current
-          </Badge>
+      <header
+        data-timeline-pan
+        className="flex cursor-grab items-start justify-between gap-2 px-4 pb-3 pt-4 active:cursor-grabbing"
+        onClick={onSelect}
+      >
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            {year}
+          </p>
+          <h3 className="text-[17px] font-semibold leading-tight tracking-tight">
+            {formatMonthName(month)}
+          </h3>
+        </div>
+        {current && (
+          <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+            Now
+          </span>
         )}
-      </CardHeader>
+      </header>
 
-      <CardContent className="flex-1 p-0">
-          <div className={`space-y-2 p-4 overflow-y-auto h-[400px] md:h-[500px] ${isSelected ? 'scrollbar-primary' : 'scrollbar-secondary'}`}>
-            {monthData?.objectives.length === 0 ? (
-              ""
-            ) : (
-              monthData?.objectives.map((objective) => (
-                <ObjectiveItem
-                  key={objective.id}
-                  objective={objective}
-                  roadmapId={roadmap.id}
-                  compact={compact}
-                />
-              ))
-            )}
-            <AddObjectiveItem
-              onCreate={(title: string, description: string) => {
-                const [year, month] = monthKey.split('-').map(Number);
-                const daysInMonth = getDaysInMonthForDate(year, month);
-                const startDate = createISODate(year, month, 1);
-                const endDate = createISODate(year, month, daysInMonth);
-                const duration = daysInMonth;
-                const isPinned = duration >= 28;
+      <div className="month-scroll min-h-0 flex-1 space-y-1.5 overflow-y-auto px-2.5 py-0.5">
+        {monthData?.objectives.map((objective) => (
+          <ObjectiveItem
+            key={objective.id}
+            objective={objective}
+            monthKey={monthKey}
+            roadmapId={roadmap.id}
+          />
+        ))}
+      </div>
 
-                const now = new Date().toISOString();
-                const newObjective: Objective = {
-                  id: uuidv4(),
-                  title,
-                  description,
-                  startDate,
-                  endDate,
-                  duration,
-                  energyLevel: 'medium',
-                  priority: 'medium',
-                  status: 'pending',
-                  tags: [],
-                  progress: 0,
-                  isPinned,
-                  createdAt: now,
-                  updatedAt: now,
-                };
-
-                addObjective(monthKey, newObjective);
-              }}
-              isEditing={editingMonthKey === monthKey}
-              onEditingChange={(isEditing: boolean) => {
-                onEditingMonthChange(isEditing ? monthKey : null);
-              }}
-            />
-          </div>
-
-      </CardContent>
-    </Card>
+      <div className="px-2 pb-2 pt-1">
+        <AddObjectiveItem
+          onCreate={(title) => {
+            void addObjective(monthKey, createObjective({ title, monthKey }));
+          }}
+        />
+      </div>
+    </section>
   );
 }

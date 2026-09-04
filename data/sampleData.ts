@@ -1,4 +1,4 @@
-import type { Roadmap, Objective } from '@/types';
+import type { Objective } from '@/types';
 
 export const sampleRoadmapData: {
   title: string;

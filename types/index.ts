@@ -1,3 +1,5 @@
+import type { FontId } from '@/lib/fonts';
+
 /**
  * Represents the energy or effort required for an objective.
  * This helps users understand the commitment level at a glance
@@ -126,6 +128,7 @@ export interface Roadmap {
  */
 export interface AppSettings {
   theme: 'light' | 'dark' | 'auto';
+  font: FontId;
   defaultView: 'timeline' | 'list';
   firstDayOfWeek: 0 | 1; // 0 = Sunday, 1 = Monday
   dateFormat: string;

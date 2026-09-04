@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
-import { Moon, Sun, Bell, Shield, Database, Palette, Clock, AlertTriangle } from "lucide-react";
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Database, Palette, Clock, AlertTriangle, Upload, Download, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -23,92 +23,75 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { containerClasses } from "@/lib/utils";
-import { clearAllData } from "@/lib/db";
+import { clearAllData, downloadBackup, getDefaultSettings, importData } from "@/lib/db";
+import { FONT_OPTIONS, getFontOption, type FontId } from "@/lib/fonts";
+import { useUIStore } from "@/store/uiStore";
+import { useRoadmapStore } from "@/store/roadmapStore";
+import type { AppSettings } from "@/types";
 
-interface SettingsState {
-  // Appearance
-  theme: string;
-  language: string;
-  dateFormat: string;
-
-  // Notifications
-  emailNotifications: boolean;
-  pushNotifications: boolean;
-  reminderNotifications: boolean;
-  weeklyDigest: boolean;
-
-  // Privacy
-  dataCollection: boolean;
-  analytics: boolean;
-  marketingEmails: boolean;
-
-  // Preferences
-  weekStartsOn: string;
-  timeZone: string;
-  defaultView: string;
-}
-
-const SettingsPage = () => {
-  const [settings, setSettings] = useState<SettingsState>({
-    // Appearance
-    theme: "system",
-    language: "en",
-    dateFormat: "MM/dd/yyyy",
-
-    // Notifications
-    emailNotifications: true,
-    pushNotifications: false,
-    reminderNotifications: true,
-    weeklyDigest: true,
-
-    // Privacy
-    dataCollection: false,
-    analytics: true,
-    marketingEmails: false,
-
-    // Preferences
-    weekStartsOn: "monday",
-    timeZone: "UTC",
-    defaultView: "month",
-  });
+export default function SettingsPage() {
+  const router = useRouter();
+  const settings = useUIStore((s) => s.settings);
+  const updateSettings = useUIStore((s) => s.updateSettings);
+  const replaceSettings = useUIStore((s) => s.replaceSettings);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [showClearDataDialog, setShowClearDataDialog] = useState(false);
   const [isClearingData, setIsClearingData] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  const updateSetting = (key: keyof SettingsState, value: string | boolean) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+  const handleImport = async (file: File) => {
+    setIsImporting(true);
+    setStatusMessage(null);
+    try {
+      const json = await file.text();
+      const importedSettings = await importData(json);
+      replaceSettings(importedSettings);
+      useRoadmapStore.getState().reset();
+      router.push("/");
+    } catch (error) {
+      console.error("Failed to import data:", error);
+      setStatusMessage(
+        error instanceof Error ? error.message : "Failed to import backup. Please try again."
+      );
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const handleClearAllData = async () => {
     setIsClearingData(true);
     try {
       await clearAllData();
+      replaceSettings(getDefaultSettings());
+      useRoadmapStore.getState().reset();
       setShowClearDataDialog(false);
-      // Optionally redirect to home or show success message
-      alert('All data has been cleared successfully.');
-      // You might want to redirect to home page or reload the app
-      window.location.href = '/';
+      router.push("/");
     } catch (error) {
-      console.error('Failed to clear data:', error);
-      alert('Failed to clear data. Please try again.');
+      console.error("Failed to clear data:", error);
+      setStatusMessage("Failed to clear data. Please try again.");
     } finally {
       setIsClearingData(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex-1 overflow-y-auto bg-background">
       <div className={`py-8 ${containerClasses()}`}>
         <div className="space-y-8">
-          {/* Header */}
           <div>
             <h1 className="text-3xl font-bold">Settings</h1>
             <p className="text-muted-foreground mt-2">
-              Manage your application preferences and account settings.
+              Preferences are stored in this browser. Roadmaps live in IndexedDB.
             </p>
           </div>
 
-          {/* Appearance Settings */}
+          {statusMessage && (
+            <p className="text-sm text-muted-foreground">{statusMessage}</p>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -122,133 +105,56 @@ const SettingsPage = () => {
                   <Label>Theme</Label>
                   <Select
                     value={settings.theme}
-                    onValueChange={(value) => updateSetting("theme", value)}
+                    onValueChange={(value) =>
+                      updateSettings({ theme: value as AppSettings["theme"] })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="light">
-                        <div className="flex items-center gap-2">
-                          <Sun className="h-4 w-4" />
-                          Light
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="dark">
-                        <div className="flex items-center gap-2">
-                          <Moon className="h-4 w-4" />
-                          Dark
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="system">System</SelectItem>
+                      <SelectItem value="light">Light</SelectItem>
+                      <SelectItem value="dark">Dark</SelectItem>
+                      <SelectItem value="auto">System</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Language</Label>
+                  <Label className="flex items-center gap-2">
+                    <Type className="h-4 w-4" />
+                    Font
+                  </Label>
                   <Select
-                    value={settings.language}
-                    onValueChange={(value) => updateSetting("language", value)}
+                    value={settings.font}
+                    onValueChange={(value) => updateSettings({ font: value as FontId })}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="es">Español</SelectItem>
-                      <SelectItem value="fr">Français</SelectItem>
-                      <SelectItem value="de">Deutsch</SelectItem>
+                      {FONT_OPTIONS.map((font) => (
+                        <SelectItem
+                          key={font.id}
+                          value={font.id}
+                          style={{ fontFamily: `var(${font.cssVar})` }}
+                        >
+                          {font.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Date Format</Label>
-                  <Select
-                    value={settings.dateFormat}
-                    onValueChange={(value) => updateSetting("dateFormat", value)}
+                  <p
+                    className="text-sm text-muted-foreground"
+                    style={{ fontFamily: `var(${getFontOption(settings.font).cssVar})` }}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MM/dd/yyyy">MM/DD/YYYY</SelectItem>
-                      <SelectItem value="dd/MM/yyyy">DD/MM/YYYY</SelectItem>
-                      <SelectItem value="yyyy-MM-dd">YYYY-MM-DD</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    {getFontOption(settings.font).preview} — The quick brown fox jumps over the lazy dog.
+                  </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Notification Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
-                Notifications
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Email Notifications</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Receive notifications via email
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.emailNotifications}
-                    onCheckedChange={(checked) => updateSetting("emailNotifications", checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Push Notifications</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Receive push notifications in your browser
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.pushNotifications}
-                    onCheckedChange={(checked) => updateSetting("pushNotifications", checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Reminder Notifications</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Get reminded about upcoming objectives
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.reminderNotifications}
-                    onCheckedChange={(checked) => updateSetting("reminderNotifications", checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Weekly Digest</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Receive a weekly summary of your progress
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.weeklyDigest}
-                    onCheckedChange={(checked) => updateSetting("weeklyDigest", checked)}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Preferences */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -256,59 +162,39 @@ const SettingsPage = () => {
                 Preferences
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label>Week Starts On</Label>
+                  <Label>Week starts on</Label>
                   <Select
-                    value={settings.weekStartsOn}
-                    onValueChange={(value) => updateSetting("weekStartsOn", value)}
+                    value={String(settings.firstDayOfWeek)}
+                    onValueChange={(value) =>
+                      updateSettings({ firstDayOfWeek: Number(value) as 0 | 1 })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="sunday">Sunday</SelectItem>
-                      <SelectItem value="monday">Monday</SelectItem>
+                      <SelectItem value="0">Sunday</SelectItem>
+                      <SelectItem value="1">Monday</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Time Zone</Label>
+                  <Label>Date format</Label>
                   <Select
-                    value={settings.timeZone}
-                    onValueChange={(value) => updateSetting("timeZone", value)}
+                    value={settings.dateFormat}
+                    onValueChange={(value) => updateSettings({ dateFormat: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="UTC">UTC</SelectItem>
-                      <SelectItem value="America/New_York">Eastern Time</SelectItem>
-                      <SelectItem value="America/Chicago">Central Time</SelectItem>
-                      <SelectItem value="America/Denver">Mountain Time</SelectItem>
-                      <SelectItem value="America/Los_Angeles">Pacific Time</SelectItem>
-                      <SelectItem value="Europe/London">London</SelectItem>
-                      <SelectItem value="Europe/Paris">Paris</SelectItem>
-                      <SelectItem value="Asia/Tokyo">Tokyo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Default View</Label>
-                  <Select
-                    value={settings.defaultView}
-                    onValueChange={(value) => updateSetting("defaultView", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="month">Month View</SelectItem>
-                      <SelectItem value="week">Week View</SelectItem>
-                      <SelectItem value="day">Day View</SelectItem>
+                      <SelectItem value="MMM d, yyyy">MMM d, yyyy</SelectItem>
+                      <SelectItem value="d MMM yyyy">d MMM yyyy</SelectItem>
+                      <SelectItem value="yyyy-MM-dd">yyyy-MM-dd</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -316,137 +202,92 @@ const SettingsPage = () => {
             </CardContent>
           </Card>
 
-          {/* Privacy & Security */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                Privacy & Security
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Data Collection</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Allow collection of usage data for improvements
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.dataCollection}
-                    onCheckedChange={(checked) => updateSetting("dataCollection", checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Analytics</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Help improve the app with anonymous analytics
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.analytics}
-                    onCheckedChange={(checked) => updateSetting("analytics", checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Marketing Emails</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Receive emails about new features and updates
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.marketingEmails}
-                    onCheckedChange={(checked) => updateSetting("marketingEmails", checked)}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Data Management */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Database className="h-5 w-5" />
-                Data Management
+                Data
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              <p className="text-sm text-muted-foreground">
+                Export a JSON backup before clearing or switching browsers. Import replaces all current roadmaps.
+              </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Button variant="outline" className="justify-start">
-                  <Database className="h-4 w-4 mr-2" />
-                  Export Data
-                </Button>
-                <Button variant="outline" className="justify-start">
-                  <Database className="h-4 w-4 mr-2" />
-                  Import Data
-                </Button>
-                <Button variant="outline" className="justify-start">
-                  <Database className="h-4 w-4 mr-2" />
-                  Backup Data
-                </Button>
-                <Button 
-                  variant="destructive" 
+                <Button
+                  variant="outline"
                   className="justify-start"
+                  onClick={() => downloadBackup(settings)}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export backup
+                </Button>
+                <Button
+                  variant="outline"
+                  className="justify-start"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isImporting}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  {isImporting ? "Importing…" : "Import backup"}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/json"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void handleImport(file);
+                  }}
+                />
+                <Button
+                  variant="destructive"
+                  className="justify-start md:col-span-2"
                   onClick={() => setShowClearDataDialog(true)}
                 >
                   <Database className="h-4 w-4 mr-2" />
-                  Clear All Data
+                  Clear all data
                 </Button>
               </div>
               <Separator />
-              <div className="flex justify-end">
-                <Button>Save Settings</Button>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Appearance preferences save automatically in this browser.
+              </p>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* Clear Data Confirmation Modal */}
       <Dialog open={showClearDataDialog} onOpenChange={setShowClearDataDialog}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              Clear All Data
+              Clear all data
             </DialogTitle>
             <DialogDescription>
-              This action cannot be undone. This will permanently delete all your roadmaps, 
-              objectives, and settings from the application.
+              This permanently deletes every roadmap and objective stored in this browser. Export a backup first if you need it.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground">
-              Are you sure you want to clear all data? Make sure you have exported any important 
-              data before proceeding.
-            </p>
-          </div>
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setShowClearDataDialog(false)}
               disabled={isClearingData}
             >
               Cancel
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={handleClearAllData}
               disabled={isClearingData}
             >
-              {isClearingData ? 'Clearing...' : 'Clear All Data'}
+              {isClearingData ? "Clearing…" : "Clear all data"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
-};
-
-export default SettingsPage;
+}

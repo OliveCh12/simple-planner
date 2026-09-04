@@ -11,6 +11,8 @@ import { getAllRoadmaps, deleteRoadmap } from "@/lib/db";
 import type { Roadmap } from "@/types";
 import RoadmapCardNew from "@/components/roadmap/RoadmapCardNew";
 import { containerClasses } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
+import { useUIStore } from "@/store/uiStore";
 
 import {
   Empty,
@@ -26,40 +28,53 @@ export default function Home() {
   const [roadmaps, setRoadmaps] = useState<Roadmap[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Roadmap | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const notify = useUIStore((s) => s.notify);
 
   useEffect(() => {
-    loadRoadmaps();
+    let cancelled = false;
+
+    async function loadRoadmaps() {
+      setIsLoading(true);
+      try {
+        const allRoadmaps = await getAllRoadmaps();
+        if (!cancelled) setRoadmaps(allRoadmaps);
+      } catch (error) {
+        console.error("Failed to load roadmaps:", error);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    void loadRoadmaps();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  async function loadRoadmaps() {
-    setIsLoading(true);
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    setIsDeleting(true);
     try {
-      const allRoadmaps = await getAllRoadmaps();
-      setRoadmaps(allRoadmaps);
-    } catch (error) {
-      console.error("Failed to load roadmaps:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  async function handleDelete(id: string) {
-    try {
-      await deleteRoadmap(id);
-      setRoadmaps(roadmaps.filter((r) => r.id !== id));
+      await deleteRoadmap(pendingDelete.id);
+      setRoadmaps((prev) => prev.filter((r) => r.id !== pendingDelete.id));
+      setPendingDelete(null);
     } catch (error) {
       console.error("Failed to delete roadmap:", error);
-      alert("Failed to delete roadmap. Please try again.");
+      notify("Failed to delete roadmap. Please try again.");
+    } finally {
+      setIsDeleting(false);
     }
   }
 
   function handleRoadmapCreated(roadmap: Roadmap) {
-    setRoadmaps([roadmap, ...roadmaps]);
+    setRoadmaps((prev) => [roadmap, ...prev]);
     router.push(`/roadmap/${roadmap.id}`);
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <SubHeader
         title="Timeline Planner"
         subtitle="Plan and track your goals across time"
@@ -67,10 +82,9 @@ export default function Home() {
         actionButtonLabel="New Roadmap"
         actionButtonIcon={<Plus className="h-4 w-4 mr-2" />}
         onActionClick={() => setIsCreateModalOpen(true)}
-        showSeparator={false}
       />
 
-      <div className={`${containerClasses()} py-4 flex-1 w-full`}>
+      <div className={`${containerClasses()} min-h-0 flex-1 w-full overflow-y-auto py-4`}>
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <p className="text-muted-foreground">Loading roadmaps...</p>
@@ -105,7 +119,7 @@ export default function Home() {
               <RoadmapCard
                 key={roadmap.id}
                 roadmap={roadmap}
-                onDelete={handleDelete}
+                onDelete={setPendingDelete}
               />
             ))}
             <RoadmapCardNew
@@ -120,6 +134,22 @@ export default function Home() {
         open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onCreated={handleRoadmapCreated}
+      />
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete roadmap"
+        description={
+          pendingDelete
+            ? `Delete “${pendingDelete.title}”? This cannot be undone.`
+            : ""
+        }
+        confirmLabel="Delete"
+        destructive
+        loading={isDeleting}
+        onConfirm={() => void confirmDelete()}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) setPendingDelete(null);
+        }}
       />
     </div>
   );

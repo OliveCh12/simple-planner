@@ -1,130 +1,250 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { useDraggable } from '@dnd-kit/react';
-import { Badge } from '@/components/ui/badge';
-import { Clock, Target, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
-import type { Objective } from '@/types';
+import { useEffect, useRef, useState } from "react";
+import { useDraggable } from "@dnd-kit/react";
+import { Check, GripVertical, Trash2 } from "lucide-react";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+  InputGroupText,
+  InputGroupTextarea,
+} from "@/components/ui/input-group";
+import { ENERGY_LEVELS, STATUSES } from "@/lib/constants";
+import { createISODate, dayFromISO, getDaysInMonthForDate } from "@/lib/date-utils";
+import { useRoadmapStore } from "@/store/roadmapStore";
+import type { EnergyLevel, Objective, ObjectiveStatus } from "@/types";
 
 interface ObjectiveItemProps {
   objective: Objective;
+  monthKey: string;
   roadmapId: string;
-  compact?: boolean;
 }
 
-const statusConfig = {
-  pending: {
-    icon: Clock,
-    className: 'text-muted-foreground',
-    label: 'Pending',
-    bgClass: 'bg-background/40 hover:bg-card/50'
-  },
-  'in-progress': {
-    icon: Target,
-    className: 'text-primary',
-    label: 'In Progress',
-    bgClass: 'bg-background/40 hover:bg-card/50'
-  },
-  completed: {
-    icon: CheckCircle,
-    className: 'text-chart-1',
-    label: 'Completed',
-    bgClass: 'bg-chart-1/10 dark:bg-chart-1/20 hover:bg-chart-1/15 dark:hover:bg-chart-1/25 border-chart-1/30 dark:border-chart-1/40'
-  },
-  cancelled: {
-    icon: XCircle,
-    className: 'text-destructive',
-    label: 'Cancelled',
-    bgClass: 'bg-destructive/10 dark:bg-destructive/20 hover:bg-destructive/15 dark:hover:bg-destructive/25 border-destructive/30 dark:border-destructive/40'
-  },
-  blocked: {
-    icon: AlertTriangle,
-    className: 'text-chart-4',
-    label: 'Blocked',
-    bgClass: 'bg-chart-4/10 dark:bg-chart-4/20 hover:bg-chart-4/15 dark:hover:bg-chart-4/25 border-chart-4/30 dark:border-chart-4/40'
-  },
+const STATUS_DOT: Record<ObjectiveStatus, string> = {
+  pending: "bg-muted-foreground/40",
+  "in-progress": "bg-primary",
+  completed: "bg-emerald-500",
+  cancelled: "bg-destructive/70",
+  blocked: "bg-amber-500",
 };
 
-export function ObjectiveItem({ objective, roadmapId, compact = false }: ObjectiveItemProps) {
-  const router = useRouter();
-  const status = statusConfig[objective.status];
-  const StatusIcon = status.icon;
+export function ObjectiveItem({ objective, monthKey, roadmapId }: ObjectiveItemProps) {
+  const updateObjective = useRoadmapStore((s) => s.updateObjective);
+  const deleteObjective = useRoadmapStore((s) => s.deleteObjective);
+  const [expanded, setExpanded] = useState(false);
+  const [title, setTitle] = useState(objective.title);
+  const [notes, setNotes] = useState(objective.notes ?? objective.description ?? "");
+  const didDrag = useRef(false);
 
-  const { ref, isDragging } = useDraggable({
+  const { ref, handleRef, isDragging } = useDraggable({
     id: objective.id,
-    data: {
-      objective,
-      roadmapId,
-    },
+    data: { objective, roadmapId },
   });
 
-  const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    router.push(`/roadmap/${roadmapId}/objective/${objective.id}`);
+  useEffect(() => {
+    if (isDragging) didDrag.current = true;
+  }, [isDragging]);
+
+  const [year, month] = monthKey.split("-").map(Number);
+  const daysInMonth = getDaysInMonthForDate(year, month);
+  const startDay = dayFromISO(objective.startDate);
+  const endDay = dayFromISO(objective.endDate);
+
+  const persist = (updates: Partial<Objective>) => {
+    void updateObjective(monthKey, objective.id, updates);
+  };
+
+  const persistTitle = () => {
+    const next = title.trim();
+    if (!next || next === objective.title) {
+      setTitle(objective.title);
+      return;
+    }
+    persist({ title: next });
+  };
+
+  const persistNotes = () => {
+    if (notes === (objective.notes ?? objective.description ?? "")) return;
+    persist({ notes, description: notes });
+  };
+
+  const setDays = (start: number, end: number) => {
+    const from = Math.max(1, Math.min(daysInMonth, start));
+    const to = Math.max(from, Math.min(daysInMonth, end));
+    persist({
+      startDate: createISODate(year, month, from),
+      endDate: createISODate(year, month, to),
+      duration: to - from + 1,
+      isPinned: to - from + 1 >= 28,
+    });
   };
 
   return (
     <div
       ref={ref}
-      className={`group relative cursor-pointer transition-all duration-200 rounded-lg border backdrop-blur-sm ${
-        status.bgClass
-      } ${
-        isDragging ? "scale-105 shadow-lg rotate-2" : ''
-      } ${compact ? 'p-2.5' : 'p-3'}`}
-      onClick={handleClick}
+      data-objective
+      className={`group/item rounded-xl border bg-background/70 transition-[background-color,border-color,box-shadow,opacity,transform] duration-150 ${
+        isDragging
+          ? "rotate-1 scale-[1.02] border-primary/40 bg-background opacity-90 shadow-md"
+          : "hover:border-foreground/20 hover:bg-background hover:shadow-[0_1px_2px_0_rgb(0_0_0/0.06)]"
+      } ${expanded ? "border-foreground/20 bg-background p-2.5 shadow-sm" : "px-2 py-1.5"} ${
+        objective.status === "completed" && !expanded && !isDragging ? "opacity-70 hover:opacity-100" : ""
+      }`}
     >
-      <div className="space-y-2.5">
-        {/* Header with title and status */}
-        <div className="flex items-start justify-between gap-3">
-          <h4 className={`text-sm font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2 flex-1 ${
-            compact ? 'leading-tight' : 'text-base leading-snug'
-          }`}>
-            {objective.title}
-          </h4>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <StatusIcon
-              className={`${
-                compact ? 'h-3.5 w-3.5' : 'h-4 w-4'
-              } ${status.className} transition-colors`}
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          ref={handleRef}
+          aria-label="Drag objective"
+          data-no-pan
+          className="shrink-0 cursor-grab rounded p-0.5 text-muted-foreground/35 transition-colors group-hover/item:text-muted-foreground hover:text-foreground active:cursor-grabbing"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+
+        <button
+          type="button"
+          aria-label={objective.status === "completed" ? "Mark pending" : "Mark completed"}
+          className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full ${STATUS_DOT[objective.status]}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            persist({
+              status: objective.status === "completed" ? "pending" : "completed",
+              progress: objective.status === "completed" ? 0 : 100,
+              completedAt:
+                objective.status === "completed" ? undefined : new Date().toISOString(),
+            });
+          }}
+        >
+          {objective.status === "completed" && <Check className="h-2.5 w-2.5 text-white" />}
+        </button>
+
+        {expanded ? (
+          <InputGroup className="h-8 min-w-0 flex-1 shadow-none">
+            <InputGroupInput
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={persistTitle}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  persistTitle();
+                }
+                if (e.key === "Escape") setExpanded(false);
+              }}
+              className="h-8 text-sm font-medium"
             />
-          </div>
-        </div>
-
-        {/* Description - only show in non-compact mode */}
-        {objective.description && !compact && (
-          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
-            {objective.description}
-          </p>
-        )}
-
-        {/* Footer with category */}
-        {objective.category && (
-          <div className="flex items-center justify-between pt-1">
-            <Badge
-              variant="secondary"
-              className={`text-xs font-medium ${
-                compact ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1'
-              }`}
-            >
-              {objective.category}
-            </Badge>
-            {!compact && (
-              <span className="text-xs text-muted-foreground">
-                {status.label}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Status label for compact mode without category */}
-        {!objective.category && !compact && (
-          <div className="flex justify-end pt-1">
-            <span className="text-xs text-muted-foreground font-medium">
-              {status.label}
-            </span>
-          </div>
+          </InputGroup>
+        ) : (
+          <button
+            type="button"
+            className="min-w-0 flex-1 truncate text-left text-sm leading-snug"
+            onClick={() => {
+              if (didDrag.current) {
+                didDrag.current = false;
+                return;
+              }
+              setTitle(objective.title);
+              setNotes(objective.notes ?? objective.description ?? "");
+              setExpanded(true);
+            }}
+          >
+            {objective.title}
+          </button>
         )}
       </div>
+
+      {expanded && (
+        <div className="mt-2 space-y-2 pl-6">
+          <InputGroup>
+            <InputGroupTextarea
+              value={notes}
+              placeholder="Notes"
+              rows={2}
+              className="min-h-14 py-2 text-xs"
+              onChange={(e) => setNotes(e.target.value)}
+              onBlur={persistNotes}
+            />
+          </InputGroup>
+
+          <div className="flex flex-wrap gap-1">
+            {STATUSES.filter((s) => s.value !== "cancelled").map((status) => (
+              <button
+                key={status.value}
+                type="button"
+                onClick={() =>
+                  persist({
+                    status: status.value,
+                    progress: status.value === "completed" ? 100 : objective.progress,
+                    completedAt:
+                      status.value === "completed" ? new Date().toISOString() : undefined,
+                  })
+                }
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                  objective.status === status.value
+                    ? "bg-foreground text-background"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {status.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-1">
+            {ENERGY_LEVELS.map((level) => (
+              <button
+                key={level.value}
+                type="button"
+                onClick={() => persist({ energyLevel: level.value as EnergyLevel })}
+                className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                  objective.energyLevel === level.value
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {level.label}
+              </button>
+            ))}
+          </div>
+
+          <InputGroup className="h-8">
+            <InputGroupAddon>
+              <InputGroupText className="text-xs">Days</InputGroupText>
+            </InputGroupAddon>
+            <InputGroupInput
+              type="number"
+              min={1}
+              max={daysInMonth}
+              value={startDay}
+              onChange={(e) => setDays(Number(e.target.value), endDay)}
+              className="h-8 min-w-0 text-center"
+            />
+            <InputGroupText className="px-0 text-muted-foreground">–</InputGroupText>
+            <InputGroupInput
+              type="number"
+              min={1}
+              max={daysInMonth}
+              value={endDay}
+              onChange={(e) => setDays(startDay, Number(e.target.value))}
+              className="h-8 min-w-0 text-center"
+            />
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton
+                size="icon-xs"
+                className="text-muted-foreground hover:text-destructive"
+                aria-label="Delete objective"
+                onClick={() => void deleteObjective(monthKey, objective.id)}
+              >
+                <Trash2 />
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
+        </div>
+      )}
     </div>
   );
 }
