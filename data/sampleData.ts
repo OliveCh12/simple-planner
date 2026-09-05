@@ -419,7 +419,7 @@ export function olivierPlanItems(planId: string, year: number): PlanItem[] {
     item("event-jazz", {
       kind: "event",
       title: "Jazz night",
-      notes: "Duo piano / double bass.",
+      notes: "Duo piano / double bass. Table booked under *Chemla*.\n\n[Venue](https://ducdeslombards.com)",
       start: local(year, 9, 20, "20:00"),
       end: local(year, 9, 20, "23:00"),
       energy: "low",
@@ -539,6 +539,8 @@ export function olivierPlanItems(planId: string, year: number): PlanItem[] {
       kind: "event",
       parentId: "obj-ardeche",
       title: "Ardèche trip",
+      notes:
+        "Leave Friday after lunch.\n\n- [Cottage](https://www.gites-de-france.com)\n- Swim in the river, no laptop.\n\n**Bring** cash for the baker.",
       start: local(year, 10, 17),
       end: local(year, 10, 24),
       energy: "low",
@@ -546,6 +548,13 @@ export function olivierPlanItems(planId: string, year: number): PlanItem[] {
       assigneeIds: olivier,
       attendeeIds: [DEFAULT_USER_ID, GUEST_ID],
       location: { name: "Vallon-Pont-d'Arc" },
+      images: [
+        {
+          id: "img-ardeche",
+          name: "River",
+          src: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&w=800&q=80",
+        },
+      ],
     }),
     item("task-cottage", {
       parentId: "event-ardeche",

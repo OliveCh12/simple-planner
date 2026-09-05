@@ -2,7 +2,7 @@ import { planItemSchema } from "@/lib/validation";
 import { createId } from "@/lib/id";
 import { formatLocal, isAllDay, parseLocal } from "@/lib/time/local";
 import { occurrenceEnd } from "@/lib/time/recurrence";
-import type { Executor, ItemKind, ItemStatus, LocalDateTime, PlanItem } from "@/types";
+import type { Executor, ItemImage, ItemKind, ItemStatus, LocalDateTime, PlanItem } from "@/types";
 
 export class DomainError extends Error {
   constructor(message: string) {
@@ -33,6 +33,7 @@ export type CreateItemInput = {
   attendeeIds?: string[];
   categoryId?: string;
   location?: PlanItem["location"];
+  images?: ItemImage[];
   id?: string;
 };
 
@@ -60,6 +61,7 @@ export function createItem(input: CreateItemInput): PlanItem {
   if (input.agentBrief) item.agentBrief = input.agentBrief;
   if (input.categoryId) item.categoryId = input.categoryId;
   if (input.location) item.location = input.location;
+  if (input.images?.length) item.images = input.images;
   return parseItem(item);
 }
 
@@ -87,8 +89,31 @@ export function updateItem(item: PlanItem, patch: Partial<Omit<PlanItem, "id" | 
   if ("categoryId" in patch && !patch.categoryId) delete next.categoryId;
   if ("agentBrief" in patch && !patch.agentBrief) delete next.agentBrief;
   if ("location" in patch && !patch.location) delete next.location;
+  if ("images" in patch && !patch.images?.length) delete next.images;
   if ("completedAt" in patch && !patch.completedAt) delete next.completedAt;
   return parseItem(next);
+}
+
+export function duplicateItem(item: PlanItem): PlanItem {
+  return createItem({
+    planId: item.planId,
+    title: item.title.endsWith(" copy") ? item.title : `${item.title} copy`,
+    start: item.start,
+    end: item.end,
+    kind: item.kind,
+    notes: item.notes,
+    parentId: item.parentId,
+    recurrence: item.recurrence,
+    status: item.status === "completed" ? "pending" : item.status,
+    energy: item.energy,
+    executor: item.executor,
+    agentBrief: item.agentBrief,
+    assigneeIds: item.assigneeIds,
+    attendeeIds: item.attendeeIds,
+    categoryId: item.categoryId,
+    location: item.location,
+    images: item.images,
+  });
 }
 
 export function moveItem(item: PlanItem, start: LocalDateTime, end?: LocalDateTime): PlanItem {

@@ -169,6 +169,15 @@ export const planItemSchema = z
     attendeeIds: z.array(z.string()),
     categoryId: z.string().min(1).optional(),
     location: locationSchema.optional(),
+    images: z
+      .array(
+        z.object({
+          id: z.string().min(1),
+          name: z.string().min(1),
+          src: z.string().min(1),
+        })
+      )
+      .optional(),
     completedAt: z.string().optional(),
     createdAt: z.string(),
     updatedAt: z.string(),

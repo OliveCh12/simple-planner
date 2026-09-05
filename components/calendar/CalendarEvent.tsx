@@ -17,6 +17,8 @@ interface CalendarEventProps {
   variant?: "chip" | "block";
   className?: string;
   highlight?: boolean;
+  draggable?: boolean;
+  dimmed?: boolean;
 }
 
 export function CalendarEvent({
@@ -25,6 +27,8 @@ export function CalendarEvent({
   variant = "chip",
   className,
   highlight,
+  draggable = false,
+  dimmed = false,
 }: CalendarEventProps) {
   const item = usePlannerStore((s) => s.items.find((entry) => entry.id === occurrence.itemId));
   const ui = useCalendarUi();
@@ -46,12 +50,19 @@ export function CalendarEvent({
 
   return (
     <div
+      data-cal-item={occurrence.id}
+      data-item-id={occurrence.itemId}
+      data-occurrence-start={occurrence.start}
+      data-start={occurrence.start}
+      data-end={occurrence.end ?? ""}
+      data-all-day={occurrence.allDay ? "true" : "false"}
       className={cn(
-        "flex w-full min-w-0 flex-col rounded-md text-xs leading-tight",
+        "group/cal relative flex w-full min-w-0 flex-col rounded-md text-xs leading-tight",
+        draggable && "cursor-grab",
         expanded ? "z-20 overflow-visible" : "overflow-hidden",
         occurrence.kind === "event" && "font-medium",
         subtask && "text-muted-foreground",
-        occurrence.status === "completed" && "opacity-50",
+        (occurrence.status === "completed" || dimmed) && "opacity-50",
         !color && "bg-primary/15",
         selected && "ring-1 ring-ring ring-offset-1 ring-offset-background",
         className
@@ -59,6 +70,30 @@ export function CalendarEvent({
       style={surface ? { backgroundImage: surface.backgroundImage } : undefined}
       onClick={(event) => event.stopPropagation()}
     >
+      {draggable && (
+        <>
+          <span
+            data-cal-resize="start"
+            className={cn(
+              "absolute z-[3] opacity-0 transition-opacity group-hover/cal:opacity-100",
+              selected && "opacity-100",
+              block
+                ? "inset-x-1 top-0 h-1.5 cursor-ns-resize rounded-t-md bg-foreground/25"
+                : "inset-y-1 left-0 w-1.5 cursor-ew-resize rounded-l-md bg-foreground/25"
+            )}
+          />
+          <span
+            data-cal-resize="end"
+            className={cn(
+              "absolute z-[3] opacity-0 transition-opacity group-hover/cal:opacity-100",
+              selected && "opacity-100",
+              block
+                ? "inset-x-1 bottom-0 h-1.5 cursor-ns-resize rounded-b-md bg-foreground/25"
+                : "inset-y-1 right-0 w-1.5 cursor-ew-resize rounded-r-md bg-foreground/25"
+            )}
+          />
+        </>
+      )}
       <div className="flex min-w-0 items-stretch">
         {foldable && (
           <button

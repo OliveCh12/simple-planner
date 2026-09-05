@@ -13,7 +13,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { Progress } from "@/components/ui/progress";
+import { ProgressDonut } from "@/components/item/ProgressDonut";
 import { useSaveItem } from "@/hooks/useSaveItem";
 import { addSubtask, applyStatus, DomainError } from "@/lib/domain/items";
 import { childNoun, childProgress, childrenOf } from "@/lib/domain/tree";
@@ -67,18 +67,7 @@ export function ItemTree({ planId, parent, items }: ItemTreeProps) {
     <section className="space-y-3">
       <div className="flex items-center gap-3">
         <h2 className="text-sm font-medium capitalize">{noun}</h2>
-        {total > 0 && (
-          <>
-            <span className="tabular-nums text-xs text-muted-foreground">
-              {done}/{total}
-            </span>
-            <Progress
-              value={Math.round((done / total) * 100)}
-              aria-label={`${done} of ${total} ${noun} done`}
-              className="h-1 w-24"
-            />
-          </>
-        )}
+        {total > 0 && <ProgressDonut done={done} total={total} />}
       </div>
       {nodes.length > 0 ? (
         <ItemBranchTree nodes={nodes} className="-ml-1" />

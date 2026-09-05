@@ -1,10 +1,12 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
+import type { CalendarCommit } from "@/hooks/useCalendarPointer";
 
 export interface CalendarUiValue {
   selectedId: string | null;
   onSelect: (itemId: string, occurrenceStart?: string) => void;
+  onMoveItem: (commit: CalendarCommit) => void;
   expandedIds: ReadonlySet<string>;
   onToggleExpand: (itemId: string) => void;
   showSubtasks: boolean;

@@ -43,7 +43,7 @@ const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
   },
   {
     title: "Move or resize an item",
-    description: "In the roadmap, drag a bar to translate it by whole units of the current scale (15 minutes at hour scale). Drag the left or right edge to change the start or end. Drop on the delete zone at the bottom to remove it, with undo.",
+    description: "In week and day views, drag an event or task to another slot, or drag its edges to change the start and end. Times snap to 15 minutes. Recurring items ask whether to edit this occurrence or the series. The roadmap still uses horizontal drag on bars.",
     keys: ["Drag"],
   },
   {

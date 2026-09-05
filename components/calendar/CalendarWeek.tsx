@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { addDays, eachDayOfInterval, format, isSameDay, startOfWeek } from "date-fns";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { addDays, differenceInCalendarDays, eachDayOfInterval, format, isSameDay, startOfWeek } from "date-fns";
+import { useCalendarUi } from "@/components/calendar/calendar-ui";
 import { CalendarEvent } from "@/components/calendar/CalendarEvent";
 import {
   occupiesMonthDay,
@@ -10,7 +11,9 @@ import {
   timedLabel,
   type CalendarOccurrence,
 } from "@/lib/calendar";
-import { parseLocal } from "@/lib/time/local";
+import { minutesOf } from "@/lib/calendar-snap";
+import { useCalendarPointer, type CalendarDragPreview } from "@/hooks/useCalendarPointer";
+import { formatLocalDate, parseLocal } from "@/lib/time/local";
 import { cn } from "@/lib/utils";
 
 export const HOUR_PX = 44;
@@ -61,6 +64,16 @@ export function CalendarWeek({
   );
   const allDayById = new Map(allDay.map((occurrence) => [occurrence.id, occurrence]));
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const [gridEl, setGridEl] = useState<HTMLDivElement | null>(null);
+  const ui = useCalendarUi();
+  const onMoveItem = ui?.onMoveItem;
+  const onCommit = useCallback(
+    (commit: Parameters<NonNullable<typeof onMoveItem>>[0]) => {
+      onMoveItem?.(commit);
+    },
+    [onMoveItem]
+  );
+  const { preview, draggingId } = useCalendarPointer(gridEl, onCommit);
 
   useEffect(() => {
     if (!scrollerRef.current) return;
@@ -69,7 +82,14 @@ export function CalendarWeek({
   }, [focus]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div
+      ref={setGridEl}
+      data-cal-grid="week"
+      data-cal-origin={formatLocalDate(weekStart)}
+      data-cal-days="7"
+      data-cal-gutter="56"
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
+    >
       <div className="grid border-b" style={{ gridTemplateColumns: "3.5rem repeat(7, minmax(0, 1fr))" }}>
         <div />
         {days.map((day) => {
@@ -109,6 +129,7 @@ export function CalendarWeek({
             All day
           </p>
           <div
+            data-cal-allday
             className="relative col-span-7"
             style={{ height: Math.max(1, packed.laneCount) * LANE_PX + 8 }}
           >
@@ -128,15 +149,20 @@ export function CalendarWeek({
                   <CalendarEvent
                     occurrence={occurrence}
                     highlight={occurrence.itemId === highlightId}
+                    draggable
+                    dimmed={draggingId === occurrence.itemId}
                   />
                 </div>
               );
             })}
+            {preview?.allDay && (
+              <AllDayGhost preview={preview} origin={weekStart} />
+            )}
           </div>
         </div>
       </div>
 
-      <div ref={scrollerRef} className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={scrollerRef} data-cal-timed className="min-h-0 flex-1 overflow-y-auto">
         <div
           className="relative grid"
           style={{
@@ -202,6 +228,8 @@ export function CalendarWeek({
                         variant="block"
                         className="h-full"
                         highlight={occurrence.itemId === highlightId}
+                        draggable
+                        dimmed={draggingId === occurrence.itemId}
                       />
                     </div>
                   );
@@ -209,7 +237,62 @@ export function CalendarWeek({
               </div>
             );
           })}
+          {preview && !preview.allDay && (
+            <TimedGhost preview={preview} origin={weekStart} days={7} gutter="3.5rem" />
+          )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+export function AllDayGhost({ preview, origin }: { preview: CalendarDragPreview; origin: Date }) {
+  const start = parseLocal(preview.start.slice(0, 10));
+  const end = parseLocal((preview.end ?? preview.start).slice(0, 10));
+  const from = Math.max(0, differenceInCalendarDays(start, origin));
+  const to = Math.min(6, differenceInCalendarDays(end, origin));
+  if (to < 0 || from > 6) return null;
+  return (
+    <div
+      className="pointer-events-none absolute top-0 z-30 px-0.5"
+      style={{ left: `${(from / 7) * 100}%`, width: `${((to - from + 1) / 7) * 100}%` }}
+    >
+      <div className="rounded-md border border-dashed border-foreground/40 bg-background/85 px-1.5 py-0.5 text-[11px]">
+        {preview.label}
+      </div>
+    </div>
+  );
+}
+
+export function TimedGhost({
+  preview,
+  origin,
+  days,
+  gutter,
+}: {
+  preview: CalendarDragPreview;
+  origin: Date;
+  days: number;
+  gutter: string;
+}) {
+  const start = parseLocal(preview.start);
+  const end = parseLocal(preview.end ?? preview.start);
+  const index = differenceInCalendarDays(new Date(start.getFullYear(), start.getMonth(), start.getDate()), origin);
+  if (index < 0 || index >= days) return null;
+  const top = (minutesOf(start) / 60) * HOUR_PX;
+  const height = Math.max(18, ((end.getTime() - start.getTime()) / 3_600_000) * HOUR_PX);
+  return (
+    <div
+      className="pointer-events-none absolute z-30 px-0.5"
+      style={{
+        left: `calc(${gutter} + ${index} * (100% - ${gutter}) / ${days})`,
+        width: `calc((100% - ${gutter}) / ${days})`,
+        top,
+        height,
+      }}
+    >
+      <div className="flex h-full items-start rounded-md border border-dashed border-foreground/40 bg-background/85 px-1.5 py-1 text-[11px] font-medium">
+        {preview.label}
       </div>
     </div>
   );

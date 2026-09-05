@@ -38,6 +38,7 @@ import { periodLabel, visibleCalendarRange } from "@/lib/calendar";
 import { formatDateDisplay } from "@/lib/date-utils";
 import { itemToTask } from "@/lib/domain/convert";
 import { createItem, moveItem, shiftSeries, splitOccurrence } from "@/lib/domain/items";
+import type { CalendarCommit } from "@/hooks/useCalendarPointer";
 import { ancestorIds, calendarEntries, indexById, withoutSubtasks } from "@/lib/domain/tree";
 import { groupByObjective, laneTasksFromItems, layoutLanes, type LaneItem } from "@/lib/lanes";
 import { defaultTaskRange } from "@/lib/plan";
@@ -173,6 +174,24 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     setSelectedId(itemId);
     setSelectedOccurrenceStart(occurrenceStart);
   }, []);
+  const onMoveItem = useCallback(
+    (commit: CalendarCommit) => {
+      const item = items.find((entry) => entry.id === commit.itemId);
+      if (!item) return;
+      if (item.recurrence) {
+        setPendingEdit({
+          item,
+          occurrenceStart: commit.occurrenceStart,
+          start: commit.start,
+          end: commit.end ?? commit.start,
+          mode: "move",
+        });
+        return;
+      }
+      void saveItem(moveItem(item, commit.start, commit.end));
+    },
+    [items, saveItem]
+  );
   const onToggleExpand = useCallback((itemId: string) => {
     setExpandedIds((current) => {
       const next = new Set(current);
@@ -189,11 +208,12 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     () => ({
       selectedId,
       onSelect: onSelectItem,
+      onMoveItem,
       expandedIds,
       onToggleExpand,
       showSubtasks,
     }),
-    [expandedIds, onSelectItem, onToggleExpand, selectedId, showSubtasks]
+    [expandedIds, onMoveItem, onSelectItem, onToggleExpand, selectedId, showSubtasks]
   );
 
   const layout = useMemo(

@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { addDays, isSameDay } from "date-fns";
+import { useCalendarUi } from "@/components/calendar/calendar-ui";
 import { CalendarEvent } from "@/components/calendar/CalendarEvent";
-import { HOUR_PX } from "@/components/calendar/CalendarWeek";
+import { HOUR_PX, TimedGhost } from "@/components/calendar/CalendarWeek";
 import { occurrenceInterval, packInRange, timedLabel, type CalendarOccurrence } from "@/lib/calendar";
-import { parseLocal } from "@/lib/time/local";
+import { useCalendarPointer } from "@/hooks/useCalendarPointer";
+import { formatLocalDate, parseLocal } from "@/lib/time/local";
 import { cn } from "@/lib/utils";
 
 function pad(value: number): string {
@@ -38,6 +40,16 @@ export function CalendarDay({
   const byId = new Map(timed.map((occurrence) => [occurrence.id, occurrence]));
   const laneCount = Math.max(1, packed.laneCount);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const [gridEl, setGridEl] = useState<HTMLDivElement | null>(null);
+  const ui = useCalendarUi();
+  const onMoveItem = ui?.onMoveItem;
+  const onCommit = useCallback(
+    (commit: Parameters<NonNullable<typeof onMoveItem>>[0]) => {
+      onMoveItem?.(commit);
+    },
+    [onMoveItem]
+  );
+  const { preview, draggingId } = useCalendarPointer(gridEl, onCommit);
 
   useEffect(() => {
     if (!scrollerRef.current) return;
@@ -53,8 +65,15 @@ export function CalendarDay({
   }, [focus, highlightId, occurrences]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="shrink-0 border-b px-4 py-3">
+    <div
+      ref={setGridEl}
+      data-cal-grid="day"
+      data-cal-origin={formatLocalDate(start)}
+      data-cal-days="1"
+      data-cal-gutter="64"
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
+    >
+      <div data-cal-allday className="shrink-0 border-b px-4 py-3">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">All day</p>
         <div className="mt-2 flex flex-wrap gap-1">
           {allDay.length === 0 && <p className="text-xs text-muted-foreground">No all-day items</p>}
@@ -63,12 +82,14 @@ export function CalendarDay({
               <CalendarEvent
                 occurrence={occurrence}
                 highlight={occurrence.itemId === highlightId}
+                draggable
+                dimmed={draggingId === occurrence.itemId}
               />
             </div>
           ))}
         </div>
       </div>
-      <div ref={scrollerRef} className="relative min-h-0 flex-1 overflow-y-auto">
+      <div ref={scrollerRef} data-cal-timed className="relative min-h-0 flex-1 overflow-y-auto">
         {Array.from({ length: 24 }, (_, hour) => (
           <button
             key={hour}
@@ -106,10 +127,15 @@ export function CalendarDay({
                   variant="block"
                   className="h-full"
                   highlight={occurrence.itemId === highlightId}
+                  draggable
+                  dimmed={draggingId === occurrence.itemId}
                 />
               </div>
             );
           })}
+          {preview && !preview.allDay && (
+            <TimedGhost preview={preview} origin={start} days={1} gutter="0px" />
+          )}
         </div>
       </div>
     </div>

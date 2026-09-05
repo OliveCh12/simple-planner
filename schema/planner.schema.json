@@ -175,6 +175,32 @@
             ],
             "additionalProperties": false
           },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "src": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "src"
+              ],
+              "additionalProperties": false
+            }
+          },
           "completedAt": {
             "type": "string"
           },

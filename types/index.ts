@@ -26,6 +26,12 @@ export interface Location {
   url?: string;
 }
 
+export interface ItemImage {
+  id: string;
+  name: string;
+  src: string;
+}
+
 /**
  * One timed entity in a plan. Differentiated by `kind`.
  * Named `PlanItem` to avoid colliding with the shadcn `Item` component.
@@ -56,6 +62,8 @@ export interface PlanItem {
   attendeeIds: string[];
   categoryId?: string;
   location?: Location;
+  /** Optional visual references stored as https or data URLs. */
+  images?: ItemImage[];
   completedAt?: string;
   createdAt: string;
   updatedAt: string;
