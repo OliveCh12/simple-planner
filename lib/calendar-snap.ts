@@ -108,6 +108,16 @@ export function slotFromClick(hit: GridHit): { start: string; end: string } {
   };
 }
 
+/** A default slot centred on the pointer, so the ghost sits under the hand rather than hanging from it. */
+export function centeredSlot(hit: GridHit): { start: string; end: string } {
+  if (hit.zone === "allDay") return slotFromClick(hit);
+  const start = atMinutes(hit.day, hit.minutes - DEFAULT_TIMED_MINUTES / 2);
+  return {
+    start: formatLocalDateTime(start),
+    end: formatLocalDateTime(addMinutes(start, DEFAULT_TIMED_MINUTES)),
+  };
+}
+
 export function slotFromDrag(from: GridHit, to: GridHit): { start: string; end: string } {
   if (from.zone === "allDay") {
     const startDay = from.day <= to.day ? from.day : to.day;

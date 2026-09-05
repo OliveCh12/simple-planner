@@ -22,6 +22,21 @@ const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
     keys: ["Display", "Plan"],
   },
   {
+    title: "Undo and redo",
+    description: "Every create, move, edit or delete can be taken back and put back, one step at a time, for the calendar you are in. Text fields keep their own undo while you type.",
+    keys: ["⌘Z", "⇧⌘Z"],
+  },
+  {
+    title: "Act on the selected item",
+    description: "Delete removes it (a repeating item asks which occurrences), ⌘D makes a copy next to it, N starts a new event on the selected day or hour.",
+    keys: ["⌫", "⌘D", "N"],
+  },
+  {
+    title: "Views and zoom keys",
+    description: "V flips between Calendar and Roadmap. Y, M, W, D pick the zoom; H (hours) only in the roadmap. ? opens this page.",
+    keys: ["V", "Y", "M", "W", "D", "?"],
+  },
+  {
     title: "Zoom in or out",
     description: "Steps through years, months, weeks, days and hours, keeping the time under the cursor in place. Ctrl or ⌘ with the mouse wheel, or a trackpad pinch, does the same.",
     keys: ["-", "+"],

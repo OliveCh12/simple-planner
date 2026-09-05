@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Bot, CalendarDays, ChevronLeft, ChevronRight, CloudSun, MapPin, PanelLeft, PanelLeftClose, SlidersHorizontal, Sunrise } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Bot, CalendarDays, ChevronLeft, ChevronRight, CloudSun, MapPin, PanelLeft, PanelLeftClose, Redo2, SlidersHorizontal, Sunrise, Undo2 } from "lucide-react";
 import { CalendarUiProvider } from "@/components/calendar/calendar-ui";
 import { CalendarBoard } from "@/components/calendar/CalendarBoard";
 import { CalendarCreateButton } from "@/components/calendar/CalendarCreateButton";
@@ -33,7 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useDeleteTask } from "@/hooks/useItemActions";
+import { useDeleteItem, useDeleteTask } from "@/hooks/useItemActions";
 import { useTaskPointer } from "@/hooks/useTaskPointer";
 import { useTimelinePan } from "@/hooks/useTimelinePan";
 import { useTimelineZoom } from "@/hooks/useTimelineZoom";
@@ -41,7 +43,15 @@ import { useVisibleRange } from "@/hooks/useVisibleRange";
 import { periodLabel, visibleCalendarRange } from "@/lib/calendar";
 import { formatDateDisplay } from "@/lib/date-utils";
 import { itemToTask } from "@/lib/domain/convert";
-import { createItem, isUnconfirmedDraft, moveItem, shiftSeries, splitOccurrence } from "@/lib/domain/items";
+import {
+  createItem,
+  duplicateItem,
+  excludeOccurrence,
+  isUnconfirmedDraft,
+  moveItem,
+  shiftSeries,
+  splitOccurrence,
+} from "@/lib/domain/items";
 import { captureRect } from "@/lib/motion";
 import type { CalendarCommit } from "@/hooks/useCalendarPointer";
 import { ancestorIds, calendarEntries, indexById, withoutSubtasks } from "@/lib/domain/tree";
@@ -62,6 +72,7 @@ import {
 } from "@/lib/time/scale";
 import { cn, shellClasses } from "@/lib/utils";
 import { useSaveItem } from "@/hooks/useSaveItem";
+import { useHistoryStore } from "@/store/historyStore";
 import { usePlannerStore } from "@/store/plannerStore";
 import { useUIStore, type TimelineView } from "@/store/uiStore";
 import type { Executor, HydratedPlan, ItemKind, PlanItem, TimeScale } from "@/types";
@@ -121,7 +132,16 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
   const items = usePlannerStore((s) => s.items);
   const categories = usePlannerStore((s) => s.categories);
   const deleteTask = useDeleteTask();
+  const deleteItem = useDeleteItem();
   const saveItem = useSaveItem();
+  const router = useRouter();
+  const undo = useHistoryStore((s) => s.undo);
+  const redo = useHistoryStore((s) => s.redo);
+  const canUndo = useHistoryStore((s) => s.past.length > 0);
+  const canRedo = useHistoryStore((s) => s.future.length > 0);
+  const undoLabel = useHistoryStore((s) => s.past[s.past.length - 1]?.label);
+  const redoLabel = useHistoryStore((s) => s.future[s.future.length - 1]?.label);
+  const [pendingDelete, setPendingDelete] = useState<PlanItem | null>(null);
 
   const focusItem = focusItemId ? items.find((item) => item.id === focusItemId) : undefined;
 
@@ -512,10 +532,126 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     [boardEl, discardUnconfirmed, focus, gantt, instantAtOffset, scale, setScale, setTimelineView, view]
   );
 
+  const calendarQuickStart =
+    selectedHour === undefined
+      ? formatLocalDate(selectedDay)
+      : formatLocalDateTime(new Date(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate(), selectedHour));
+  const calendarQuickEnd =
+    selectedHour === undefined
+      ? formatLocalDate(selectedDay)
+      : formatLocalDateTime(
+          new Date(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate(), selectedHour + 1)
+        );
+
+  const runUndo = useCallback(async () => {
+    const label = await undo();
+    if (label) toast(`Undone: ${label}`, { duration: 1800 });
+  }, [undo]);
+  const runRedo = useCallback(async () => {
+    const label = await redo();
+    if (label) toast(`Redone: ${label}`, { duration: 1800 });
+  }, [redo]);
+  const deleteSelected = useCallback(() => {
+    if (!selectedItem || !isPlanWritable(plan)) return;
+    if (isUnconfirmedDraft(selectedItem)) {
+      onCloseDetails();
+      return;
+    }
+    if (selectedItem.recurrence) {
+      setPendingDelete(selectedItem);
+      return;
+    }
+    setSelectedId(null);
+    setSelectedOccurrenceStart(undefined);
+    void deleteItem(selectedItem);
+  }, [deleteItem, onCloseDetails, plan, selectedItem]);
+  const duplicateSelected = useCallback(() => {
+    if (!selectedItem || isUnconfirmedDraft(selectedItem) || !isPlanWritable(plan)) return;
+    const copy = duplicateItem(selectedItem);
+    void saveItem(copy).then((ok) => {
+      if (ok) {
+        setSelectedId(copy.id);
+        setSelectedOccurrenceStart(undefined);
+      }
+    });
+  }, [plan, saveItem, selectedItem]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isTypingTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
+      const typing = isTypingTarget(event.target);
+      const mod = event.metaKey || event.ctrlKey;
+      // Undo and redo work everywhere except inside a text field, which keeps its own history.
+      if (mod && !event.altKey && !typing) {
+        const key = event.key.toLowerCase();
+        if (key === "z") {
+          event.preventDefault();
+          void (event.shiftKey ? runRedo() : runUndo());
+          return;
+        }
+        if (key === "y" && event.ctrlKey) {
+          event.preventDefault();
+          void runRedo();
+          return;
+        }
+        if (key === "d") {
+          event.preventDefault();
+          duplicateSelected();
+          return;
+        }
+        return;
+      }
+      if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
       switch (event.key) {
+        case "Backspace":
+        case "Delete":
+          if (selectedId) {
+            event.preventDefault();
+            deleteSelected();
+          }
+          break;
+        case "n":
+        case "N":
+          if (!gantt && isPlanWritable(plan)) {
+            event.preventDefault();
+            onCreateSlot(calendarQuickStart, calendarQuickEnd);
+          }
+          break;
+        case "v":
+        case "V":
+          event.preventDefault();
+          switchView(gantt ? "calendar" : "gantt");
+          break;
+        case "y":
+        case "Y":
+          event.preventDefault();
+          setScale("year");
+          break;
+        case "m":
+        case "M":
+          event.preventDefault();
+          setScale("month");
+          break;
+        case "w":
+        case "W":
+          event.preventDefault();
+          setScale("week");
+          break;
+        case "d":
+        case "D":
+          event.preventDefault();
+          setScale("day");
+          break;
+        case "h":
+        case "H":
+          if (gantt) {
+            event.preventDefault();
+            setScale("hour");
+          }
+          break;
+        case "?":
+          event.preventDefault();
+          router.push("/settings/shortcuts");
+          break;
         case "ArrowRight":
           event.preventDefault();
           shiftUnit(1);
@@ -548,7 +684,25 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [goToday, onCloseDetails, scale, selectedId, setScale, shiftUnit]);
+  }, [
+    calendarQuickEnd,
+    calendarQuickStart,
+    deleteSelected,
+    duplicateSelected,
+    gantt,
+    goToday,
+    onCloseDetails,
+    onCreateSlot,
+    plan,
+    router,
+    runRedo,
+    runUndo,
+    scale,
+    selectedId,
+    setScale,
+    shiftUnit,
+    switchView,
+  ]);
 
   const applyQuickAdd = useCallback(
     (draft: QuickAddResult) => {
@@ -576,17 +730,6 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     if (!unit) return { start: formatLocalDate(focus), end: undefined as string | undefined };
     return defaultTaskRange(unit);
   }, [centeredIndex, focus, homeIndex, layout.units]);
-
-  const calendarQuickStart =
-    selectedHour === undefined
-      ? formatLocalDate(selectedDay)
-      : formatLocalDateTime(new Date(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate(), selectedHour));
-  const calendarQuickEnd =
-    selectedHour === undefined
-      ? formatLocalDate(selectedDay)
-      : formatLocalDateTime(
-          new Date(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate(), selectedHour + 1)
-        );
 
   const createWhen =
     selectedHour === undefined
@@ -686,6 +829,44 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
             </p>
           )}
           <div className="flex items-center gap-1.5">
+            <ButtonGroup className="mr-0.5">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Undo"
+                    disabled={!canUndo}
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => void runUndo()}
+                  >
+                    <Undo2 />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {undoLabel ? `Undo ${undoLabel}` : "Nothing to undo"} <Kbd>⌘Z</Kbd>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Redo"
+                    disabled={!canRedo}
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => void runRedo()}
+                  >
+                    <Redo2 />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {redoLabel ? `Redo ${redoLabel}` : "Nothing to redo"} <Kbd>⇧⌘Z</Kbd>
+                </TooltipContent>
+              </Tooltip>
+            </ButtonGroup>
             <DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -938,6 +1119,29 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
         </div>
         )}
         <RemoveDropZone active={dragging} hot={overRemove} />
+        <OccurrenceEditDialog
+          open={Boolean(pendingDelete)}
+          title="Delete recurring item"
+          description="Remove only this occurrence, or delete the whole series."
+          onThis={() => {
+            if (!pendingDelete) return;
+            void saveItem(excludeOccurrence(pendingDelete, selectedOccurrenceStart ?? pendingDelete.start));
+            setPendingDelete(null);
+            setSelectedId(null);
+            setSelectedOccurrenceStart(undefined);
+          }}
+          onSeries={() => {
+            if (!pendingDelete) return;
+            const target = pendingDelete;
+            setPendingDelete(null);
+            setSelectedId(null);
+            setSelectedOccurrenceStart(undefined);
+            void deleteItem(target);
+          }}
+          onOpenChange={(open) => {
+            if (!open) setPendingDelete(null);
+          }}
+        />
         <OccurrenceEditDialog
           open={Boolean(pendingEdit)}
           description="Move or resize this occurrence only, or shift the whole series."

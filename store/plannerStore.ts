@@ -3,6 +3,7 @@ import { itemToTask, taskToItem } from "@/lib/domain/convert";
 import { isUnconfirmedDraft } from "@/lib/domain/items";
 import { updatePlanRecord } from "@/lib/domain/plans";
 import { getRepository } from "@/lib/repository/create";
+import { useHistoryStore } from "@/store/historyStore";
 import type { Category, Person, Plan, PlanItem, Task } from "@/types";
 
 interface PlannerStore {
@@ -50,6 +51,38 @@ function withDrafts(loaded: PlanItem[], previous: PlanItem[]): PlanItem[] {
   if (drafts.length === 0) return loaded;
   const draftIds = new Set(drafts.map((item) => item.id));
   return [...loaded.filter((item) => !draftIds.has(item.id)), ...drafts];
+}
+
+let suppressHistory = 0;
+
+/** Run a replay (undo/redo) without recording it again. */
+export async function withoutHistory<T>(run: () => Promise<T>): Promise<T> {
+  suppressHistory += 1;
+  try {
+    return await run();
+  } finally {
+    suppressHistory -= 1;
+  }
+}
+
+function recordHistory(label: string, undo: () => Promise<void>, redo: () => Promise<void>): void {
+  if (suppressHistory > 0) return;
+  useHistoryStore.getState().push({ label, undo, redo });
+}
+
+/** Short human label for an edit, from what actually changed. */
+export function describeChange(previous: PlanItem, next: PlanItem): string {
+  if (previous.start !== next.start || previous.end !== next.end) return `Move “${next.title || "item"}”`;
+  if (previous.title !== next.title) return "Rename";
+  if (previous.status !== next.status) return next.status === "completed" ? `Complete “${next.title}”` : "Change status";
+  if (previous.parentId !== next.parentId) return "Change parent";
+  if (previous.categoryId !== next.categoryId) return "Change category";
+  if (previous.notes !== next.notes) return "Edit notes";
+  if (previous.recurrence !== next.recurrence) return "Change repeat";
+  if ((previous.recurrenceExceptions?.length ?? 0) !== (next.recurrenceExceptions?.length ?? 0)) {
+    return `Skip an occurrence of “${next.title}”`;
+  }
+  return `Edit “${next.title || "item"}”`;
 }
 
 function sortPlans(plans: Plan[]): Plan[] {
@@ -113,6 +146,7 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
     }
 
     set({ isLoading: true, error: null });
+    if (get().currentPlan?.id !== id) useHistoryStore.getState().clear();
     beginWrite();
     try {
       const plan = await repo().plans.get(id);
@@ -199,6 +233,7 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
       set({ items: upsertById(get().items, item) });
       return;
     }
+    const previous = get().items.find((entry) => entry.id === item.id);
     const plan = updatePlanRecord(current, {});
     set({ currentPlan: plan, items: upsertById(get().items, item) });
     beginWrite();
@@ -212,12 +247,27 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
     } finally {
       endWrite();
     }
+    const { putItem, deleteItem } = get();
+    if (previous && !previous.draft) {
+      recordHistory(
+        describeChange(previous, item),
+        () => withoutHistory(() => putItem(previous)),
+        () => withoutHistory(() => putItem(item))
+      );
+    } else {
+      recordHistory(
+        `Create “${item.title || "item"}”`,
+        () => withoutHistory(() => deleteItem(item.id)),
+        () => withoutHistory(() => putItem(item))
+      );
+    }
   },
 
   deleteItem: async (id) => {
     const current = get().currentPlan;
     if (!current) return;
-    if (get().items.find((item) => item.id === id)?.draft) {
+    const existing = get().items.find((item) => item.id === id);
+    if (existing?.draft) {
       set({ items: get().items.filter((item) => item.id !== id) });
       return;
     }
@@ -236,6 +286,14 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
       throw error;
     } finally {
       endWrite();
+    }
+    if (existing) {
+      const { putItem, deleteItem } = get();
+      recordHistory(
+        `Delete “${existing.title || "item"}”`,
+        () => withoutHistory(() => putItem(existing)),
+        () => withoutHistory(() => deleteItem(existing.id))
+      );
     }
   },
 

@@ -1,13 +1,14 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { taskToItem } from "@/lib/domain/convert";
+import { useHistoryStore } from "@/store/historyStore";
 import { usePlannerStore } from "@/store/plannerStore";
 import type { PlanItem, Task } from "@/types";
 
 /** Deletes an item and offers an undo from the toast. */
 export function useDeleteItem() {
   const deleteItem = usePlannerStore((s) => s.deleteItem);
-  const putItem = usePlannerStore((s) => s.putItem);
+  const undo = useHistoryStore((s) => s.undo);
 
   return useCallback(
     async (item: PlanItem) => {
@@ -18,12 +19,12 @@ export function useDeleteItem() {
         action: {
           label: "Undo",
           onClick: () => {
-            void putItem(item);
+            void undo();
           },
         },
       });
     },
-    [deleteItem, putItem]
+    [deleteItem, undo]
   );
 }
 
@@ -31,6 +32,7 @@ export function useDeleteItem() {
 export function useDeleteTask() {
   const deleteItem = usePlannerStore((s) => s.deleteItem);
   const putItem = usePlannerStore((s) => s.putItem);
+  const undo = useHistoryStore((s) => s.undo);
   const planId = usePlannerStore((s) => s.currentPlan?.id);
   const items = usePlannerStore((s) => s.items);
 
@@ -45,11 +47,12 @@ export function useDeleteTask() {
         action: {
           label: "Undo",
           onClick: () => {
-            if (snapshot) void putItem(snapshot);
+            if (existing) void undo();
+            else if (snapshot) void putItem(snapshot);
           },
         },
       });
     },
-    [deleteItem, items, planId, putItem]
+    [deleteItem, items, planId, putItem, undo]
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { addDays, differenceInCalendarDays } from "date-fns";
 import {
+  centeredSlot,
   HOUR_PX,
   resizeAllDay,
   resizeTimed,
@@ -379,7 +380,13 @@ export function useCalendarPointer(
         if (!onCreate || !origin) return;
         if (didMove && type !== "mouse") return;
         suppressNextClick();
-        const slotRange = didMove && next ? { start: next.start, end: next.end ?? next.start } : slotFromClick(origin);
+        // A plain click lands where the hover ghost stood: centred on the pointer for a mouse.
+        const slotRange =
+          didMove && next
+            ? { start: next.start, end: next.end ?? next.start }
+            : type === "mouse"
+              ? centeredSlot(origin)
+              : slotFromClick(origin);
         onCreate(slotRange.start, slotRange.end);
         return;
       }
@@ -442,7 +449,7 @@ export function useCalendarPointer(
           setHoverIfChanged(null);
           return;
         }
-        const next = slotFromClick(hit);
+        const next = centeredSlot(hit);
         setHoverIfChanged(previewFrom("", "", next.start, next.end, "hover"));
       });
     };

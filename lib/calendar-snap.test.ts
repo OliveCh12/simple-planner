@@ -3,6 +3,7 @@ import {
   nowLineOffset,
   resizeTimed,
   shiftToDay,
+  centeredSlot,
   slotFromClick,
   slotFromDrag,
   snapMinutes,
@@ -41,6 +42,19 @@ describe("nowLineOffset", () => {
   it("aligns to the hour grid without snapping", () => {
     const now = new Date(2026, 8, 5, 10, 7);
     expect(nowLineOffset(now)).toBeCloseTo((10 * 60 + 7) / 60 * HOUR_PX);
+  });
+});
+
+describe("centeredSlot", () => {
+  it("puts the pointer in the middle of a one-hour slot, snapped to the grid", () => {
+    expect(centeredSlot({ zone: "timed", day: new Date(2026, 8, 5), minutes: 11 * 60 + 30 })).toEqual({
+      start: "2026-09-05T11:00",
+      end: "2026-09-05T12:00",
+    });
+    expect(centeredSlot({ zone: "timed", day: new Date(2026, 8, 5), minutes: 0 })).toEqual({
+      start: "2026-09-05T00:00",
+      end: "2026-09-05T01:00",
+    });
   });
 });
 
