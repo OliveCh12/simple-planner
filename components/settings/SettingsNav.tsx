@@ -29,7 +29,7 @@ export function SettingsNav() {
       >
         <Link href="/">
           <ArrowLeft />
-          Plans
+          Calendars
         </Link>
       </Button>
       <nav

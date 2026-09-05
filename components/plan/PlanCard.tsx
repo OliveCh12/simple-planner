@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { CalendarRange, Trash2 } from "lucide-react";
 import { CopyPlanForAi } from "@/components/item/CopyForAi";
+import { CalendarDot } from "@/components/plan/CalendarDot";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -35,16 +36,17 @@ export function PlanCard({ plan, onDelete }: PlanCardProps) {
   return (
     <Card className="group relative gap-4 transition-shadow hover:shadow-md has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring/50">
       <CardHeader>
-        <CardTitle className="text-base">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <CalendarDot color={plan.color} />
           <Link
             href={`/plan/${plan.id}`}
-            className="outline-none after:absolute after:inset-0 after:rounded-xl"
+            className="truncate outline-none after:absolute after:inset-0 after:rounded-xl"
           >
             {plan.title}
           </Link>
         </CardTitle>
         <CardDescription className="line-clamp-2">
-          {plan.description || `A timeline from ${range}.`}
+          {plan.description || `From ${range}.`}
         </CardDescription>
         <CardAction className="flex items-center">
           <CopyPlanForAi planId={plan.id} />
@@ -60,7 +62,7 @@ export function PlanCard({ plan, onDelete }: PlanCardProps) {
                 <Trash2 />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Delete plan</TooltipContent>
+            <TooltipContent>Delete calendar</TooltipContent>
           </Tooltip>
         </CardAction>
       </CardHeader>

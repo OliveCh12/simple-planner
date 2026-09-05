@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { ArrowLeft, CalendarRange, Waypoints } from "lucide-react";
+import { ArrowLeft, CalendarDays } from "lucide-react";
 import { CopyForAi } from "@/components/item/CopyForAi";
 import { InlineEditable } from "@/components/item/InlineEditable";
 import { ItemDateRow, ItemProperties } from "@/components/item/ItemProperties";
@@ -63,7 +63,7 @@ export function ItemPage({ plan, item }: ItemPageProps) {
             <BreadcrumbList>
               <BreadcrumbItem>
                 <BreadcrumbLink asChild>
-                  <Link href="/">Plans</Link>
+                  <Link href="/">Calendars</Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
@@ -104,8 +104,8 @@ export function ItemPage({ plan, item }: ItemPageProps) {
               <ButtonGroup>
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/plan/${plan.id}?focus=${item.id}`}>
-                    <CalendarRange />
-                    Timeline
+                    <CalendarDays />
+                    Show in calendar
                   </Link>
                 </Button>
                 <CopyForAi document={itemDocumentForAi(item)} iconOnly />
@@ -186,16 +186,16 @@ export function ItemPageState({
       <Empty className="flex-1">
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <Waypoints />
+            <CalendarDays />
           </EmptyMedia>
-          <EmptyTitle>{plan ? "Item not found" : "Plan not found"}</EmptyTitle>
+          <EmptyTitle>{plan ? "Item not found" : "Calendar not found"}</EmptyTitle>
           <EmptyDescription>It may have been deleted, or the link is out of date.</EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
           <Button variant="outline" asChild>
             <Link href={plan ? `/plan/${planId}` : "/"}>
               <ArrowLeft />
-              {plan ? "Back to plan" : "All plans"}
+              {plan ? "Back to calendar" : "All calendars"}
             </Link>
           </Button>
         </EmptyContent>

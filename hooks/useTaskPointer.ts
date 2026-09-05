@@ -82,7 +82,7 @@ export function useTaskPointer({
       if (boardEl.classList.contains("is-pan-ready") || boardEl.classList.contains("is-panning")) return;
       const target = event.target;
       if (!(target instanceof Element)) return;
-      if (target.closest("input, textarea, [data-slot=popover-content]")) return;
+      if (target.closest("input, textarea, [data-slot=popover-content], [data-expand]")) return;
 
       const handle = target.closest("[data-resize]");
       const bar = target.closest("[data-task-bar]");

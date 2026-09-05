@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { ArrowLeft, Waypoints } from "lucide-react";
+import { ArrowLeft, CalendarDays } from "lucide-react";
 import { TimelineBoard } from "@/components/timeline/TimelineBoard";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,16 +41,16 @@ export default function PlanPage() {
       <Empty className="flex-1">
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <Waypoints />
+            <CalendarDays />
           </EmptyMedia>
-          <EmptyTitle>Plan not found</EmptyTitle>
+          <EmptyTitle>Calendar not found</EmptyTitle>
           <EmptyDescription>It may have been deleted, or the link is out of date.</EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
           <Button variant="outline" asChild>
             <Link href="/">
               <ArrowLeft />
-              All plans
+              All calendars
             </Link>
           </Button>
         </EmptyContent>

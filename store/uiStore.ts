@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import { getDefaultSettings } from "@/lib/settings";
 import type { AppSettings } from "@/types";
 
+/** `gantt` is the roadmap view; the stored value is kept for compatibility. */
 export type TimelineView = "gantt" | "calendar";
 
 interface UIStore {
@@ -17,7 +18,7 @@ export const useUIStore = create<UIStore>()(
   persist(
     (set) => ({
       settings: getDefaultSettings(),
-      timelineView: "gantt",
+      timelineView: "calendar",
       setTimelineView: (timelineView) => set({ timelineView }),
 
       updateSettings: (newSettings) =>
@@ -32,7 +33,16 @@ export const useUIStore = create<UIStore>()(
     }),
     {
       name: "planner-ui-storage",
+      version: 1,
       partialize: (state) => ({ settings: state.settings, timelineView: state.timelineView }),
+      // v1: the calendar became the main view; reset the stored view once.
+      migrate: (persisted, version) => {
+        const stored = (persisted ?? {}) as Partial<Pick<UIStore, "settings" | "timelineView">>;
+        return {
+          settings: { ...getDefaultSettings(), ...stored.settings },
+          timelineView: version < 1 ? "calendar" : (stored.timelineView ?? "calendar"),
+        };
+      },
       merge: (persisted, current) => {
         const stored = persisted as Partial<UIStore> | undefined;
         return {
@@ -43,7 +53,7 @@ export const useUIStore = create<UIStore>()(
             ...current.settings,
             ...stored?.settings,
           },
-          timelineView: stored?.timelineView === "calendar" ? "calendar" : "gantt",
+          timelineView: stored?.timelineView === "gantt" ? "gantt" : "calendar",
         };
       },
     }

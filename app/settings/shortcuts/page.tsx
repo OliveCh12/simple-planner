@@ -13,8 +13,13 @@ import { Kbd, KbdGroup } from "@/components/ui/kbd";
 const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
   {
     title: "Switch view",
-    description: "Gantt shows each task as a bar on a continuous time axis (Y M W D H). Calendar shows a year, month, week or day (Y M W D); the day view uses an hour grid.",
-    keys: ["Gantt", "Calendar"],
+    description: "Calendar shows a year, month, week or day (Y M W D) with the active objectives above the grid. Roadmap draws every item as a bar on a continuous time axis, grouped by objective (Y M W D H).",
+    keys: ["Calendar", "Roadmap"],
+  },
+  {
+    title: "Display",
+    description: "Subtasks stay folded into their parent, which shows a done/total count and a chevron. Open that hierarchy from the chevron without opening details, or reveal every subtask from Display.",
+    keys: ["Display"],
   },
   {
     title: "Zoom in or out",
@@ -37,13 +42,13 @@ const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
     keys: ["Space", "Drag"],
   },
   {
-    title: "Move or resize a task",
-    description: "Drag a bar to translate it by whole units of the current scale (15 minutes at hour scale). Drag the left or right edge to change the start or end. Drop on the delete zone at the bottom to remove it, with undo.",
+    title: "Move or resize an item",
+    description: "In the roadmap, drag a bar to translate it by whole units of the current scale (15 minutes at hour scale). Drag the left or right edge to change the start or end. Drop on the delete zone at the bottom to remove it, with undo.",
     keys: ["Drag"],
   },
   {
     title: "Add an item",
-    description: "Type in the quick-add field. Tokens: every weekday|daily|weekly|monthly, 7am or 19:00, until Aug 31, #category, @ai or @human. Drag on an empty Gantt lane to create on the swept range.",
+    description: "Type in the quick-add field. Tokens: every weekday|daily|weekly|monthly, 7am or 19:00, until Aug 31, #category, @ai or @human. Drag on an empty roadmap lane to create on the swept range.",
     keys: ["Enter"],
   },
   {
@@ -65,7 +70,7 @@ const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
 
 export default function ShortcutsSettingsPage() {
   return (
-    <SettingsSection title="Shortcuts" description="Keyboard and pointer shortcuts on the timeline.">
+    <SettingsSection title="Shortcuts" description="Keyboard and pointer shortcuts in a calendar.">
       <ItemGroup className="rounded-lg border">
         {SHORTCUTS.map((shortcut, index) => (
           <div key={shortcut.title}>

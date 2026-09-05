@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Waypoints } from "lucide-react";
+import { CalendarDays, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/feedback/ConfirmDialog";
 import { SubHeader } from "@/components/layout/SubHeader";
@@ -19,6 +19,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
+import { suggestPlanColor } from "@/lib/domain/plans";
 import { getRepository } from "@/lib/repository/create";
 import { listHydratedPlans } from "@/lib/repository/hydrate";
 import { startDemoSeed } from "@/lib/seed";
@@ -44,8 +45,8 @@ export default function Home() {
         const allPlans = await listHydratedPlans(getRepository());
         if (!cancelled) setPlans(allPlans);
       } catch (error) {
-        console.error("Failed to load plans:", error);
-        if (!cancelled) toast.error("Failed to load plans.");
+        console.error("Failed to load calendars:", error);
+        if (!cancelled) toast.error("Failed to load calendars.");
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -64,10 +65,10 @@ export default function Home() {
       await getRepository().plans.delete(pendingDelete.id);
       setPlans((prev) => prev.filter((plan) => plan.id !== pendingDelete.id));
       setPendingDelete(null);
-      toast.success("Plan deleted");
+      toast.success("Calendar deleted");
     } catch (error) {
-      console.error("Failed to delete plan:", error);
-      toast.error("Failed to delete plan. Please try again.");
+      console.error("Failed to delete calendar:", error);
+      toast.error("Failed to delete calendar. Please try again.");
     } finally {
       setIsDeleting(false);
     }
@@ -82,15 +83,15 @@ export default function Home() {
     isLoading || plans.length === 0
       ? undefined
       : plans.length === 1
-        ? "1 plan"
-        : `${plans.length} plans`;
+        ? "1 calendar"
+        : `${plans.length} calendars`;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <SubHeader title="Plans" subtitle={subtitle}>
+      <SubHeader title="Calendars" subtitle={subtitle}>
         <Button size="sm" onClick={() => setIsCreateOpen(true)}>
           <Plus />
-          New plan
+          New calendar
         </Button>
       </SubHeader>
 
@@ -103,18 +104,18 @@ export default function Home() {
           <Empty className="flex-1">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <Waypoints />
+                <CalendarDays />
               </EmptyMedia>
-              <EmptyTitle>No plans yet</EmptyTitle>
+              <EmptyTitle>No calendars yet</EmptyTitle>
               <EmptyDescription>
-                A plan is a zoomable timeline for one life area, project, or event. Create one,
-                then add tasks along the way.
+                A calendar is one area of your life: personal, a business, a project. Create one,
+                then add objectives, tasks and events.
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
               <Button onClick={() => setIsCreateOpen(true)}>
                 <Plus />
-                Create a plan
+                Create a calendar
               </Button>
             </EmptyContent>
           </Empty>
@@ -130,15 +131,16 @@ export default function Home() {
 
       <CreatePlanDialog
         open={isCreateOpen}
+        defaultColor={suggestPlanColor(plans)}
         onClose={() => setIsCreateOpen(false)}
         onCreated={handlePlanCreated}
       />
       <ConfirmDialog
         open={pendingDelete !== null}
-        title="Delete plan"
+        title="Delete calendar"
         description={
           pendingDelete
-            ? `Delete “${pendingDelete.title}” and all its tasks? This cannot be undone.`
+            ? `Delete “${pendingDelete.title}” with all its objectives, tasks and events? This cannot be undone.`
             : ""
         }
         confirmLabel="Delete"

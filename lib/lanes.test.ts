@@ -217,7 +217,7 @@ describe("groupByObjective", () => {
     expect(groups[0].title).toBe("Ship");
     expect(groups[0].done).toBe(1);
     expect(groups[0].total).toBe(3);
-    expect(groups[1].title).toBe("Unsorted");
+    expect(groups[1].title).toBe("No objective");
     expect(groups[1].tasks.map((entry) => entry.itemId)).toEqual(["jazz"]);
   });
 });

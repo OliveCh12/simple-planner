@@ -6,6 +6,8 @@ import type { Category, Person, Plan, PlanItem, Task } from "@/types";
 
 interface PlannerStore {
   currentPlan: Plan | null;
+  /** Every calendar, most recently opened first. For the switcher. */
+  plans: Plan[];
   items: PlanItem[];
   people: Person[];
   categories: Category[];
@@ -15,6 +17,7 @@ interface PlannerStore {
   loadPlan: (id: string | null) => Promise<void>;
   refresh: () => Promise<void>;
   loadDirectory: () => Promise<void>;
+  loadPlans: () => Promise<void>;
   updatePlan: (updates: Partial<Omit<Plan, "id" | "createdAt">>) => Promise<void>;
   putItem: (item: PlanItem) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
@@ -38,6 +41,10 @@ function repo() {
 
 function upsertById<T extends { id: string }>(list: T[], entity: T): T[] {
   return [...list.filter((entry) => entry.id !== entity.id), entity];
+}
+
+function sortPlans(plans: Plan[]): Plan[] {
+  return plans.slice().sort((a, b) => (a.lastAccessedAt < b.lastAccessedAt ? 1 : -1));
 }
 
 let unsubscribe: (() => void) | undefined;
@@ -65,6 +72,9 @@ function ensureSubscribed() {
     ) {
       void state.loadDirectory();
     }
+    if (change.collection === "plans" || change.op === "import" || change.op === "clear") {
+      void state.loadPlans();
+    }
     if (!state.currentPlan) return;
     if (
       change.collection === "items" ||
@@ -79,6 +89,7 @@ function ensureSubscribed() {
 
 export const usePlannerStore = create<PlannerStore>((set, get) => ({
   currentPlan: null,
+  plans: [],
   items: [],
   people: [],
   categories: [],
@@ -113,6 +124,7 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
 
       set({
         currentPlan: touched,
+        plans: sortPlans(upsertById(get().plans, touched)),
         items,
         people,
         categories,
@@ -154,7 +166,7 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
     const current = get().currentPlan;
     if (!current) return;
     const next = updatePlanRecord(current, updates);
-    set({ currentPlan: next });
+    set({ currentPlan: next, plans: sortPlans(upsertById(get().plans, next)) });
     beginWrite();
     try {
       await repo().plans.put(next);
@@ -213,6 +225,15 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
       set({ people, categories });
     } catch (error) {
       console.error("Failed to load people and categories:", error);
+    }
+  },
+
+  loadPlans: async () => {
+    ensureSubscribed();
+    try {
+      set({ plans: sortPlans(await repo().plans.list()) });
+    } catch (error) {
+      console.error("Failed to load calendars:", error);
     }
   },
 
@@ -291,6 +312,7 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
   reset: () =>
     set({
       currentPlan: null,
+      plans: [],
       items: [],
       people: [],
       categories: [],

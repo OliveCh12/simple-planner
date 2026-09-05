@@ -10,6 +10,7 @@ interface ViewToggleProps {
   onChange: (view: TimelineView) => void;
 }
 
+/** Calendar is the main view; the roadmap is the long-horizon reading of the same items. */
 export function ViewToggle({ value, onChange }: ViewToggleProps) {
   return (
     <ToggleGroup
@@ -24,19 +25,19 @@ export function ViewToggle({ value, onChange }: ViewToggleProps) {
     >
       <Tooltip>
         <TooltipTrigger asChild>
-          <ToggleGroupItem value="gantt" aria-label="Gantt view" className="px-2">
-            <ChartGantt />
-          </ToggleGroupItem>
-        </TooltipTrigger>
-        <TooltipContent>Gantt</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
           <ToggleGroupItem value="calendar" aria-label="Calendar view" className="px-2">
             <Calendar />
           </ToggleGroupItem>
         </TooltipTrigger>
         <TooltipContent>Calendar</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <ToggleGroupItem value="gantt" aria-label="Roadmap view" className="px-2">
+            <ChartGantt />
+          </ToggleGroupItem>
+        </TooltipTrigger>
+        <TooltipContent>Roadmap</TooltipContent>
       </Tooltip>
     </ToggleGroup>
   );

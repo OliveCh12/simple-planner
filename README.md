@@ -1,14 +1,24 @@
-# Timeline Planner
+# Planner
 
-A local-first, zoomable timeline to plan anything that lives in time: a year of
-personal goals, a web project, a two-week sprint, a single event day.
+A local-first planner made of **calendars**: one per area of your life, business
+or project ("Olivier's plan", "Goji Berry"…). Each calendar holds items of four
+kinds that read as one hierarchy:
 
-- **Plans** have a free start and end date.
-- **Tasks** have an absolute start and end (a date, optionally with a time), so
-  they can span months or last an hour.
-- The board is a continuous Gantt-style timeline. Zoom steps through years,
-  months, weeks, days, or hours; each task is a single bar; drag to move or
-  resize.
+- **Events**: dated entries, the classic calendar content.
+- **Objectives**: what matters over a period. They sit in a strip above the
+  calendar grid and group the roadmap.
+- **Tasks**: concrete actions, on their own or contributing to an objective.
+- **Subtasks**: tasks nested under a task. They stay folded into their parent
+  (which shows a `done/total` count) unless revealed from the Display menu.
+
+Two views of the same calendar, at the same zoom (year, month, week, day):
+
+- **Calendar** (default): what is planned when, with active objectives on top.
+- **Roadmap**: every item as a bar on a continuous time axis, grouped by
+  objective; drag to move or resize.
+
+Data-wise a calendar is still a `Plan` row and the routes stay under `/plan/`;
+only the wording changed.
 
 Everything is stored in the browser (IndexedDB) and can be exported or imported
 as JSON. No account, no server.

@@ -95,11 +95,16 @@ export interface Task {
   updatedAt: string;
 }
 
-/** Plan row as stored in Dexie / export JSON. No embedded items. */
+/**
+ * Plan row as stored in Dexie / export JSON. No embedded items.
+ * Shown to the user as a "calendar": one area of life, business or project.
+ */
 export interface Plan {
   id: string;
   title: string;
   description?: string;
+  /** Hex color used to tell calendars apart. */
+  color?: string;
   /** Inclusive `YYYY-MM-DD`. */
   start: string;
   /** Inclusive `YYYY-MM-DD`. */

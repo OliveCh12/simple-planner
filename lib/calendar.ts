@@ -147,7 +147,11 @@ function dayInterval(day: Date): Interval {
   return { start, end: addDays(start, 1) };
 }
 
-/** Whether an occurrence should be listed on this civil day in month/agenda views. */
+/**
+ * Whether an occurrence should be listed on this civil day in month/agenda views.
+ * Events occupy every day they cover; tasks sit on their start day. Objectives
+ * are not listed per day: the calendar shows them in the objectives strip.
+ */
 export function occupiesMonthDay(occurrence: CalendarOccurrence, day: Date): boolean {
   const range = dayInterval(day);
   const interval = occurrenceInterval(occurrence);
@@ -155,13 +159,14 @@ export function occupiesMonthDay(occurrence: CalendarOccurrence, day: Date): boo
 
   if (occurrence.kind === "event") return true;
 
-  if (isSameDay(parseLocal(occurrence.start), day)) return true;
+  return isSameDay(parseLocal(occurrence.start), day);
+}
 
-  if (occurrence.kind === "objective" && day.getDate() === 1 && range.start >= interval.start) {
-    return true;
-  }
-
-  return false;
+/** Objectives whose span touches the range, for the objectives strip. */
+export function objectivesInRange(items: PlanItem[], range: Interval): PlanItem[] {
+  return items
+    .filter((item) => item.kind === "objective" && intersects(intervalOf(item), range))
+    .sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
 }
 
 export function occurrencesOnDay(occurrences: CalendarOccurrence[], day: Date): CalendarOccurrence[] {

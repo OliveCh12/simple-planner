@@ -1,9 +1,10 @@
 "use client";
 
-import { memo, useState } from "react";
-import { Repeat } from "lucide-react";
-import { TaskDetailsPanel } from "@/components/item/TaskDetailsPanel";
-import { colorAlpha } from "@/lib/colors";
+import { memo } from "react";
+import { ChevronRight, CornerDownRight, Repeat } from "lucide-react";
+import { useCalendarUi } from "@/components/calendar/calendar-ui";
+import { useChildProgress, useHasFoldableChildren, useIsSubtask } from "@/hooks/useItemTree";
+import { categorySurface, surfaceTone } from "@/lib/colors";
 import { getKindOption } from "@/lib/constants";
 import type { DragPreview } from "@/hooks/useTaskPointer";
 import type { LaneItem } from "@/lib/lanes";
@@ -31,7 +32,10 @@ export const ItemBar = memo(function ItemBar({
   preview,
   highlight,
 }: ItemBarProps) {
-  const [open, setOpen] = useState(false);
+  const ui = useCalendarUi();
+  const { done, total } = useChildProgress(planItem.id);
+  const foldable = useHasFoldableChildren(planItem.id);
+  const subtask = useIsSubtask(planItem);
   const completed = planItem.status === "completed";
   const dragging = preview?.taskId === planItem.id;
   const barX = dragging ? preview.x : item.x;
@@ -41,76 +45,98 @@ export const ItemBar = memo(function ItemBar({
   const labelFits = item.labelWidth <= barWidth;
   const stuck = Math.max(0, Math.min(Math.max(0, barWidth - 24), fromX - barX + 4));
   const kind = getKindOption(item.itemKind ?? planItem.kind);
+  const Icon = subtask ? CornerDownRight : kind.icon;
   const color = item.categoryColor;
   const occurrenceStart = item.occurrenceStart ?? planItem.start;
   const occurrenceEnd = item.occurrenceEnd ?? planItem.end ?? occurrenceStart;
+  const expanded = Boolean(ui?.showSubtasks || ui?.expandedIds.has(planItem.id));
+  const selected = Boolean(highlight || ui?.selectedId === planItem.id);
+  const surface = color ? categorySurface(color, surfaceTone(planItem.kind, subtask)) : undefined;
 
   return (
-    <TaskDetailsPanel
-      item={planItem}
-      occurrenceStart={planItem.recurrence ? occurrenceStart : undefined}
-      open={open && !dragging}
-      onOpenChange={setOpen}
+    <div
+      data-task-bar={planItem.id}
+      data-occurrence-start={occurrenceStart}
+      data-occurrence-end={occurrenceEnd}
+      data-bar-x={item.x}
+      data-bar-width={item.width}
+      title={`${subtask ? "Subtask" : kind.label}: ${planItem.title}`}
+      style={{ left: barX, top, width: boxWidth, height }}
+      className={cn(
+        "absolute cursor-pointer bg-transparent text-left text-sm leading-tight",
+        labelFits ? "overflow-hidden" : "overflow-visible",
+        completed && "opacity-60",
+        selected && "z-10 ring-2 ring-ring ring-offset-1"
+      )}
+      onClick={() => {
+        if (dragging) return;
+        ui?.onSelect(planItem.id, planItem.recurrence ? occurrenceStart : undefined);
+      }}
     >
-      <button
-        type="button"
-        data-task-bar={planItem.id}
-        data-occurrence-start={occurrenceStart}
-        data-occurrence-end={occurrenceEnd}
-        data-bar-x={item.x}
-        data-bar-width={item.width}
-        title={`${kind.label}: ${planItem.title}`}
-        style={{ left: barX, top, width: boxWidth, height }}
+      <span
+        aria-hidden
         className={cn(
-          "absolute cursor-pointer bg-transparent text-left text-sm leading-tight",
-          labelFits ? "overflow-hidden" : "overflow-visible",
-          completed && "opacity-60",
-          highlight && "z-10 ring-2 ring-ring ring-offset-1"
+          "absolute left-0",
+          milestone && "top-1/2 rotate-45 rounded-sm -translate-y-1/2",
+          !milestone && "inset-y-0 rounded-md",
+          planItem.kind === "objective" && "border border-dashed",
+          planItem.kind === "event" && !milestone && "border-l-[3px]",
+          planItem.kind === "task" && variant === "allDay" && "border",
+          subtask && "border-dotted",
+          !color && variant === "allDay" && "border-primary/70 bg-primary/20",
+          !color && variant === "timed" && "bg-primary"
         )}
+        style={{
+          width: milestone ? barWidth : barWidth,
+          height: milestone ? barWidth : undefined,
+          borderColor: surface?.borderColor ?? color,
+          backgroundImage: surface?.backgroundImage,
+          backgroundColor: color ? "transparent" : undefined,
+        }}
+      />
+      <span data-resize="start" className="absolute inset-y-0 left-0 z-[2] w-1.5 cursor-ew-resize" />
+      <span
+        data-resize="end"
+        className="absolute inset-y-0 z-[2] w-1.5 cursor-ew-resize"
+        style={{ left: Math.max(0, barWidth - 6) }}
+      />
+      <span
+        className={cn(
+          "relative z-[1] flex h-full items-center gap-0.5 truncate px-1.5",
+          !labelFits && "rounded-r-md bg-background",
+          variant === "timed" && labelFits && !color ? "text-primary-foreground" : "text-foreground",
+          subtask && "text-muted-foreground"
+        )}
+        style={{
+          width: labelFits ? barWidth : item.labelWidth,
+          transform: stuck > 0 ? `translateX(${stuck}px)` : undefined,
+        }}
       >
-        <span
-          aria-hidden
-          className={cn(
-            "absolute left-0",
-            milestone && "top-1/2 rotate-45 rounded-sm -translate-y-1/2",
-            !milestone && "inset-y-0 rounded-md",
-            planItem.kind === "objective" && "border border-dashed",
-            planItem.kind === "event" && !milestone && "border-l-[3px]",
-            planItem.kind === "task" && variant === "allDay" && "border",
-            !color && variant === "allDay" && "border-primary/70 bg-primary/20",
-            !color && variant === "timed" && "bg-primary"
-          )}
-          style={{
-            width: milestone ? barWidth : barWidth,
-            height: milestone ? barWidth : undefined,
-            borderColor: color,
-            backgroundColor: color
-              ? colorAlpha(color, variant === "timed" && planItem.kind === "event" ? 0.85 : 0.22)
-              : undefined,
-          }}
-        />
-        <span data-resize="start" className="absolute inset-y-0 left-0 z-[2] w-1.5 cursor-ew-resize" />
-        <span
-          data-resize="end"
-          className="absolute inset-y-0 z-[2] w-1.5 cursor-ew-resize"
-          style={{ left: Math.max(0, barWidth - 6) }}
-        />
-        <span
-          className={cn(
-            "relative z-[1] flex h-full items-center gap-1 truncate px-1.5",
-            !labelFits && "rounded-r-md bg-background",
-            variant === "timed" && labelFits && !color ? "text-primary-foreground" : "text-foreground"
-          )}
-          style={{
-            width: labelFits ? barWidth : item.labelWidth,
-            transform: stuck > 0 ? `translateX(${stuck}px)` : undefined,
-          }}
-        >
-          <kind.icon className="size-3 shrink-0 opacity-80" />
-          {item.recurring && <Repeat className="size-3 shrink-0 opacity-70" />}
-          <span className="min-w-0 truncate">{planItem.title}</span>
-        </span>
-      </button>
-    </TaskDetailsPanel>
+        {foldable && (
+          <button
+            type="button"
+            data-expand
+            aria-expanded={expanded}
+            aria-label={expanded ? `Hide subtasks of ${planItem.title}` : `Show subtasks of ${planItem.title}`}
+            className="flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+            onClick={(event) => {
+              event.stopPropagation();
+              ui?.onToggleExpand(planItem.id);
+            }}
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <ChevronRight className={cn("size-3 transition-transform", expanded && "rotate-90")} />
+          </button>
+        )}
+        <Icon className="size-3 shrink-0 opacity-80" />
+        {item.recurring && <Repeat className="size-3 shrink-0 opacity-70" />}
+        <span className="min-w-0 truncate">{planItem.title}</span>
+        {total > 0 && (
+          <span className="shrink-0 tabular-nums text-[10px] opacity-70" aria-label={`${done} of ${total} done`}>
+            {done}/{total}
+          </span>
+        )}
+      </span>
+    </div>
   );
 });

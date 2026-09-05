@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { Moon, Settings, Sun, Waypoints } from "lucide-react";
+import { CalendarSwitcher } from "@/components/layout/CalendarSwitcher";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useHydrated } from "@/hooks/useHydrated";
-import { cn, containerClasses } from "@/lib/utils";
+import { cn, shellClasses } from "@/lib/utils";
 import { useUIStore } from "@/store/uiStore";
 
 function isDarkTheme(theme: "light" | "dark" | "auto") {
@@ -44,15 +45,18 @@ function ThemeToggle() {
 export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className={cn(containerClasses(), "flex h-12 items-center justify-between")}>
-        <Link
-          href="/"
-          className="flex items-center gap-2 rounded-md text-sm font-semibold tracking-tight outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-        >
-          <Waypoints className="size-4 text-primary" />
-          Planner
-        </Link>
-        <nav className="flex items-center gap-1">
+      <div className={cn(shellClasses(), "flex min-h-12 flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1")}>
+        <div className="flex min-w-0 items-center gap-2">
+          <Link
+            href="/"
+            className="flex shrink-0 items-center gap-2 rounded-md text-sm font-semibold tracking-tight outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            <Waypoints className="size-4 text-primary" />
+            Planner
+          </Link>
+          <CalendarSwitcher />
+        </div>
+        <nav className="flex shrink-0 items-center gap-1">
           <ThemeToggle />
           <Tooltip>
             <TooltipTrigger asChild>

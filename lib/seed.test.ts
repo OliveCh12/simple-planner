@@ -32,6 +32,13 @@ describe("ensureDemoData", () => {
     expect(byId.get("task-ai-launch")?.agentBrief).toMatch(/launch note/);
     expect(byId.get("task-visa")?.end).toBeUndefined();
     expect(byId.get("task-item-page")?.parentId).toBe("task-planner-v3");
+    expect(byId.get("task-calendar-pass")?.parentId).toBe("task-planner-v3");
+    expect(byId.get("task-sidebar")?.parentId).toBe("task-calendar-pass");
+    expect(byId.get("event-family-lunch")).toMatchObject({
+      kind: "event",
+      categoryId: "cat-family",
+    });
+    expect(await repo.categories.get("cat-finance")).toMatchObject({ color: "#0d9488" });
   });
 
   it("does not duplicate the demo plan on a second run", async () => {

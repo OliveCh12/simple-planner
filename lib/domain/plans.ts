@@ -1,4 +1,5 @@
 import { createId } from "@/lib/id";
+import { normalizeHex, SWATCH_COLORS } from "@/lib/colors";
 import { planSchemaV3 } from "@/lib/validation";
 import type { Plan, TimeScale } from "@/types";
 import { DomainError } from "@/lib/domain/items";
@@ -12,6 +13,7 @@ export function createPlanRecord(input: {
   start: string;
   end: string;
   description?: string;
+  color?: string;
   scale?: TimeScale;
   id?: string;
 }): Plan {
@@ -27,8 +29,16 @@ export function createPlanRecord(input: {
   };
   const description = input.description?.trim();
   if (description) plan.description = description;
+  if (input.color) plan.color = normalizeHex(input.color);
   if (input.scale) plan.scale = input.scale;
   return parsePlan(plan);
+}
+
+/** First swatch no calendar uses yet, so new calendars stay distinguishable. */
+export function suggestPlanColor(plans: Pick<Plan, "color">[]): string {
+  const used = new Set(plans.map((plan) => plan.color).filter(Boolean));
+  const free = SWATCH_COLORS.find((swatch) => !used.has(swatch.hex));
+  return free?.hex ?? SWATCH_COLORS[plans.length % SWATCH_COLORS.length].hex;
 }
 
 export function parsePlan(plan: Plan): Plan {
@@ -41,11 +51,17 @@ export function parsePlan(plan: Plan): Plan {
 }
 
 export function updatePlanRecord(plan: Plan, patch: Partial<Omit<Plan, "id" | "createdAt">>): Plan {
-  return parsePlan({
+  const next: Plan = {
     ...plan,
     ...patch,
     id: plan.id,
     createdAt: plan.createdAt,
     updatedAt: nowIso(),
-  });
+  };
+  if ("color" in patch) {
+    if (patch.color) next.color = normalizeHex(patch.color);
+    else delete next.color;
+  }
+  if ("description" in patch && !patch.description) delete next.description;
+  return parsePlan(next);
 }

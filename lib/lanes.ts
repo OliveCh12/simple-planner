@@ -288,7 +288,7 @@ export function groupByObjective(items: PlanItem[], tasks: LaneTask[], categorie
     const members = uniqueSources(unsorted, byId);
     groups.push({
       id: "unsorted",
-      title: "Unsorted",
+      title: "No objective",
       done: members.filter((member) => member.status === "completed").length,
       total: members.length,
       tasks: unsorted,

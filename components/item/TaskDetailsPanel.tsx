@@ -29,10 +29,10 @@ export function TaskDetailsPanel({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       {children ? <SheetTrigger asChild>{children}</SheetTrigger> : null}
-      <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-lg">
+      <SheetContent side="right" showCloseButton={false} className="w-full gap-0 p-0 sm:max-w-lg">
         <SheetHeader className="sr-only">
           <SheetTitle>{item.title}</SheetTitle>
-          <SheetDescription>Edit this item without leaving the plan.</SheetDescription>
+          <SheetDescription>Edit this item without leaving the calendar.</SheetDescription>
         </SheetHeader>
         <ItemEditor
           item={item}

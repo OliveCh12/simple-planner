@@ -113,7 +113,7 @@ export default function CategoriesSettingsPage() {
   return (
     <SettingsSection
       title="Categories"
-      description="Labels for grouping work. Global, not per plan."
+      description="Labels for grouping work. Global, shared by every calendar."
     >
       <div className="flex justify-end">
         <Button size="sm" onClick={openCreate}>
@@ -162,10 +162,10 @@ export default function CategoriesSettingsPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit category" : "New category"}</DialogTitle>
-            <DialogDescription>A color and a short name.</DialogDescription>
+            <DialogDescription>A short name, a swatch, or any color you pick.</DialogDescription>
           </DialogHeader>
           <FieldGroup className="gap-4">
             <Field>

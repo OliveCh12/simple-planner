@@ -50,11 +50,11 @@ export default function StorageSettingsPage() {
   return (
     <SettingsSection
       title="Storage"
-      description="Plans stay in this browser by default. A sync server can be pointed at later; the URL and token are never written into backups."
+      description="Calendars stay in this browser by default. A sync server can be pointed at later; the URL and token are never written into backups."
     >
       <FieldGroup className="gap-6">
         <Field>
-          <FieldLabel>Where to store plans</FieldLabel>
+          <FieldLabel>Where to store calendars</FieldLabel>
           <ToggleGroup
             type="single"
             variant="outline"

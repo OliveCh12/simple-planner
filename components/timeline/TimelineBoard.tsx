@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, Bot, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { Bot, CalendarDays, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
+import { CalendarUiProvider } from "@/components/calendar/calendar-ui";
 import { CalendarBoard } from "@/components/calendar/CalendarBoard";
 import { CalendarCreateButton } from "@/components/calendar/CalendarCreateButton";
+import { DetailsSidebar } from "@/components/item/DetailsSidebar";
 import { OccurrenceEditDialog } from "@/components/item/OccurrenceEditDialog";
 import { QuickAdd } from "@/components/item/QuickAdd";
-import { TaskDetailsPanel } from "@/components/item/TaskDetailsPanel";
 import { LaneGroup } from "@/components/timeline/LaneGroup";
 import { LaneLayer } from "@/components/timeline/LaneLayer";
 import { NowLine } from "@/components/timeline/NowLine";
@@ -18,6 +18,13 @@ import { TimelineHeader } from "@/components/timeline/TimelineHeader";
 import { ViewToggle } from "@/components/timeline/ViewToggle";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDeleteTask } from "@/hooks/useItemActions";
@@ -29,6 +36,7 @@ import { periodLabel } from "@/lib/calendar";
 import { formatDateDisplay } from "@/lib/date-utils";
 import { itemToTask } from "@/lib/domain/convert";
 import { createItem, moveItem, shiftSeries, splitOccurrence } from "@/lib/domain/items";
+import { ancestorIds, indexById, withExpandedChildren } from "@/lib/domain/tree";
 import { groupByObjective, laneTasksFromItems, layoutLanes, type LaneItem } from "@/lib/lanes";
 import { defaultTaskRange } from "@/lib/plan";
 import type { QuickAddResult } from "@/lib/quickadd";
@@ -44,7 +52,7 @@ import {
   zoomOut,
   type TimeColumn,
 } from "@/lib/time/scale";
-import { cn, containerClasses } from "@/lib/utils";
+import { cn, shellClasses } from "@/lib/utils";
 import { useSaveItem } from "@/hooks/useSaveItem";
 import { usePlannerStore } from "@/store/plannerStore";
 import { useUIStore, type TimelineView } from "@/store/uiStore";
@@ -56,11 +64,6 @@ interface PendingOccurrenceEdit {
   start: string;
   end: string;
   mode: "move" | "resize";
-}
-
-function FocusedItemSheet({ item }: { item: PlanItem }) {
-  const [open, setOpen] = useState(true);
-  return <TaskDetailsPanel item={item} open={open} onOpenChange={setOpen} />;
 }
 
 const SMOOTH_SCROLL_VIEWPORTS = 4;
@@ -130,6 +133,13 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     focusItem && !isAllDay(focusItem.start) ? parseLocal(focusItem.start).getHours() : undefined
   );
   const [showCompleted, setShowCompleted] = useState(false);
+  const [showSubtasks, setShowSubtasks] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
+    if (!focusItem) return new Set();
+    return new Set(ancestorIds(focusItem, indexById(items)));
+  });
+  const [selectedId, setSelectedId] = useState<string | null>(focusItemId ?? null);
+  const [selectedOccurrenceStart, setSelectedOccurrenceStart] = useState<string | undefined>();
   const [aiQueue, setAiQueue] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [createKind, setCreateKind] = useState<ItemKind>("task");
@@ -144,9 +154,37 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
       ),
     [items]
   );
-  const visibleItemsForView = useMemo(
-    () => (aiQueue ? queueItems : items),
-    [aiQueue, items, queueItems]
+  const visibleItemsForView = useMemo(() => {
+    if (aiQueue) return queueItems;
+    return showSubtasks ? items : withExpandedChildren(items, expandedIds);
+  }, [aiQueue, expandedIds, items, queueItems, showSubtasks]);
+  const selectedItem = selectedId ? (items.find((item) => item.id === selectedId) ?? null) : null;
+
+  const onSelectItem = useCallback((itemId: string, occurrenceStart?: string) => {
+    setSelectedId(itemId);
+    setSelectedOccurrenceStart(occurrenceStart);
+  }, []);
+  const onToggleExpand = useCallback((itemId: string) => {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }, []);
+  const onCloseDetails = useCallback(() => {
+    setSelectedId(null);
+    setSelectedOccurrenceStart(undefined);
+  }, []);
+  const calendarUi = useMemo(
+    () => ({
+      selectedId,
+      onSelect: onSelectItem,
+      expandedIds,
+      onToggleExpand,
+      showSubtasks,
+    }),
+    [expandedIds, onSelectItem, onToggleExpand, selectedId, showSubtasks]
   );
 
   const layout = useMemo(
@@ -413,11 +451,17 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
           event.preventDefault();
           goToday();
           break;
+        case "Escape":
+          if (selectedId) {
+            event.preventDefault();
+            onCloseDetails();
+          }
+          break;
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [goToday, scale, setScale, shiftUnit]);
+  }, [goToday, onCloseDetails, scale, selectedId, setScale, shiftUnit]);
 
   const applyQuickAdd = useCallback(
     (draft: QuickAddResult) => {
@@ -465,48 +509,14 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
   const range = `${formatDateDisplay(plan.start, dateFormat)} – ${formatDateDisplay(plan.end, dateFormat)}`;
   const viewedPeriod = gantt ? range : periodLabel(scale === "hour" ? "day" : scale, focus, weekStartsOn);
   const pastWidth = Math.min(layout.totalWidth, Math.max(0, nowX));
+  const displayCount = Number(showSubtasks) + Number(!gantt && showCompleted);
 
   return (
+    <CalendarUiProvider value={calendarUi}>
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="shrink-0 border-b bg-background/80 backdrop-blur-md">
-        <div className={cn(containerClasses())}>
-          <div className="flex h-12 items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon-sm" className="-ml-2 shrink-0" asChild>
-                  <Link href="/" aria-label="Back">
-                    <ArrowLeft />
-                  </Link>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Back</TooltipContent>
-            </Tooltip>
-            <h1 className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight">{plan.title}</h1>
-            {gantt && (
-              <p
-                className={cn(
-                  "hidden items-center gap-1.5 text-xs transition-colors lg:flex",
-                  panReady ? "text-foreground" : "text-muted-foreground"
-                )}
-              >
-                {panReady ? "Drag to pan" : "Hold"}
-                <Kbd
-                  aria-pressed={panReady}
-                  className={cn("transition-colors", panReady && "bg-foreground text-background")}
-                >
-                  Space
-                </Kbd>
-                {!panReady && "to pan"}
-              </p>
-            )}
-            <ViewToggle value={view} onChange={switchView} />
-            <ScaleControl
-              value={gantt || scale !== "hour" ? scale : "day"}
-              onChange={(next) => setScale(next)}
-              scales={gantt ? undefined : CALENDAR_SCALES}
-            />
-          </div>
-          <div className="flex items-center gap-2 pb-3">
+        <div className={cn(shellClasses(), "flex flex-col gap-2 py-2")}>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
             <ButtonGroup>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -550,20 +560,57 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
                 </TooltipContent>
               </Tooltip>
             </ButtonGroup>
-            <h2 className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight sm:text-base">
+            <h1 className="min-w-0 flex-1 basis-32 truncate text-sm font-semibold tracking-tight sm:text-base">
               {viewedPeriod}
-            </h2>
-            {!gantt && (
-              <Button
-                type="button"
-                variant={showCompleted ? "secondary" : "ghost"}
-                size="xs"
-                className="hidden sm:inline-flex"
-                onClick={() => setShowCompleted((current) => !current)}
-              >
-                Completed
-              </Button>
-            )}
+            </h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <ViewToggle value={view} onChange={switchView} />
+              <ScaleControl
+                value={gantt || scale !== "hour" ? scale : "day"}
+                onChange={(next) => setScale(next)}
+                scales={gantt ? undefined : CALENDAR_SCALES}
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant={displayCount > 0 ? "secondary" : "ghost"}
+                      size="xs"
+                      aria-label="Display options"
+                    >
+                      <SlidersHorizontal />
+                      <span className="hidden sm:inline">Display</span>
+                      {displayCount > 0 ? (
+                        <span className="tabular-nums text-muted-foreground">{displayCount}</span>
+                      ) : null}
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>What to show</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuLabel>Show</DropdownMenuLabel>
+                <DropdownMenuCheckboxItem
+                  checked={showSubtasks}
+                  onCheckedChange={(checked) => setShowSubtasks(checked === true)}
+                >
+                  Subtasks
+                </DropdownMenuCheckboxItem>
+                {!gantt && (
+                  <DropdownMenuCheckboxItem
+                    checked={showCompleted}
+                    onCheckedChange={(checked) => setShowCompleted(checked === true)}
+                  >
+                    Completed items
+                  </DropdownMenuCheckboxItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               type="button"
               variant={aiQueue ? "secondary" : "ghost"}
@@ -578,6 +625,24 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
                 <span className="tabular-nums text-muted-foreground">{queueItems.length}</span>
               ) : null}
             </Button>
+            {gantt && (
+              <p
+                className={cn(
+                  "hidden items-center gap-1.5 text-xs transition-colors lg:flex",
+                  panReady ? "text-foreground" : "text-muted-foreground"
+                )}
+              >
+                {panReady ? "Drag to pan" : "Hold"}
+                <Kbd
+                  aria-pressed={panReady}
+                  className={cn("transition-colors", panReady && "bg-foreground text-background")}
+                >
+                  Space
+                </Kbd>
+                {!panReady && "to pan"}
+              </p>
+            )}
+            <div className="flex-1" />
             {gantt ? (
               <>
                 <div className="hidden min-w-44 max-w-sm flex-1 md:block">
@@ -615,7 +680,8 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
         </div>
       </div>
 
-      <div className="relative min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {!gantt ? (
           <div ref={setCalendarEl} className="flex h-full min-h-0 flex-1 flex-col">
             <CalendarBoard
@@ -626,7 +692,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
               weekStartsOn={weekStartsOn}
               selectedDay={selectedDay}
               selectedHour={selectedHour}
-              highlightId={focusItemId}
+              highlightId={selectedId ?? focusItemId}
               showCompleted={showCompleted}
               onSelectDay={(day, hour) => {
                 setSelectedDay(day);
@@ -638,7 +704,6 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
                 setScale("month");
               }}
             />
-            {focusItem ? <FocusedItemSheet key={focusItem.id} item={focusItem} /> : null}
           </div>
         ) : (
         <div
@@ -698,7 +763,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
                       scale={scale}
                       fromX={visibleFrom}
                       preview={preview}
-                      highlightId={focusItemId}
+                      highlightId={selectedId ?? focusItemId}
                     />
                     <LaneLayer
                       stack={group.layout.timed}
@@ -708,7 +773,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
                       scale={scale}
                       fromX={visibleFrom}
                       preview={preview}
-                      highlightId={focusItemId}
+                      highlightId={selectedId ?? focusItemId}
                     />
                   </LaneGroup>
                 ))}
@@ -748,7 +813,14 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
             if (!open) setPendingEdit(null);
           }}
         />
+        </div>
+        <DetailsSidebar
+          item={selectedItem}
+          occurrenceStart={selectedOccurrenceStart}
+          onClose={onCloseDetails}
+        />
       </div>
     </div>
+    </CalendarUiProvider>
   );
 }

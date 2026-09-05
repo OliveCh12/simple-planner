@@ -219,6 +219,7 @@ export const planSchemaV3 = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   description: z.string().optional(),
+  color: colorHexSchema.optional(),
   start: localDateSchema,
   end: localDateSchema,
   scale: timeScaleSchema.optional(),

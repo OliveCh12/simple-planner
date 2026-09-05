@@ -15,8 +15,9 @@ Copied JSON includes `"$schema": "/schema/planner.schema.json"` and `"version": 
 
 ## Model
 
-- **Plan**: `id`, `title`, inclusive `start` / `end` as `YYYY-MM-DD`.
+- **Plan**: what the UI calls a *calendar* (one area of life, business or project). `id`, `title`, optional `color` (hex), inclusive `start` / `end` as `YYYY-MM-DD`.
 - **PlanItem**: one timed entity. `kind` is `task` | `event` | `objective`.
+- **Hierarchy**: objective > task > subtask. A task whose `parentId` is an objective contributes to it; a task whose `parentId` is a task is a *subtask* and stays folded into its parent in the views.
 - **`end` absent**: a point in time (milestone). Do not copy `end` from `start`.
 - **`start` / `end`**: `YYYY-MM-DD` (all-day) or `YYYY-MM-DDTHH:mm` (timed). Local, not shifted by timezone.
 - **`recurrence`**: RFC 5545 RRULE body (`FREQ=WEEKLY;BYDAY=MO,WE`). Date-only `UNTIL=YYYYMMDD` is the last civil day, exclusive at next midnight locally.

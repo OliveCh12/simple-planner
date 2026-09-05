@@ -5,9 +5,9 @@ import { AppearanceProvider } from "@/components/layout/AppearanceProvider";
 import { Header } from "@/components/layout/Header";
 
 export const metadata: Metadata = {
-  title: "Timeline Planner",
+  title: "Planner",
   description:
-    "A zoomable timeline to plan and track tasks, projects, and events across time.",
+    "Calendars for each area of your life, with objectives, tasks and events on one timeline.",
 };
 
 export default function RootLayout({

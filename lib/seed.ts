@@ -9,6 +9,7 @@ import type { PlannerRepository } from "@/lib/repository/types";
 
 export const DEMO_PLAN_ID = "plan-demo-career";
 export const DEMO_EVENT_ID = "event-jazz";
+export const DEMO_SEED_ITEM = "event-family-lunch";
 
 function currentYearRange() {
   const year = new Date().getFullYear();
@@ -35,6 +36,7 @@ export async function seedDemoPlan(repository: PlannerRepository): Promise<strin
     id: DEMO_PLAN_ID,
     title: "Olivier's plan",
     description: "Work, health and nights out — a year in view.",
+    color: "#2563eb",
     start,
     end,
   });
@@ -56,7 +58,10 @@ export async function ensureDemoData(
   await seedDirectory(repository);
   const existing = await repository.plans.get(DEMO_PLAN_ID);
   const items = existing ? await repository.items.listByPlan(DEMO_PLAN_ID) : [];
-  const stale = !existing || !items.some((item) => item.id === DEMO_EVENT_ID);
+  const stale =
+    !existing ||
+    !items.some((item) => item.id === DEMO_EVENT_ID) ||
+    !items.some((item) => item.id === DEMO_SEED_ITEM);
   if (!stale && !options.forcePlan) return { planId: existing.id };
   const planId = await seedDemoPlan(repository);
   return { planId };

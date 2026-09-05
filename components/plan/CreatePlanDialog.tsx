@@ -4,6 +4,7 @@ import { useState } from "react";
 import { addDays, formatDuration, intervalToDuration } from "date-fns";
 import { Type } from "lucide-react";
 import { toast } from "sonner";
+import { ColorSwatch } from "@/components/settings/ColorSwatch";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import {
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { sampleCategories, samplePeople, samplePlan, sampleTasks } from "@/data/sampleData";
+import { DEFAULT_SWATCH } from "@/lib/colors";
 import { taskToItem } from "@/lib/domain/convert";
 import { createPlan } from "@/lib/plan";
 import { getRepository } from "@/lib/repository/create";
@@ -33,6 +35,8 @@ interface CreatePlanDialogProps {
   open: boolean;
   onClose: () => void;
   onCreated?: (plan: HydratedPlan) => void;
+  /** Suggested color, so consecutive calendars get different marks. */
+  defaultColor?: string;
 }
 
 function currentYearRange() {
@@ -50,8 +54,14 @@ function describeRange(start: string, end: string): string {
   return `${text || "1 day"}.`;
 }
 
-export function CreatePlanDialog({ open, onClose, onCreated }: CreatePlanDialogProps) {
+export function CreatePlanDialog({
+  open,
+  onClose,
+  onCreated,
+  defaultColor = DEFAULT_SWATCH,
+}: CreatePlanDialogProps) {
   const [title, setTitle] = useState("");
+  const [color, setColor] = useState(defaultColor);
   const [start, setStart] = useState(() => currentYearRange().start);
   const [end, setEnd] = useState(() => currentYearRange().end);
   const [isLoading, setIsLoading] = useState(false);
@@ -62,6 +72,7 @@ export function CreatePlanDialog({ open, onClose, onCreated }: CreatePlanDialogP
   const reset = () => {
     const range = currentYearRange();
     setTitle("");
+    setColor(defaultColor);
     setStart(range.start);
     setEnd(range.end);
   };
@@ -77,6 +88,7 @@ export function CreatePlanDialog({ open, onClose, onCreated }: CreatePlanDialogP
         title,
         start,
         end: resolvedEnd,
+        color,
         description: isSample ? samplePlan.description : undefined,
         tasks: isSample ? sampleTasks(start) : [],
       });
@@ -97,8 +109,8 @@ export function CreatePlanDialog({ open, onClose, onCreated }: CreatePlanDialogP
       reset();
       onClose();
     } catch (error) {
-      console.error("Failed to create plan:", error);
-      toast.error("Failed to create plan. Please try again.");
+      console.error("Failed to create calendar:", error);
+      toast.error("Failed to create calendar. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -108,13 +120,15 @@ export function CreatePlanDialog({ open, onClose, onCreated }: CreatePlanDialogP
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>New plan</DialogTitle>
-          <DialogDescription>A timeline for one life area, project, or event.</DialogDescription>
+          <DialogTitle>New calendar</DialogTitle>
+          <DialogDescription>
+            One calendar per area of your life: personal, a business, a project.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-5">
           <FieldGroup className="gap-4">
             <Field>
-              <FieldLabel htmlFor="plan-title">Title</FieldLabel>
+              <FieldLabel htmlFor="plan-title">Name</FieldLabel>
               <InputGroup>
                 <InputGroupAddon>
                   <Type />
@@ -124,10 +138,15 @@ export function CreatePlanDialog({ open, onClose, onCreated }: CreatePlanDialogP
                   value={title}
                   autoFocus
                   required
-                  placeholder="Career, health, side project…"
+                  placeholder="Personal, Goji Berry, side project…"
                   onChange={(e) => setTitle(e.target.value)}
                 />
               </InputGroup>
+            </Field>
+
+            <Field>
+              <FieldLabel>Color</FieldLabel>
+              <ColorSwatch value={color} onChange={setColor} aria-label="Calendar color" />
             </Field>
 
             <Field>

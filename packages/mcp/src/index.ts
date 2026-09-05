@@ -50,7 +50,7 @@ async function main() {
   const repo = await repositoryFromFile(file);
   const server = new McpServer({ name: "simple-planner", version: "0.1.0" });
 
-  server.registerTool("list_plans", { description: "List all plans." }, async () => text(await listPlans(repo)));
+  server.registerTool("list_plans", { description: "List all plans (the calendars shown in the UI)." }, async () => text(await listPlans(repo)));
 
   server.registerTool(
     "list_items",

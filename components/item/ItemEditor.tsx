@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Trash2 } from "lucide-react";
+import { ExternalLink, Trash2, X } from "lucide-react";
 import { DateRangeField } from "@/components/item/DateRangeField";
 import { InlineEditable } from "@/components/item/InlineEditable";
 import { ItemProperties } from "@/components/item/ItemProperties";
@@ -39,7 +39,7 @@ export function ItemEditor({ item, occurrenceStart, onClose }: ItemEditorProps) 
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-start gap-2 border-b px-4 py-3 pr-12">
+      <div className="flex items-start gap-1 border-b px-4 py-3 sm:gap-2">
         <KindChip value={item.kind} onChange={(kind) => void changeKind(kind)} />
         <InlineEditable
           value={item.title}
@@ -82,6 +82,16 @@ export function ItemEditor({ item, occurrenceStart, onClose }: ItemEditorProps) 
               </Button>
             </TooltipTrigger>
             <TooltipContent>Delete</TooltipContent>
+          </Tooltip>
+        )}
+        {onClose && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button type="button" variant="ghost" size="icon-xs" aria-label="Close details" onClick={onClose}>
+                <X />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Close</TooltipContent>
           </Tooltip>
         )}
       </div>

@@ -145,7 +145,7 @@ export default function PeopleSettingsPage() {
   return (
     <SettingsSection
       title="People"
-      description="Humans and AI agents you can assign to work. Global, not per plan."
+      description="Humans and AI agents you can assign to work. Global, shared by every calendar."
     >
       <div className="flex justify-end">
         <Button size="sm" onClick={openCreate}>

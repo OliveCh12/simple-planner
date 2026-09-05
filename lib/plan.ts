@@ -12,6 +12,7 @@ export function createPlan(input: {
   start: string;
   end: string;
   description?: string;
+  color?: string;
   tasks?: Task[];
 }): HydratedPlan {
   const record = createPlanRecord(input);
