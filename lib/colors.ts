@@ -1,3 +1,4 @@
+import type { ItemKind } from "@/types";
 export const SWATCH_COLORS = [
   { hex: "#16a34a", label: "Green" },
   { hex: "#2563eb", label: "Blue" },
@@ -59,12 +60,9 @@ export function categoryAtmosphere(hex: string): { backgroundImage: string } {
   };
 }
 
-export function surfaceTone(
-  kind: "task" | "event" | "objective",
-  subtask = false
-): SurfaceTone {
+export function surfaceTone(kind: ItemKind, subtask = false): SurfaceTone {
   if (subtask) return "subtask";
-  return kind;
+  return kind === "project" ? "objective" : kind;
 }
 
 export const DEFAULT_SWATCH = SWATCH_COLORS[0].hex;

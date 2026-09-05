@@ -22,6 +22,16 @@ const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
     keys: ["Display", "Plan"],
   },
   {
+    title: "Capture",
+    description: "From anywhere: a task or an event in a few words. No day, time or rhythm in the text and it lands in the Plan inbox, unscheduled; name one and it goes straight onto the calendar.",
+    keys: ["⌘K"],
+  },
+  {
+    title: "Calendar and Plan",
+    description: "Calendar shows what is planned in time. Plan is the full workspace: inbox, work to schedule, the project outline and every task with filters and saved views. Unscheduled rows in the calendar's plan pane can be placed with one click on a slot.",
+    keys: ["Calendar", "Plan"],
+  },
+  {
     title: "Undo and redo",
     description: "Every create, move, edit or delete can be taken back and put back, one step at a time, for the calendar you are in. Text fields keep their own undo while you type.",
     keys: ["⌘Z", "⇧⌘Z"],

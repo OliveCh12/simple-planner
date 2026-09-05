@@ -663,6 +663,74 @@ export function olivierPlanItems(planId: string, year: number): PlanItem[] {
       categoryId: "cat-family",
       assigneeIds: olivier,
     }),
+    // A project: bounded work with a deadline, tasks in every state of planning.
+    item("proj-cabin", {
+      kind: "project",
+      parentId: "obj-summer",
+      title: "Build the garden cabin",
+      notes: "Before the first frost. Wood from the sawmill in Cellettes, tools borrowed from Paul.",
+      due: local(year, 10, 15),
+      status: "in-progress",
+      energy: "high",
+      categoryId: "cat-home",
+      assigneeIds: olivier,
+    }),
+    item("task-cabin-wood", {
+      parentId: "proj-cabin",
+      title: "Buy the wood",
+      notes: "Douglas fir, 45 mm. Ask for delivery on a Saturday.",
+      due: local(year, 9, 12),
+      energy: "medium",
+      categoryId: "cat-home",
+      assigneeIds: olivier,
+    }),
+    item("task-cabin-tools", {
+      parentId: "proj-cabin",
+      title: "Choose the tools",
+      energy: "low",
+      categoryId: "cat-home",
+      assigneeIds: olivier,
+    }),
+    item("task-cabin-ground", {
+      parentId: "proj-cabin",
+      title: "Prepare the ground",
+      start: local(year, 9, 13),
+      end: local(year, 9, 14),
+      energy: "high",
+      categoryId: "cat-home",
+      assigneeIds: olivier,
+    }),
+    item("task-cabin-measure", {
+      parentId: "task-cabin-ground",
+      title: "Measure and stake the plot",
+      energy: "low",
+      categoryId: "cat-home",
+      assigneeIds: olivier,
+    }),
+    item("task-cabin-permit", {
+      parentId: "proj-cabin",
+      title: "Check the permit rules",
+      status: "completed",
+      energy: "low",
+      categoryId: "cat-home",
+      assigneeIds: olivier,
+    }),
+    // Captured, not sorted yet: the inbox.
+    item("task-inbox-plumber", {
+      title: "Call the plumber about the kitchen tap",
+      energy: "low",
+      assigneeIds: olivier,
+    }),
+    item("task-inbox-article", {
+      title: "Read the article Sam sent on habit stacking",
+      energy: "low",
+      assigneeIds: olivier,
+    }),
+    item("task-inbox-gift", {
+      title: "Gift idea for Maya's birthday",
+      energy: "low",
+      assigneeIds: olivier,
+    }),
   ];
 }
 

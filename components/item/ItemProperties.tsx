@@ -16,7 +16,7 @@ import { useSaveItem } from "@/hooks/useSaveItem";
 import { DEFAULT_SWATCH } from "@/lib/colors";
 import { getKindOption } from "@/lib/constants";
 import { formatDateDisplay } from "@/lib/date-utils";
-import { DomainError, setParent, updateItem } from "@/lib/domain/items";
+import { canParent, DomainError, setParent, updateItem } from "@/lib/domain/items";
 import { useUIStore } from "@/store/uiStore";
 import type { Category, Executor, Person, PlanItem } from "@/types";
 
@@ -34,7 +34,11 @@ export function ItemDateRow({ item }: { item: PlanItem }) {
   const { setDates } = useItemMutations(item);
   return (
     <PropertyRow label="Date">
-      <DateRangeField start={item.start} end={item.end} onChange={setDates} />
+      {item.start ? (
+        <DateRangeField start={item.start} end={item.end} onChange={setDates} />
+      ) : (
+        <span className="text-xs text-muted-foreground">Not scheduled</span>
+      )}
     </PropertyRow>
   );
 }
@@ -126,11 +130,21 @@ export function ItemDetails({ item, items }: { item: PlanItem; items: PlanItem[]
 
   const parentOptions = items
     .filter((candidate) => {
-      if (candidate.id === item.id) return false;
-      if (candidate.draft) return false;
-      if (item.kind === "event") return candidate.kind === "objective";
-      if (item.kind === "objective") return false;
-      return true;
+      if (candidate.id === item.id || candidate.draft) return false;
+      if (candidate.planId !== item.planId) return false;
+      return canParent(item.kind, candidate.kind);
+    })
+    .sort((a, b) => a.kind.localeCompare(b.kind) || a.title.localeCompare(b.title))
+    .map((candidate) => ({
+      value: candidate.id,
+      label: candidate.title || "Untitled",
+      keywords: getKindOption(candidate.kind).label,
+    }));
+  const linkOptions = items
+    .filter((candidate) => {
+      if (candidate.id === item.id || candidate.draft || candidate.id === item.parentId) return false;
+      if (candidate.planId !== item.planId) return false;
+      return candidate.kind === "event" || candidate.kind === "project" || candidate.kind === "objective";
     })
     .sort((a, b) => a.kind.localeCompare(b.kind) || a.title.localeCompare(b.title))
     .map((candidate) => ({
@@ -139,7 +153,9 @@ export function ItemDetails({ item, items }: { item: PlanItem; items: PlanItem[]
       keywords: getKindOption(candidate.kind).label,
     }));
 
-  const parentLabel = item.kind === "event" ? "Goal" : "Part of";
+  const parentLabel = item.kind === "event" ? "Belongs to" : item.kind === "project" ? "Goal" : "Part of";
+  const parentPlaceholder =
+    item.kind === "event" ? "No project or goal" : item.kind === "project" ? "No goal" : "Nothing";
 
   return (
     <div className="flex flex-col">
@@ -150,8 +166,8 @@ export function ItemDetails({ item, items }: { item: PlanItem; items: PlanItem[]
             aria-label={parentLabel}
             options={parentOptions}
             value={item.parentId}
-            placeholder={item.kind === "event" ? "No goal" : "Nothing"}
-            searchPlaceholder="Search goals, tasks…"
+            placeholder={parentPlaceholder}
+            searchPlaceholder="Search goals, projects…"
             onValueChange={(value) => {
               const id = Array.isArray(value) ? value[0] : value;
               try {
@@ -163,6 +179,22 @@ export function ItemDetails({ item, items }: { item: PlanItem; items: PlanItem[]
           />
         </PropertyRow>
       )}
+
+      <PropertyRow label="Linked to">
+        <Combobox
+          variant="ghost"
+          multiple
+          aria-label="Linked to"
+          options={linkOptions}
+          value={item.linkedIds ?? []}
+          placeholder="Add a link"
+          searchPlaceholder="Events, projects, goals…"
+          onValueChange={(value) => {
+            const ids = Array.isArray(value) ? value : value ? [value] : [];
+            void save(updateItem(item, { linkedIds: ids }));
+          }}
+        />
+      </PropertyRow>
 
       <PropertyRow label="Place">
         <PlacePicker

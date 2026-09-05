@@ -1,17 +1,16 @@
 import { differenceInCalendarDays } from "date-fns";
+import { compareByTime, isScheduled } from "@/lib/domain/items";
 import { isAllDay, parseLocal } from "@/lib/time/local";
 import type { ItemKind, PlanItem } from "@/types";
 
 /**
- * Hierarchy helpers. The tree is objective > task > subtask:
- * a task whose parent is an objective "contributes" to it, a task whose
- * parent is a task is a subtask and stays folded into its parent in views.
+ * Hierarchy helpers. The tree is objective > project > task > subtask, with
+ * events allowed under objectives and projects and prep tasks under events.
+ * A task whose parent is a task is a subtask and stays folded into its parent.
  */
 
 export function childrenOf(parentId: string, items: PlanItem[]): PlanItem[] {
-  return items
-    .filter((item) => item.parentId === parentId)
-    .sort((a, b) => a.start.localeCompare(b.start) || a.createdAt.localeCompare(b.createdAt));
+  return items.filter((item) => item.parentId === parentId).sort(compareByTime);
 }
 
 export function hasChildren(parentId: string, items: PlanItem[]): boolean {
@@ -52,14 +51,16 @@ export function withExpandedChildren(items: PlanItem[], expandedIds: Iterable<st
 
 /** A timed start is an explicit calendar slot, not just a date on the parent. */
 export function hasOwnCalendarSlot(item: PlanItem): boolean {
-  return !isAllDay(item.start);
+  return isScheduled(item) && !isAllDay(item.start);
 }
 
 /**
  * Events always occupy the grid. A task does only when it is a real slot:
- * timed, a single day, or a short all-day span. Long-running work stays in Plan.
+ * timed, a single day, or a short all-day span. Unscheduled and long-running
+ * work stays in Plan.
  */
 export function isPlacedOnGrid(item: PlanItem): boolean {
+  if (!isScheduled(item)) return false;
   if (item.kind === "event") return true;
   if (item.kind !== "task") return false;
   if (hasOwnCalendarSlot(item)) return true;
@@ -98,13 +99,26 @@ export function hasFoldableChildren(parentId: string, items: PlanItem[]): boolea
 export function calendarEntries(items: PlanItem[]): PlanItem[] {
   const byId = indexById(items);
   return items.filter((item) => {
-    if (item.kind === "objective") return false;
+    if (!isScheduled(item)) return false;
+    if (item.kind === "objective" || item.kind === "project") return false;
     if (item.kind === "event") return true;
     if (item.kind !== "task" || !isPlacedOnGrid(item)) return false;
     if (!item.parentId) return true;
     const parent = byId.get(item.parentId);
     if (parent?.kind === "task" || parent?.kind === "event") return hasOwnCalendarSlot(item);
     return true;
+  });
+}
+
+/**
+ * Deadlines that need a marker on the grid although the work itself has no
+ * slot there: unscheduled tasks, and projects (never drawn as chips).
+ */
+export function dueMarkers(items: PlanItem[]): PlanItem[] {
+  return items.filter((item) => {
+    if (!item.due || item.draft) return false;
+    if (item.kind === "project") return true;
+    return item.kind === "task" && !calendarEntries([item]).length;
   });
 }
 
@@ -117,6 +131,16 @@ export function ancestorIds(item: PlanItem, byId: Map<string, PlanItem>): string
     current = current.parentId ? byId.get(current.parentId) : undefined;
   }
   return ids;
+}
+
+/** Closest project ancestor, or the item itself when it is a project. */
+export function projectOf(item: PlanItem, byId: Map<string, PlanItem>): PlanItem | undefined {
+  let current: PlanItem | undefined = item;
+  while (current) {
+    if (current.kind === "project") return current;
+    current = current.parentId ? byId.get(current.parentId) : undefined;
+  }
+  return undefined;
 }
 
 /** Closest objective ancestor, or the item itself when it is an objective. */
@@ -149,7 +173,8 @@ export function childProgress(parentId: string, items: PlanItem[]): ChildProgres
 /** What the children of an item are called, from the user's point of view. */
 export function childNoun(parentKind: ItemKind, count = 2): string {
   const plural = count !== 1;
-  if (parentKind === "objective") return plural ? "tasks" : "task";
+  if (parentKind === "objective") return plural ? "projects and tasks" : "project or task";
+  if (parentKind === "project") return plural ? "tasks" : "task";
   if (parentKind === "event") return plural ? "prep tasks" : "prep task";
   return plural ? "subtasks" : "subtask";
 }

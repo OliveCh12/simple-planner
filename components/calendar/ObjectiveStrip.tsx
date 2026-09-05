@@ -1,7 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useRef } from "react";
-import { Flag } from "lucide-react";
+import { Flag, FolderKanban } from "lucide-react";
 import { useCalendarUi } from "@/components/calendar/calendar-ui";
 import { ProgressDonut } from "@/components/item/ProgressDonut";
 import { useChildProgress } from "@/hooks/useItemTree";
@@ -40,7 +40,7 @@ export function ObjectiveStrip({ objectives, categories, highlightId }: Objectiv
       )}
     >
       <span className="mr-1 shrink-0 text-[11.5px] font-semibold uppercase tracking-wider text-foreground/55">
-        Goals
+        Plan
       </span>
       {objectives.map((objective) => (
         <ObjectiveChip
@@ -71,7 +71,7 @@ function ObjectiveChip({
   return (
     <button
       type="button"
-      title={`Objective: ${item.title}`}
+      title={`${item.kind === "project" ? "Project" : "Objective"}: ${item.title}`}
       aria-current={selected ? "true" : undefined}
       className={cn(
         "flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
@@ -80,7 +80,11 @@ function ObjectiveChip({
       )}
       onClick={() => ui?.onSelect(item.id)}
     >
-      <Flag className="size-3 shrink-0" style={color ? { color } : undefined} />
+      {item.kind === "project" ? (
+        <FolderKanban className="size-3 shrink-0" style={color ? { color } : undefined} />
+      ) : (
+        <Flag className="size-3 shrink-0" style={color ? { color } : undefined} />
+      )}
       <span className={cn("max-w-48 truncate font-medium", completed && "line-through")}>{item.title}</span>
       {total > 0 && (
         <>

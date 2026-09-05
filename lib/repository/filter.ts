@@ -28,7 +28,10 @@ export function itemMatches(item: PlanItem, filter: ItemFilter): boolean {
       start: filter.from ? parseLocal(filter.from) : new Date(-8640000000000000),
       end: filter.to ? parseLocal(filter.to) : new Date(8640000000000000),
     };
-    const interval = intervalOf(item);
+    // Unscheduled work falls back to its deadline; with neither it has no place in a period.
+    const anchor = item.start ?? item.due;
+    if (anchor === undefined) return false;
+    const interval = intervalOf({ start: anchor, end: item.start ? item.end : undefined });
     if (interval.end <= range.start || interval.start >= range.end) return false;
   }
   return true;

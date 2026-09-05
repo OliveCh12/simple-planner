@@ -10,7 +10,7 @@ const itemStatusSchema = z.enum(["pending", "in-progress", "completed", "cancell
 const taskStatusSchema = itemStatusSchema;
 const prioritySchema = z.enum(["low", "medium", "high", "urgent"]);
 const timeScaleSchema = z.enum(["year", "month", "week", "day", "hour"]);
-const itemKindSchema = z.enum(["task", "event", "objective"]);
+const itemKindSchema = z.enum(["task", "event", "project", "objective"]);
 const executorSchema = z.enum(["human", "ai"]);
 
 const localDateSchema = z
@@ -188,8 +188,10 @@ export const planItemSchema = z
     title: z.string(),
     notes: z.string(),
     parentId: z.string().min(1).optional(),
-    start: localDateTimeSchema,
+    linkedIds: z.array(z.string().min(1)).optional(),
+    start: localDateTimeSchema.optional(),
     end: localDateTimeSchema.optional(),
+    due: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD").optional(),
     recurrence: z.string().min(1).optional(),
     recurrenceExceptions: z.array(localDateTimeSchema).optional(),
     status: itemStatusSchema,
@@ -210,6 +212,13 @@ export const planItemSchema = z
       )
       .optional(),
     externalId: z.string().min(1).optional(),
+    sync: z
+      .object({
+        state: z.enum(["synced", "pending", "conflict"]),
+        etag: z.string().optional(),
+        syncedAt: z.string().optional(),
+      })
+      .optional(),
     draft: z.boolean().optional(),
     completedAt: z.string().optional(),
     createdAt: z.string(),
@@ -223,7 +232,19 @@ export const planItemSchema = z
         message: "Objectives cannot have a parent",
       });
     }
-    if (item.end !== undefined) {
+    if (item.kind === "event" && item.start === undefined) {
+      ctx.addIssue({ code: "custom", path: ["start"], message: "An event needs a date" });
+    }
+    if (item.end !== undefined && item.start === undefined) {
+      ctx.addIssue({ code: "custom", path: ["end"], message: "end needs a start" });
+    }
+    if (item.recurrence !== undefined && item.start === undefined) {
+      ctx.addIssue({ code: "custom", path: ["recurrence"], message: "A repeating item needs a start" });
+    }
+    if (item.due !== undefined && item.kind === "event") {
+      ctx.addIssue({ code: "custom", path: ["due"], message: "Events have a date, not a deadline" });
+    }
+    if (item.end !== undefined && item.start !== undefined) {
       const start = item.start;
       const end = item.end;
       const startAllDay = !start.includes("T");

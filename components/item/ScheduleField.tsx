@@ -198,7 +198,7 @@ function TimeInput({
   );
 }
 
-function DateInput({
+export function DateInput({
   label,
   value,
   weekStartsOn,

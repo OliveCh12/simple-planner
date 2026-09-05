@@ -146,8 +146,9 @@ describe("childrenOf", () => {
 
 describe("childNoun", () => {
   it("names children after the parent kind", () => {
-    expect(childNoun("objective")).toBe("tasks");
-    expect(childNoun("objective", 1)).toBe("task");
+    expect(childNoun("objective")).toBe("projects and tasks");
+    expect(childNoun("objective", 1)).toBe("project or task");
+    expect(childNoun("project")).toBe("tasks");
     expect(childNoun("task")).toBe("subtasks");
     expect(childNoun("task", 1)).toBe("subtask");
     expect(childNoun("event")).toBe("prep tasks");

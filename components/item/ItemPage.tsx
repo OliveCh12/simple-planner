@@ -48,7 +48,7 @@ export function ItemPage({ plan, item }: ItemPageProps) {
 
   const parent = items.find((candidate) => candidate.id === item.parentId);
   const occurrences = useMemo(() => {
-    if (!item.recurrence) return [];
+    if (!item.recurrence || !item.start) return [];
     const start = parseRangeStart(item.start);
     const end = new Date(start);
     end.setFullYear(end.getFullYear() + 1);

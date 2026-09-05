@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, type CSSProperties } from "react";
-import { ChevronRight, CornerDownRight, Repeat } from "lucide-react";
+import { ChevronRight, CornerDownRight, Flag, Repeat } from "lucide-react";
 import { useCalendarUi } from "@/components/calendar/calendar-ui";
 import { SubtaskTree } from "@/components/calendar/SubtaskTree";
 import { EventWeatherGlyph } from "@/components/environment/EventWeather";
@@ -115,8 +115,9 @@ export function CalendarEvent({
   const selected = Boolean(highlight || ui?.selectedId === occurrence.itemId);
   const untitled = !occurrence.title.trim();
   const displayTitle = untitled ? `New ${kind.label.toLowerCase()}` : occurrence.title;
-  const showStatus = !draft && (!isEvent || occurrence.status !== "pending");
-  const Icon = subtask ? CornerDownRight : kind.icon;
+  const due = Boolean(occurrence.due);
+  const showStatus = !draft && !due && (!isEvent || occurrence.status !== "pending");
+  const Icon = due ? Flag : subtask ? CornerDownRight : kind.icon;
   const compact = block && height !== undefined && height < COMPACT_PX && !expanded;
   const tiny = block && height !== undefined && height < TINY_PX && !expanded;
   const tooltip = [`${draft ? "Draft " : ""}${subtask ? "Subtask" : kind.label}: ${displayTitle}`, label]
@@ -250,6 +251,7 @@ export function CalendarEvent({
                   {label}
                 </span>
               )}
+              {due && <span className="shrink-0 text-[10.5px] font-semibold uppercase tracking-wide opacity-70">Due</span>}
               <span className={cn("min-w-0 flex-1 truncate", isEvent && "font-medium", untitled && "font-normal italic opacity-70")}>
                 {displayTitle}
               </span>

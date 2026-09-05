@@ -103,7 +103,7 @@ function AddChildRow({ parent, noun }: { parent: PlanItem; noun: string }) {
     const next = title.trim();
     if (!next) return;
     try {
-      await save(addSubtask(parent, { title: next, start: parent.start, end: parent.end }));
+      await save(addSubtask(parent, { title: next }));
       setTitle("");
       setOpen(false);
     } catch (error) {

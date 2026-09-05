@@ -117,6 +117,7 @@
             "enum": [
               "task",
               "event",
+              "project",
               "objective"
             ]
           },
@@ -130,11 +131,22 @@
             "type": "string",
             "minLength": 1
           },
+          "linkedIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
           "start": {
             "type": "string"
           },
           "end": {
             "type": "string"
+          },
+          "due": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           },
           "recurrence": {
             "type": "string",
@@ -256,6 +268,29 @@
             "type": "string",
             "minLength": 1
           },
+          "sync": {
+            "type": "object",
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "synced",
+                  "pending",
+                  "conflict"
+                ]
+              },
+              "etag": {
+                "type": "string"
+              },
+              "syncedAt": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "state"
+            ],
+            "additionalProperties": false
+          },
           "draft": {
             "type": "boolean"
           },
@@ -275,7 +310,6 @@
           "kind",
           "title",
           "notes",
-          "start",
           "status",
           "energy",
           "executor",

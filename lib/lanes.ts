@@ -1,3 +1,4 @@
+import { compareByTime, isScheduled } from "@/lib/domain/items";
 import { expandRecurrence } from "@/lib/time/recurrence";
 import { intervalOf, intersects, isAllDay, type Interval } from "@/lib/time/local";
 import type { Category, ItemKind, ItemStatus, PlanItem } from "@/types";
@@ -217,6 +218,7 @@ export function laneTasksFromItems(
   const out: LaneTask[] = [];
 
   for (const item of items) {
+    if (!isScheduled(item)) continue;
     let occurrences;
     try {
       occurrences = expandRecurrence(item, range);
@@ -267,7 +269,7 @@ export function groupByObjective(items: PlanItem[], tasks: LaneTask[], categorie
   const groups: LaneGroup[] = [];
   const roots = items
     .filter((item) => item.kind === "objective" && !item.parentId)
-    .sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
+    .sort((a, b) => compareByTime(a, b) || a.title.localeCompare(b.title));
 
   for (const objective of roots) {
     const grouped = buckets.get(objective.id);

@@ -12,7 +12,7 @@ import { ItemTree, ItemTreeProgress } from "@/components/item/ItemTree";
 import { MarkdownNote } from "@/components/item/MarkdownNote";
 import { OccurrenceEditDialog } from "@/components/item/OccurrenceEditDialog";
 import { SaveIndicator } from "@/components/item/SaveIndicator";
-import { ScheduleField } from "@/components/item/ScheduleField";
+import { ScheduleSection } from "@/components/item/ScheduleSection";
 import { CalendarDot } from "@/components/plan/CalendarDot";
 import { KindChip, StatusChip } from "@/components/task/TaskProperties";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,8 @@ import {
 } from "@/lib/domain/items";
 import { childNoun } from "@/lib/domain/tree";
 import { isItemReadOnly } from "@/lib/sync/access";
-import { providerInfo } from "@/lib/sync/providers";
+import { describeSync } from "@/lib/sync/mapping";
+import { SourceMark } from "@/components/plan/SourceMark";
 import { cn } from "@/lib/utils";
 import { usePlannerStore } from "@/store/plannerStore";
 import type { PlanItem } from "@/types";
@@ -61,17 +62,19 @@ export function ItemEditor({ item, occurrenceStart, onClose }: ItemEditorProps) 
   const putItem = usePlannerStore((s) => s.putItem);
   const putCategory = usePlannerStore((s) => s.putCategory);
   const currentPlan = usePlannerStore((s) => s.currentPlan);
-  const { saveTitle, saveNotes, saveBrief, setStatus, changeKind, setDates } = useItemMutations(item);
+  const plans = usePlannerStore((s) => s.plans);
+  const plan = plans.find((entry) => entry.id === item.planId) ?? currentPlan;
+  const { saveTitle, saveNotes, saveBrief, setStatus, changeKind } = useItemMutations(item);
   const deleteItem = useDeleteItem();
   const save = useSaveItem();
   const recurring = Boolean(item.recurrence);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const category = categories.find((entry) => entry.id === item.categoryId);
-  const tint = category?.color ?? currentPlan?.color;
+  const tint = category?.color ?? plan?.color;
   const atmosphere = tint ? categoryAtmosphere(tint) : undefined;
-  const readOnly = isItemReadOnly(item, currentPlan);
-  const source = providerInfo(currentPlan?.source?.provider);
-  const external = currentPlan?.source && currentPlan.source.provider !== "local";
+  const readOnly = isItemReadOnly(item, plan);
+  const sync = describeSync(item, plan);
+  const external = plan?.source && plan.source.provider !== "local";
   const images = item.images ?? [];
   const draft = isUnconfirmedDraft(item);
 
@@ -185,10 +188,16 @@ export function ItemEditor({ item, occurrenceStart, onClose }: ItemEditorProps) 
               }}
             />
             {external && (
-              <span className="ml-auto truncate text-[11px] text-muted-foreground">
-                {source.short}
-                {currentPlan?.source?.account ? ` · ${currentPlan.source.account}` : ""}
-                {readOnly ? " · read-only" : ""}
+              <span
+                className={cn(
+                  "ml-auto inline-flex items-center gap-1 truncate text-[11px]",
+                  sync.tone === "conflict" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
+                )}
+                title={plan?.source?.account}
+              >
+                <SourceMark source={plan?.source} />
+                {sync.label}
+                {readOnly ? "" : plan?.source?.account ? ` · ${plan.source.account}` : ""}
               </span>
             )}
           </div>
@@ -215,13 +224,7 @@ export function ItemEditor({ item, occurrenceStart, onClose }: ItemEditorProps) 
           )}
 
           <EditorSection title="When">
-            <ScheduleField
-              start={item.start}
-              end={item.end}
-              recurrence={item.recurrence}
-              onChange={setDates}
-              onRecurrenceChange={(rule) => void save(updateItem(item, { recurrence: rule }))}
-            />
+            <ScheduleSection item={item} />
             <EventWeather item={item} />
           </EditorSection>
 
@@ -278,7 +281,8 @@ export function ItemEditor({ item, occurrenceStart, onClose }: ItemEditorProps) 
         title="Delete recurring item"
         description="Remove only this occurrence, or delete the whole series."
         onThis={() => {
-          void save(excludeOccurrence(item, occurrenceStart ?? item.start));
+          const at = occurrenceStart ?? item.start;
+          if (at) void save(excludeOccurrence(item, at));
           setDeleteOpen(false);
           onClose?.();
         }}

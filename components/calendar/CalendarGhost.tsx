@@ -39,7 +39,7 @@ function ghostStyle(preview: CalendarDragPreview): { className: string; style?: 
 
 function GhostBody({ preview, block }: { preview: CalendarDragPreview; block: boolean }) {
   const landing = preview.mode === "move" || preview.mode === "resize";
-  const title = preview.mode === "hover" || preview.mode === "create" ? "New event" : (preview.title ?? "");
+  const title = preview.mode === "hover" || preview.mode === "create" ? (preview.title ?? "New event") : (preview.title ?? "");
   if (landing) {
     return (
       <span className="inline-flex max-w-full items-center rounded-sm bg-background/85 px-1 py-px text-[11.5px] leading-4 font-medium tabular-nums shadow-xs">

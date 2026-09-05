@@ -23,6 +23,30 @@ describe("parseQuickAdd", () => {
       executor: "ai",
       categoryId: "cat-health",
       kind: "task",
+      dated: true,
+    });
+  });
+
+  it("reads day words and reports whether the text named a time", () => {
+    const monday = new Date(2026, 5, 1, 10);
+    expect(parseQuickAdd("Call the plumber", { defaultStart: "2026-06-01", now: monday })).toMatchObject({
+      title: "Call the plumber",
+      start: "2026-06-01",
+      dated: false,
+    });
+    expect(parseQuickAdd("Dentist tomorrow 14:00", { defaultStart: "2026-06-01", now: monday })).toMatchObject({
+      start: "2026-06-02T14:00",
+      end: "2026-06-02T15:00",
+      dated: true,
+    });
+    expect(parseQuickAdd("Buy wood next fri", { defaultStart: "2026-06-01", now: monday })).toMatchObject({
+      title: "Buy wood",
+      start: "2026-06-12",
+      dated: true,
+    });
+    expect(parseQuickAdd("Review sat", { defaultStart: "2026-06-01", now: monday })).toMatchObject({
+      start: "2026-06-06",
+      dated: true,
     });
   });
 

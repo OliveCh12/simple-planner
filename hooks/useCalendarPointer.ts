@@ -165,6 +165,8 @@ function drop(card: HTMLElement, home: boolean) {
 export interface PointerOptions {
   /** Show a placement ghost under the mouse over empty time. */
   hoverPreview?: boolean;
+  /** Name carried by the hover ghost while an existing item is being placed. */
+  hoverTitle?: string;
 }
 
 export function useCalendarPointer(
@@ -177,6 +179,7 @@ export function useCalendarPointer(
   const [hover, setHover] = useState<CalendarDragPreview | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const hoverPreview = options.hoverPreview ?? true;
+  const hoverTitle = options.hoverTitle;
 
   useEffect(() => {
     if (!gridEl) return;
@@ -450,7 +453,7 @@ export function useCalendarPointer(
           return;
         }
         const next = centeredSlot(hit);
-        setHoverIfChanged(previewFrom("", "", next.start, next.end, "hover"));
+        setHoverIfChanged(previewFrom("", "", next.start, next.end, "hover", hoverTitle ? { title: hoverTitle } : {}));
       });
     };
 
@@ -480,7 +483,7 @@ export function useCalendarPointer(
       window.removeEventListener("pointercancel", finish);
       window.removeEventListener("keydown", onKey);
     };
-  }, [gridEl, hoverPreview, onCommit, onCreate]);
+  }, [gridEl, hoverPreview, hoverTitle, onCommit, onCreate]);
 
   return { preview, draggingId, hover };
 }

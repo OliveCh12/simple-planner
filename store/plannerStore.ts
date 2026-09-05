@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { itemToTask, taskToItem } from "@/lib/domain/convert";
-import { isUnconfirmedDraft } from "@/lib/domain/items";
+import { isScheduled, isUnconfirmedDraft } from "@/lib/domain/items";
 import { updatePlanRecord } from "@/lib/domain/plans";
 import { getRepository } from "@/lib/repository/create";
 import { useHistoryStore } from "@/store/historyStore";
@@ -8,6 +8,8 @@ import type { Category, Person, Plan, PlanItem, Task } from "@/types";
 
 interface PlannerStore {
   currentPlan: Plan | null;
+  /** `plan`: items of the open calendar. `all`: every item, for the Plan space. */
+  scope: "plan" | "all";
   /** Every calendar, most recently opened first. For the switcher. */
   plans: Plan[];
   items: PlanItem[];
@@ -17,6 +19,8 @@ interface PlannerStore {
   error: string | null;
 
   loadPlan: (id: string | null) => Promise<void>;
+  /** Load every calendar's items at once. */
+  loadAll: () => Promise<void>;
   refresh: () => Promise<void>;
   loadDirectory: () => Promise<void>;
   loadPlans: () => Promise<void>;
@@ -117,7 +121,7 @@ function ensureSubscribed() {
     if (change.collection === "plans" || change.op === "import" || change.op === "clear") {
       void state.loadPlans();
     }
-    if (!state.currentPlan) return;
+    if (!state.currentPlan && state.scope !== "all") return;
     if (
       change.collection === "items" ||
       change.collection === "plans" ||
@@ -131,6 +135,7 @@ function ensureSubscribed() {
 
 export const usePlannerStore = create<PlannerStore>((set, get) => ({
   currentPlan: null,
+  scope: "plan",
   plans: [],
   items: [],
   people: [],
@@ -170,6 +175,7 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
 
       set({
         currentPlan: touched,
+        scope: "plan",
         plans: sortPlans(upsertById(get().plans, touched)),
         items,
         people,
@@ -185,7 +191,51 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
     }
   },
 
+  loadAll: async () => {
+    ensureSubscribed();
+    set({ isLoading: true, error: null });
+    if (get().scope !== "all") useHistoryStore.getState().clear();
+    try {
+      const [plans, loaded, people, categories] = await Promise.all([
+        repo().plans.list(),
+        repo().items.query({}),
+        repo().people.list(),
+        repo().categories.list(),
+      ]);
+      set({
+        currentPlan: null,
+        scope: "all",
+        plans: sortPlans(plans),
+        items: loaded.filter((item) => !isUnconfirmedDraft(item)),
+        people,
+        categories,
+        isLoading: false,
+        error: null,
+      });
+    } catch (error) {
+      console.error("Failed to load items:", error);
+      set({ isLoading: false, error: "Failed to load items" });
+    }
+  },
+
   refresh: async () => {
+    if (get().scope === "all") {
+      refreshing = true;
+      try {
+        const [plans, items, people, categories] = await Promise.all([
+          repo().plans.list(),
+          repo().items.query({}),
+          repo().people.list(),
+          repo().categories.list(),
+        ]);
+        set({ plans: sortPlans(plans), items: withDrafts(items, get().items), people, categories, error: null });
+      } catch (error) {
+        console.error("Failed to refresh items:", error);
+      } finally {
+        refreshing = false;
+      }
+      return;
+    }
     const current = get().currentPlan;
     if (!current) return;
     refreshing = true;
@@ -227,19 +277,24 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
 
   putItem: async (item) => {
     const current = get().currentPlan;
-    if (!current) return;
+    const owner = current?.id === item.planId ? current : get().plans.find((plan) => plan.id === item.planId);
+    if (!current && get().scope !== "all") return;
     if (item.draft) {
       // Drafts live in memory only; they reach the repository once titled.
       set({ items: upsertById(get().items, item) });
       return;
     }
     const previous = get().items.find((entry) => entry.id === item.id);
-    const plan = updatePlanRecord(current, {});
-    set({ currentPlan: plan, items: upsertById(get().items, item) });
+    const plan = owner ? updatePlanRecord(owner, {}) : undefined;
+    set({
+      currentPlan: plan && current?.id === plan.id ? plan : current,
+      plans: plan ? sortPlans(upsertById(get().plans, plan)) : get().plans,
+      items: upsertById(get().items, item),
+    });
     beginWrite();
     try {
       await repo().items.put(item);
-      await repo().plans.put(plan);
+      if (plan) await repo().plans.put(plan);
     } catch (error) {
       console.error("Failed to save item:", error);
       set({ error: "Failed to save plan" });
@@ -265,21 +320,27 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
 
   deleteItem: async (id) => {
     const current = get().currentPlan;
-    if (!current) return;
+    if (!current && get().scope !== "all") return;
     const existing = get().items.find((item) => item.id === id);
     if (existing?.draft) {
       set({ items: get().items.filter((item) => item.id !== id) });
       return;
     }
-    const plan = updatePlanRecord(current, {});
+    const owner = existing
+      ? current?.id === existing.planId
+        ? current
+        : get().plans.find((plan) => plan.id === existing.planId)
+      : current;
+    const plan = owner ? updatePlanRecord(owner, {}) : undefined;
     set({
-      currentPlan: plan,
+      currentPlan: plan && current?.id === plan.id ? plan : current,
+      plans: plan ? sortPlans(upsertById(get().plans, plan)) : get().plans,
       items: get().items.filter((item) => item.id !== id),
     });
     beginWrite();
     try {
       await repo().items.delete(id);
-      await repo().plans.put(plan);
+      if (plan) await repo().plans.put(plan);
     } catch (error) {
       console.error("Failed to delete item:", error);
       set({ error: "Failed to save plan" });
@@ -379,7 +440,7 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
     const { currentPlan, items, putItem } = get();
     if (!currentPlan) return;
     const existing = items.find((item) => item.id === taskId);
-    if (!existing) return;
+    if (!existing || !isScheduled(existing)) return;
     const task = { ...itemToTask(existing), ...updates, updatedAt: nowIso() };
     await putItem(taskToItem(task, currentPlan.id, existing));
   },
@@ -391,6 +452,7 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
   reset: () =>
     set({
       currentPlan: null,
+      scope: "plan",
       plans: [],
       items: [],
       people: [],

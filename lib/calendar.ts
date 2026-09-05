@@ -10,6 +10,7 @@ import {
   startOfWeek,
   startOfYear,
 } from "date-fns";
+import { compareByTime, isScheduled } from "@/lib/domain/items";
 import { expandRecurrence } from "@/lib/time/recurrence";
 import { formatLocalDate, intervalOf, intersects, isAllDay, parseLocal, type Interval } from "@/lib/time/local";
 import type { Category, ItemKind, ItemStatus, LocalDateTime, PlanItem, TimeScale } from "@/types";
@@ -90,6 +91,14 @@ export interface CalendarOccurrence {
   start: LocalDateTime;
   end?: LocalDateTime;
   allDay: boolean;
+  /** A deadline marker for a task or project, not the work itself. */
+  due?: boolean;
+}
+
+export const DUE_SUFFIX = "::due";
+
+export function isDueOccurrenceId(occurrenceId: string): boolean {
+  return occurrenceId.endsWith(DUE_SUFFIX);
 }
 
 export function isCalendarActive(status: ItemStatus): boolean {
@@ -109,6 +118,26 @@ export function occurrencesInRange(
   const out: CalendarOccurrence[] = [];
 
   for (const item of items) {
+    // Deadlines show as a marker on their day, whatever the work is scheduled for.
+    if (item.due && item.kind !== "event" && intersects(intervalOf({ start: item.due }), range)) {
+      const marker: CalendarOccurrence = {
+        id: `${item.id}${DUE_SUFFIX}`,
+        itemId: item.id,
+        title: item.title,
+        kind: item.kind,
+        status: item.status,
+        start: item.due,
+        allDay: true,
+        due: true,
+      };
+      if (item.categoryId) {
+        marker.categoryId = item.categoryId;
+        const color = colorById.get(item.categoryId);
+        if (color) marker.categoryColor = color;
+      }
+      out.push(marker);
+    }
+    if (!isScheduled(item)) continue;
     let occurrences;
     try {
       occurrences = expandRecurrence(item, range);
@@ -162,11 +191,19 @@ export function occupiesMonthDay(occurrence: CalendarOccurrence, day: Date): boo
   return isSameDay(parseLocal(occurrence.start), day);
 }
 
-/** Objectives whose span touches the range, for the objectives strip. */
+/**
+ * Objectives and projects that matter in the range, for the strip and the
+ * plan pane: dated ones whose span touches it, plus undated ones that are
+ * still open, so a goal without dates is never invisible.
+ */
 export function objectivesInRange(items: PlanItem[], range: Interval): PlanItem[] {
   return items
-    .filter((item) => item.kind === "objective" && intersects(intervalOf(item), range))
-    .sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
+    .filter((item) => {
+      if (item.kind !== "objective" && item.kind !== "project") return false;
+      if (!isScheduled(item)) return item.due ? intersects(intervalOf({ start: item.due }), range) || item.due >= formatLocalDate(range.start) : true;
+      return intersects(intervalOf(item), range);
+    })
+    .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "objective" ? -1 : 1) || compareByTime(a, b) || a.title.localeCompare(b.title));
 }
 
 export function occurrencesOnDay(occurrences: CalendarOccurrence[], day: Date): CalendarOccurrence[] {

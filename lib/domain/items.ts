@@ -18,11 +18,14 @@ function nowIso() {
 export type CreateItemInput = {
   planId: string;
   title: string;
-  start: LocalDateTime;
+  /** Omit to leave a task, project or objective unscheduled. Events need one. */
+  start?: LocalDateTime;
   end?: LocalDateTime;
+  due?: string;
   kind?: ItemKind;
   notes?: string;
   parentId?: string;
+  linkedIds?: string[];
   recurrence?: string;
   recurrenceExceptions?: LocalDateTime[];
   status?: ItemStatus;
@@ -43,6 +46,25 @@ export function isUnconfirmedDraft(item: PlanItem): boolean {
   return Boolean(item.draft) && !item.title.trim();
 }
 
+export type ScheduledItem = PlanItem & { start: LocalDateTime };
+
+/** An item with a place in time. Everything else lives in Plan until it gets one. */
+export function isScheduled(item: PlanItem): item is ScheduledItem {
+  return item.start !== undefined;
+}
+
+/** Code-point order, so the `~` sentinel really sorts after every date. */
+export function compareKeys(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/** Sort key that keeps unscheduled items after dated ones, then by deadline, then by creation. */
+export function compareByTime(a: PlanItem, b: PlanItem): number {
+  const aKey = a.start ?? a.due ?? "~";
+  const bKey = b.start ?? b.due ?? "~";
+  return compareKeys(aKey, bKey) || compareKeys(a.createdAt, b.createdAt);
+}
+
 export function createItem(input: CreateItemInput): PlanItem {
   const now = nowIso();
   const item: PlanItem = {
@@ -51,7 +73,6 @@ export function createItem(input: CreateItemInput): PlanItem {
     kind: input.kind ?? "task",
     title: input.title.trim(),
     notes: input.notes?.trim() ?? "",
-    start: input.start,
     status: input.status ?? "pending",
     energy: input.energy ?? "medium",
     executor: input.executor ?? "human",
@@ -60,8 +81,11 @@ export function createItem(input: CreateItemInput): PlanItem {
     createdAt: now,
     updatedAt: now,
   };
+  if (input.start !== undefined) item.start = input.start;
   if (input.end !== undefined) item.end = input.end;
+  if (input.due) item.due = input.due;
   if (input.parentId) item.parentId = input.parentId;
+  if (input.linkedIds?.length) item.linkedIds = input.linkedIds;
   if (input.recurrence) item.recurrence = input.recurrence;
   if (input.recurrenceExceptions) item.recurrenceExceptions = input.recurrenceExceptions;
   if (input.agentBrief) item.agentBrief = input.agentBrief;
@@ -91,8 +115,12 @@ export function updateItem(item: PlanItem, patch: Partial<Omit<PlanItem, "id" | 
     createdAt: item.createdAt,
     updatedAt: nowIso(),
   };
+  if ("start" in patch && patch.start === undefined) delete next.start;
   if ("end" in patch && patch.end === undefined) delete next.end;
+  if ("due" in patch && !patch.due) delete next.due;
   if ("parentId" in patch && !patch.parentId) delete next.parentId;
+  if ("linkedIds" in patch && !patch.linkedIds?.length) delete next.linkedIds;
+  if ("sync" in patch && !patch.sync) delete next.sync;
   if ("recurrence" in patch && !patch.recurrence) delete next.recurrence;
   if ("categoryId" in patch && !patch.categoryId) delete next.categoryId;
   if ("agentBrief" in patch && !patch.agentBrief) delete next.agentBrief;
@@ -109,9 +137,11 @@ export function duplicateItem(item: PlanItem): PlanItem {
     title: item.title.endsWith(" copy") ? item.title : `${item.title} copy`,
     start: item.start,
     end: item.end,
+    due: item.due,
     kind: item.kind,
     notes: item.notes,
     parentId: item.parentId,
+    linkedIds: item.linkedIds,
     recurrence: item.recurrence,
     status: item.status === "completed" ? "pending" : item.status,
     energy: item.energy,
@@ -130,6 +160,52 @@ export function moveItem(item: PlanItem, start: LocalDateTime, end?: LocalDateTi
   if (end === undefined) delete next.end;
   else next.end = end;
   return parseItem(next);
+}
+
+/** Take an item off the clock. It keeps its deadline, parent and links. */
+export function unscheduleItem(item: PlanItem): PlanItem {
+  if (item.kind === "event") throw new DomainError("An event always has a date");
+  return updateItem(item, { start: undefined, end: undefined, recurrence: undefined });
+}
+
+export function setDue(item: PlanItem, due: string | undefined): PlanItem {
+  if (item.kind === "event") throw new DomainError("Events have a date, not a deadline");
+  return updateItem(item, { due });
+}
+
+/** Add or remove a contextual link. Links are symmetric in meaning but stored on one side. */
+export function toggleLink(item: PlanItem, otherId: string, items: PlanItem[]): PlanItem {
+  if (otherId === item.id) throw new DomainError("An item cannot link to itself");
+  if (!items.some((candidate) => candidate.id === otherId)) throw new DomainError("Linked item not found");
+  const current = item.linkedIds ?? [];
+  const linkedIds = current.includes(otherId) ? current.filter((id) => id !== otherId) : [...current, otherId];
+  return updateItem(item, { linkedIds });
+}
+
+/** Which kinds may sit directly under a parent of `parentKind`. */
+export function allowedChildKinds(parentKind: ItemKind): ItemKind[] {
+  switch (parentKind) {
+    case "objective":
+      return ["project", "task", "event"];
+    case "project":
+      return ["task", "event"];
+    case "event":
+      return ["task"];
+    case "task":
+      return ["task"];
+  }
+}
+
+export function canParent(childKind: ItemKind, parentKind: ItemKind): boolean {
+  return allowedChildKinds(parentKind).includes(childKind);
+}
+
+function parentRuleMessage(childKind: ItemKind, parentKind: ItemKind): string {
+  if (childKind === "objective") return "Objectives cannot have a parent";
+  if (childKind === "project") return "A project can only belong to an objective";
+  if (childKind === "event") return "An event can only belong to an objective or a project";
+  if (parentKind === "event") return "Only tasks can prepare an event";
+  return "Only tasks can nest under a task";
 }
 
 export function completeItem(item: PlanItem, at = nowIso()): PlanItem {
@@ -152,14 +228,13 @@ export function setExecutor(item: PlanItem, executor: Executor): PlanItem {
 }
 
 export function addSubtask(parent: PlanItem, input: Omit<CreateItemInput, "planId" | "parentId">): PlanItem {
-  if (parent.kind === "event" && input.kind && input.kind !== "task") {
-    throw new DomainError("Only tasks can prepare an event");
-  }
+  const kind = input.kind ?? "task";
+  if (!canParent(kind, parent.kind)) throw new DomainError(parentRuleMessage(kind, parent.kind));
   return createItem({
     ...input,
     planId: parent.planId,
     parentId: parent.id,
-    kind: input.kind ?? "task",
+    kind,
   });
 }
 
@@ -192,30 +267,29 @@ export function setParent(item: PlanItem, parentId: string | undefined, items: P
   if (parentId === item.id) throw new DomainError("An item cannot be its own parent");
   const parent = items.find((candidate) => candidate.id === parentId);
   if (!parent) throw new DomainError("Parent not found");
-  if (parent.planId !== item.planId) throw new DomainError("Parent must be in the same plan");
-  if (item.kind === "event" && parent.kind !== "objective") {
-    throw new DomainError("An event can only belong to an objective");
-  }
-  if (parent.kind === "event" && item.kind !== "task") {
-    throw new DomainError("Only tasks can prepare an event");
-  }
+  if (parent.planId !== item.planId) throw new DomainError("Parent must be in the same calendar");
   if (descendantIds(item.id, items).has(parentId)) {
     throw new DomainError("Cannot parent an item under its descendant");
   }
+  if (!canParent(item.kind, parent.kind)) throw new DomainError(parentRuleMessage(item.kind, parent.kind));
   return updateItem(item, { parentId });
 }
 
 export function setKind(item: PlanItem, kind: ItemKind, items: PlanItem[]): PlanItem {
-  if (kind === "event" && items.some((candidate) => candidate.parentId === item.id && candidate.kind !== "task")) {
-    throw new DomainError("An event can only have tasks as children");
-  }
-  if (kind === "event" && item.parentId) {
+  if (kind === item.kind) return item;
+  const children = items.filter((candidate) => candidate.parentId === item.id);
+  const offending = children.find((child) => !canParent(child.kind, kind));
+  if (offending) throw new DomainError(`A ${kind} cannot contain a ${offending.kind}`);
+  if (item.parentId) {
     const parent = items.find((candidate) => candidate.id === item.parentId);
-    if (parent && parent.kind !== "objective") {
-      throw new DomainError("An event can only belong to an objective");
-    }
+    if (parent && !canParent(kind, parent.kind)) throw new DomainError(parentRuleMessage(kind, parent.kind));
   }
-  return updateItem(item, { kind });
+  const patch: Partial<Omit<PlanItem, "id" | "planId" | "createdAt">> = { kind };
+  if (kind === "event") {
+    patch.due = undefined;
+    if (!item.start) patch.start = item.due ?? formatLocal(new Date(), true);
+  }
+  return updateItem(item, patch);
 }
 
 export function excludeOccurrence(item: PlanItem, occurrenceStart: LocalDateTime): PlanItem {
@@ -230,6 +304,7 @@ export function splitOccurrence(
   item: PlanItem,
   occurrenceStart: LocalDateTime
 ): { series: PlanItem; detached: PlanItem } {
+  if (!isScheduled(item)) throw new DomainError("Item is not scheduled");
   const series = excludeOccurrence(item, occurrenceStart);
   const end = occurrenceEnd(occurrenceStart, item);
   const detached = createItem({
@@ -258,6 +333,7 @@ export function shiftByDelta(value: LocalDateTime, from: LocalDateTime, to: Loca
 }
 
 export function shiftSeries(item: PlanItem, from: LocalDateTime, to: LocalDateTime): PlanItem {
+  if (!isScheduled(item)) throw new DomainError("Item is not scheduled");
   return moveItem(
     item,
     shiftByDelta(item.start, from, to),

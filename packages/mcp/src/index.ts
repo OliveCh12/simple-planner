@@ -17,7 +17,7 @@ import {
 import { MemoryRepository } from "@/lib/repository/memory";
 import { parseAppData } from "@/lib/validation";
 
-const kindSchema = z.enum(["task", "event", "objective"]);
+const kindSchema = z.enum(["task", "event", "project", "objective"]);
 const executorSchema = z.enum(["human", "ai"]);
 const statusSchema = z.enum(["pending", "in-progress", "completed", "cancelled", "blocked"]);
 const oneOrMany = <T extends z.ZodType>(schema: T) => z.union([schema, z.array(schema)]);
@@ -108,11 +108,13 @@ async function main() {
       inputSchema: z.object({
         planId: z.string(),
         title: z.string(),
-        start: z.string(),
+        start: z.string().optional(),
         end: z.string().optional(),
+        due: z.string().optional(),
         kind: kindSchema.optional(),
         notes: z.string().optional(),
         parentId: z.string().optional(),
+        linkedIds: z.array(z.string()).optional(),
         executor: executorSchema.optional(),
         categoryId: z.string().optional(),
         recurrence: z.string().optional(),
@@ -132,6 +134,9 @@ async function main() {
         notes: z.string().optional(),
         start: z.string().optional(),
         end: z.string().optional(),
+        due: z.string().optional(),
+        parentId: z.string().optional(),
+        linkedIds: z.array(z.string()).optional(),
         status: statusSchema.optional(),
         executor: executorSchema.optional(),
         agentBrief: z.string().optional(),
@@ -161,12 +166,14 @@ async function main() {
   server.registerTool(
     "add_subtask",
     {
-      description: "Add a child task under a task or objective.",
+      description: "Add a child under a goal, project, event or task. Unscheduled unless a start is given.",
       inputSchema: z.object({
         parentId: z.string(),
         title: z.string(),
-        start: z.string(),
+        start: z.string().optional(),
         end: z.string().optional(),
+        due: z.string().optional(),
+        kind: kindSchema.optional(),
       }),
     },
     async ({ parentId, ...input }) => {

@@ -23,6 +23,27 @@ export interface QuickAddResult {
   executor: Executor;
   categoryId?: string;
   kind: ItemKind;
+  /** The text named a day, time or rhythm; without it a capture stays unscheduled. */
+  dated: boolean;
+}
+
+const WEEKDAYS: Record<string, number> = {
+  sun: 0, sunday: 0, mon: 1, monday: 1, tue: 2, tues: 2, tuesday: 2, wed: 3, wednesday: 3,
+  thu: 4, thur: 4, thurs: 4, thursday: 4, fri: 5, friday: 5, sat: 6, saturday: 6,
+};
+
+/** `today`, `tomorrow`, or a weekday name (the next one, `next` skipping a week). */
+function parseDayWord(word: string, next: boolean, now: Date): Date | null {
+  const base = startOfDay(now);
+  const key = word.toLowerCase();
+  if (key === "today") return base;
+  if (key === "tomorrow") return new Date(base.getFullYear(), base.getMonth(), base.getDate() + 1);
+  const weekday = WEEKDAYS[key];
+  if (weekday === undefined) return null;
+  let ahead = (weekday - base.getDay() + 7) % 7;
+  if (ahead === 0) ahead = 7;
+  if (next && ahead < 7) ahead += 7;
+  return new Date(base.getFullYear(), base.getMonth(), base.getDate() + ahead);
 }
 
 const MONTHS: Record<string, number> = {
@@ -173,6 +194,19 @@ export function parseQuickAdd(input: string, context: QuickAddContext): QuickAdd
     }
   }
 
+  let dayWord: Date | undefined;
+  const dayHit = take(
+    /\b(?:(next)\s+)?(today|tomorrow|sun(?:day)?|mon(?:day)?|tue(?:s|sday)?|wed(?:nesday)?|thu(?:r|rs|rsday)?|fri(?:day)?|sat(?:urday)?)\b/i,
+    rest
+  );
+  if (dayHit) {
+    const parsed = parseDayWord(dayHit.value[2], Boolean(dayHit.value[1]), now);
+    if (parsed) {
+      dayWord = parsed;
+      rest = dayHit.rest;
+    }
+  }
+
   let recurrenceKind: string | undefined;
   const everyHit = take(/\bevery\s+(weekdays?|weekday|day|week|month)\b|\b(daily|weekly|monthly)\b/i, rest);
   if (everyHit) {
@@ -204,6 +238,7 @@ export function parseQuickAdd(input: string, context: QuickAddContext): QuickAdd
   if (!title) return null;
 
   let start = context.defaultStart;
+  if (dayWord) start = formatLocalDate(dayWord);
   if (time) start = applyTime(start, time.hour, time.minute);
 
   let end = context.defaultEnd;
@@ -212,6 +247,8 @@ export function parseQuickAdd(input: string, context: QuickAddContext): QuickAdd
   } else if (until && !recurrenceKind) {
     end = formatLocalDate(until);
     if (!isAllDay(start)) start = formatLocalDate(parseLocal(start));
+  } else if (dayWord) {
+    end = undefined;
   } else if (time === undefined && context.defaultEnd && isAllDay(start)) {
     end = context.defaultEnd;
   }
@@ -221,6 +258,7 @@ export function parseQuickAdd(input: string, context: QuickAddContext): QuickAdd
     start,
     executor,
     kind: "task",
+    dated: Boolean(time || until || recurrenceKind || dayWord),
   };
   if (end) result.end = end;
   if (recurrenceKind) result.recurrence = rruleFor(recurrenceKind, until);

@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { Bot, CalendarDays, ChevronLeft, ChevronRight, CloudSun, MapPin, PanelLeft, PanelLeftClose, Redo2, SlidersHorizontal, Sunrise, Undo2 } from "lucide-react";
+import { Bot, CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, CloudSun, MapPin, PanelLeft, PanelLeftClose, Redo2, SlidersHorizontal, Sunrise, Undo2 } from "lucide-react";
 import { CalendarUiProvider } from "@/components/calendar/calendar-ui";
 import { CalendarBoard } from "@/components/calendar/CalendarBoard";
 import { CalendarCreateButton } from "@/components/calendar/CalendarCreateButton";
@@ -40,21 +39,23 @@ import { useTaskPointer } from "@/hooks/useTaskPointer";
 import { useTimelinePan } from "@/hooks/useTimelinePan";
 import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { useVisibleRange } from "@/hooks/useVisibleRange";
-import { periodLabel, visibleCalendarRange } from "@/lib/calendar";
+import { isDueOccurrenceId, periodLabel, visibleCalendarRange } from "@/lib/calendar";
 import { formatDateDisplay } from "@/lib/date-utils";
 import { itemToTask } from "@/lib/domain/convert";
 import {
   createItem,
   duplicateItem,
   excludeOccurrence,
+  isScheduled,
   isUnconfirmedDraft,
   moveItem,
+  setDue,
   shiftSeries,
   splitOccurrence,
 } from "@/lib/domain/items";
 import { captureRect } from "@/lib/motion";
 import type { CalendarCommit } from "@/hooks/useCalendarPointer";
-import { ancestorIds, calendarEntries, indexById, withoutSubtasks } from "@/lib/domain/tree";
+import { ancestorIds, calendarEntries, dueMarkers, indexById, withoutSubtasks } from "@/lib/domain/tree";
 import { groupByObjective, laneTasksFromItems, layoutLanes, type LaneItem } from "@/lib/lanes";
 import { defaultTaskRange } from "@/lib/plan";
 import type { QuickAddResult } from "@/lib/quickadd";
@@ -73,7 +74,7 @@ import {
 import { cn, shellClasses } from "@/lib/utils";
 import { useSaveItem } from "@/hooks/useSaveItem";
 import { useSwapMotion } from "@/hooks/useSwapMotion";
-import { useHistoryStore } from "@/store/historyStore";
+import { isTypingTarget, useUndoRedo } from "@/hooks/useUndoRedo";
 import { usePlannerStore } from "@/store/plannerStore";
 import { useUIStore, type TimelineView } from "@/store/uiStore";
 import type { Executor, HydratedPlan, ItemKind, PlanItem, TimeScale } from "@/types";
@@ -90,12 +91,6 @@ const SMOOTH_SCROLL_VIEWPORTS = 4;
 
 function paddingLeft(el: HTMLElement): number {
   return parseFloat(getComputedStyle(el).paddingLeft) || 0;
-}
-
-function isTypingTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
 }
 
 function visibleUnits(units: TimeColumn[], layout: ReturnType<typeof layoutFor>, fromX: number, toX: number) {
@@ -136,12 +131,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
   const deleteItem = useDeleteItem();
   const saveItem = useSaveItem();
   const router = useRouter();
-  const undo = useHistoryStore((s) => s.undo);
-  const redo = useHistoryStore((s) => s.redo);
-  const canUndo = useHistoryStore((s) => s.past.length > 0);
-  const canRedo = useHistoryStore((s) => s.future.length > 0);
-  const undoLabel = useHistoryStore((s) => s.past[s.past.length - 1]?.label);
-  const redoLabel = useHistoryStore((s) => s.future[s.future.length - 1]?.label);
+  const { runUndo, runRedo, canUndo, canRedo, undoLabel, redoLabel } = useUndoRedo();
   const [pendingDelete, setPendingDelete] = useState<PlanItem | null>(null);
 
   const focusItem = focusItemId ? items.find((item) => item.id === focusItemId) : undefined;
@@ -150,16 +140,17 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     () => plan.scale ?? defaultScaleFor(plan.start, plan.end)
   );
   const [userFocus, setUserFocus] = useState<Date | null>(null);
+  const focusStart = focusItem?.start;
   const focus = useMemo(() => {
     if (userFocus) return userFocus;
-    if (focusItem) return parseLocal(focusItem.start);
+    if (focusStart) return parseLocal(focusStart);
     return new Date();
-  }, [focusItem, userFocus]);
+  }, [focusStart, userFocus]);
   const [selectedDay, setSelectedDay] = useState(() =>
-    focusItem ? parseLocal(focusItem.start) : new Date()
+    focusStart ? parseLocal(focusStart) : new Date()
   );
   const [selectedHour, setSelectedHour] = useState<number | undefined>(() =>
-    focusItem && !isAllDay(focusItem.start) ? parseLocal(focusItem.start).getHours() : undefined
+    focusStart && !isAllDay(focusStart) ? parseLocal(focusStart).getHours() : undefined
   );
   const [showCompleted, setShowCompleted] = useState(false);
   const [showSubtasks, setShowSubtasks] = useState(false);
@@ -174,6 +165,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
   const [createKind, setCreateKind] = useState<ItemKind>("task");
   const [createExecutor, setCreateExecutor] = useState<Executor>("human");
   const [pendingEdit, setPendingEdit] = useState<PendingOccurrenceEdit | null>(null);
+  const [placing, setPlacing] = useState<PlanItem | null>(null);
   const putItem = usePlannerStore((s) => s.putItem);
   const deleteItemById = usePlannerStore((s) => s.deleteItem);
 
@@ -191,10 +183,11 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
   const visibleItemsForView = useMemo(() => {
     if (aiQueue) return queueItems;
     if (gantt) return showSubtasks ? items : withoutSubtasks(items);
-    return calendarEntries(items);
+    // The grid draws scheduled entries, plus deadline markers for work that has no slot.
+    return [...calendarEntries(items), ...dueMarkers(items)];
   }, [aiQueue, gantt, items, queueItems, showSubtasks]);
   const objectivesForStrip = useMemo(
-    () => items.filter((item) => item.kind === "objective" && !item.draft),
+    () => items.filter((item) => (item.kind === "objective" || item.kind === "project") && !item.draft),
     [items]
   );
   const calendarRange = useMemo(
@@ -231,6 +224,10 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     (commit: CalendarCommit) => {
       const item = items.find((entry) => entry.id === commit.itemId);
       if (!item) return;
+      if (isDueOccurrenceId(commit.occurrenceId)) {
+        void saveItem(setDue(item, commit.start.slice(0, 10)));
+        return;
+      }
       if (item.recurrence) {
         setPendingEdit({
           item,
@@ -263,6 +260,17 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
   const onCreateSlot = useCallback(
     (start: string, end?: string) => {
       if (!isPlanWritable(plan)) return;
+      if (placing) {
+        // A click while placing gives the waiting item that slot instead of starting a draft.
+        const target = items.find((entry) => entry.id === placing.id) ?? placing;
+        setPlacing(null);
+        void saveItem(moveItem(target, start, end)).then((ok) => {
+          if (!ok) return;
+          setSelectedId(target.id);
+          setSelectedOccurrenceStart(undefined);
+        });
+        return;
+      }
       const existing = items.find(isUnconfirmedDraft);
       const item = existing
         ? moveItem(existing, start, end)
@@ -275,7 +283,15 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
       setSelectedDay(from);
       setSelectedHour(start.includes("T") ? from.getHours() : undefined);
     },
-    [items, plan, putItem]
+    [items, placing, plan, putItem, saveItem]
+  );
+  // On a small screen the plan pane covers the grid: placing steps out of it.
+  const onPlace = useCallback(
+    (item: PlanItem | null) => {
+      setPlacing(item);
+      if (item && !window.matchMedia("(min-width: 768px)").matches) setLeftPanelOpen(false);
+    },
+    [setLeftPanelOpen]
   );
   const calendarUi = useMemo(
     () => ({
@@ -287,8 +303,10 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
       showSubtasks,
       canCreate: isPlanWritable(plan),
       onCreateSlot,
+      placing,
+      onPlace,
     }),
-    [expandedIds, onCreateSlot, onMoveItem, onSelectItem, onToggleExpand, plan, selectedId, showSubtasks]
+    [expandedIds, onCreateSlot, onMoveItem, onPlace, onSelectItem, onToggleExpand, placing, plan, selectedId, showSubtasks]
   );
 
   const layout = useMemo(
@@ -298,7 +316,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
 
   const itemsById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
   const tasksById = useMemo(
-    () => new Map(visibleItemsForView.map((item) => [item.id, itemToTask(item)])),
+    () => new Map(visibleItemsForView.filter(isScheduled).map((item) => [item.id, itemToTask(item)])),
     [visibleItemsForView]
   );
 
@@ -439,7 +457,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     initialised.current = true;
     if (anchorRef.current) return;
     const frame = window.requestAnimationFrame(() => {
-      if (focusItem) {
+      if (focusItem?.start) {
         scrollToX(xOf(layout, parseLocal(focusItem.start)), "auto");
         return;
       }
@@ -546,14 +564,6 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
           new Date(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate(), selectedHour + 1)
         );
 
-  const runUndo = useCallback(async () => {
-    const label = await undo();
-    if (label) toast(`Undone: ${label}`, { duration: 1800 });
-  }, [undo]);
-  const runRedo = useCallback(async () => {
-    const label = await redo();
-    if (label) toast(`Redone: ${label}`, { duration: 1800 });
-  }, [redo]);
   const deleteSelected = useCallback(() => {
     if (!selectedItem || !isPlanWritable(plan)) return;
     if (isUnconfirmedDraft(selectedItem)) {
@@ -678,7 +688,10 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
           goToday();
           break;
         case "Escape":
-          if (selectedId) {
+          if (placing) {
+            event.preventDefault();
+            setPlacing(null);
+          } else if (selectedId) {
             event.preventDefault();
             onCloseDetails();
           }
@@ -696,6 +709,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     goToday,
     onCloseDetails,
     onCreateSlot,
+    placing,
     plan,
     router,
     runRedo,
@@ -1020,7 +1034,21 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
       >
         <div ref={viewRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {!gantt ? (
-          <div ref={setCalendarEl} className="flex h-full min-h-0 flex-1 flex-col">
+          <div ref={setCalendarEl} className="relative flex h-full min-h-0 flex-1 flex-col">
+            {placing && (
+              <div className="pointer-events-none absolute inset-x-0 top-12 z-30 flex justify-center">
+                <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-cal-line-strong bg-background/95 py-1 pr-1 pl-3 text-xs shadow-md backdrop-blur">
+                  <CalendarPlus className="size-3.5 text-primary" />
+                  <span>
+                    Click a slot to place <span className="font-medium">{placing.title || "this task"}</span>
+                  </span>
+                  <Kbd>Esc</Kbd>
+                  <Button type="button" variant="ghost" size="xs" className="h-6" onClick={() => setPlacing(null)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
             <CalendarBoard
               items={visibleItemsForView}
               categories={categories}
@@ -1129,7 +1157,8 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
           description="Remove only this occurrence, or delete the whole series."
           onThis={() => {
             if (!pendingDelete) return;
-            void saveItem(excludeOccurrence(pendingDelete, selectedOccurrenceStart ?? pendingDelete.start));
+            const at = selectedOccurrenceStart ?? pendingDelete.start;
+            if (at) void saveItem(excludeOccurrence(pendingDelete, at));
             setPendingDelete(null);
             setSelectedId(null);
             setSelectedOccurrenceStart(undefined);
@@ -1159,6 +1188,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
           onSeries={() => {
             if (!pendingEdit) return;
             const { item, occurrenceStart, start, end, mode } = pendingEdit;
+            if (!isScheduled(item)) return;
             if (mode === "move" && occurrenceStart !== item.start) {
               void saveItem(shiftSeries(item, occurrenceStart, start));
             } else if (mode === "resize" && occurrenceStart !== item.start) {

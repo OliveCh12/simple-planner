@@ -2,6 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 import type { CalendarCommit } from "@/hooks/useCalendarPointer";
+import type { PlanItem } from "@/types";
 
 export interface CalendarUiValue {
   selectedId: string | null;
@@ -12,6 +13,9 @@ export interface CalendarUiValue {
   showSubtasks: boolean;
   canCreate?: boolean;
   onCreateSlot?: (start: string, end?: string) => void;
+  /** An unscheduled item waiting for a click on the grid. */
+  placing?: PlanItem | null;
+  onPlace?: (item: PlanItem | null) => void;
 }
 
 const CalendarUiContext = createContext<CalendarUiValue | null>(null);

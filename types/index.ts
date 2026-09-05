@@ -5,7 +5,12 @@ import type { AccentId } from '@/lib/themes';
 /** Effort an item demands, to balance capacity at a glance. */
 export type EnergyLevel = 'low' | 'medium' | 'high' | 'critical';
 
-export type ItemKind = 'task' | 'event' | 'objective';
+/**
+ * What an item is. `event`: a dated moment. `task`: a concrete action.
+ * `project`: a bounded initiative made of tasks. `objective`: a broader
+ * direction that can group projects. Subtasks are tasks under a task.
+ */
+export type ItemKind = 'task' | 'event' | 'project' | 'objective';
 export type CalendarProvider = 'local' | 'google' | 'icloud' | 'caldav';
 export type CalendarAccess = 'readwrite' | 'readonly';
 
@@ -18,6 +23,14 @@ export interface CalendarSource {
   /** Provider calendar id (Google calendarId, CalDAV href). */
   externalId?: string;
   lastSyncedAt?: string;
+}
+/** Sync bookkeeping for an item that mirrors an external event. */
+export interface ItemSync {
+  /** `synced`: matches the provider. `pending`: local edit not pushed yet. `conflict`: both sides changed. */
+  state: 'synced' | 'pending' | 'conflict';
+  /** Provider version marker (Google etag, CalDAV etag). */
+  etag?: string;
+  syncedAt?: string;
 }
 export type Executor = 'human' | 'ai';
 export type ItemStatus = 'pending' | 'in-progress' | 'completed' | 'cancelled' | 'blocked';
@@ -63,21 +76,34 @@ export interface PlanItem {
   title: string;
   notes: string;
   /**
-   * Tree: objective > (task | event); task > subtask; event > prep task.
-   * Events may be parentless — a family lunch does not need a goal.
+   * Primary parent. objective > (project | task | event); project > (task | event);
+   * event > prep task; task > subtask. Events never need one — a family lunch
+   * does not belong to a goal.
    */
   parentId?: string;
+  /**
+   * Contextual links beyond the tree: a task that prepares an event while
+   * belonging to a project, an event that matters to a second project.
+   */
+  linkedIds?: string[];
   /** Id on an external calendar. Present only for imported or synced events. */
   externalId?: string;
+  /** Present when `externalId` is: how the local copy relates to the provider. */
+  sync?: ItemSync;
   /**
    * In-progress create from an empty slot. Untitled drafts are not real events:
    * abandoning the editor deletes them. Confirmed once the title is set.
    */
   draft?: boolean;
-  /** Local civil time. Required. */
-  start: LocalDateTime;
+  /**
+   * Local civil time. Required for events. A task, project or objective
+   * without `start` is unscheduled: it lives in Plan until placed in time.
+   */
+  start?: LocalDateTime;
   /** Absent = a point in time: a milestone, or an instant for events. */
   end?: LocalDateTime;
+  /** Deadline (`YYYY-MM-DD`), independent of when the work is scheduled. Tasks and projects. */
+  due?: string;
   /** RFC 5545 RRULE body, e.g. `FREQ=WEEKLY;BYDAY=MO,WE,FR;UNTIL=20260831`. */
   recurrence?: string;
   /** Occurrence starts removed from a recurring series. */

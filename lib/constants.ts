@@ -6,6 +6,7 @@ import {
   CircleDotDashed,
   CircleX,
   Flag,
+  FolderKanban,
   ListTodo,
   Signal,
   SignalHigh,
@@ -61,6 +62,7 @@ export interface KindOption {
 export const KINDS: KindOption[] = [
   { value: "task", label: "Task", icon: ListTodo },
   { value: "event", label: "Event", icon: Calendar },
+  { value: "project", label: "Project", icon: FolderKanban },
   { value: "objective", label: "Objective", icon: Flag },
 ];
 

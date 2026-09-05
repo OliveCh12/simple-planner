@@ -1,7 +1,8 @@
+import { isScheduled, type ScheduledItem } from "@/lib/domain/items";
 import type { HydratedPlan, Plan, PlanItem, Task } from "@/types";
 
-/** Flatten a plan item into the task shape the current timeline still renders. */
-export function itemToTask(item: PlanItem): Task {
+/** Flatten a scheduled plan item into the task shape the roadmap still renders. */
+export function itemToTask(item: ScheduledItem): Task {
   const task: Task = {
     id: item.id,
     title: item.title,
@@ -36,6 +37,10 @@ export function taskToItem(task: Task, planId: string, existing?: PlanItem): Pla
     updatedAt: task.updatedAt,
   };
   if (existing?.parentId) item.parentId = existing.parentId;
+  if (existing?.linkedIds) item.linkedIds = existing.linkedIds;
+  if (existing?.due) item.due = existing.due;
+  if (existing?.externalId) item.externalId = existing.externalId;
+  if (existing?.sync) item.sync = existing.sync;
   if (existing?.recurrence) item.recurrence = existing.recurrence;
   if (existing?.recurrenceExceptions) item.recurrenceExceptions = existing.recurrenceExceptions;
   if (existing?.agentBrief) item.agentBrief = existing.agentBrief;
@@ -49,6 +54,6 @@ export function taskToItem(task: Task, planId: string, existing?: PlanItem): Pla
 export function hydratePlan(plan: Plan, items: PlanItem[]): HydratedPlan {
   return {
     ...plan,
-    tasks: items.filter((item) => item.kind === "task").map(itemToTask),
+    tasks: items.filter((item): item is ScheduledItem => item.kind === "task" && isScheduled(item)).map(itemToTask),
   };
 }

@@ -17,7 +17,7 @@ import {
 import { sunTimesCached } from "@/lib/environment/sun";
 import type { DailyWeather, Place } from "@/lib/environment/types";
 import { formatPrecipitation, formatRange, formatTemp, weatherKind } from "@/lib/environment/weather-codes";
-import { isAllDay, parseLocal } from "@/lib/time/local";
+import { formatLocalDate, isAllDay, parseLocal } from "@/lib/time/local";
 import type { PlanItem } from "@/types";
 
 const MAX_DAYS = 4;
@@ -63,13 +63,14 @@ export function EventWeather({ item }: { item: PlanItem }) {
   const own = placeFromLocation(item.location);
   const fallback = !own && item.kind === "event" && !item.location ? env.location : undefined;
   const place = own ?? fallback ?? null;
-  const enabled = env.eventWeather && Boolean(place);
-  const start = parseLocal(item.start);
+  const startValue = item.start ?? formatLocalDate(new Date());
+  const enabled = env.eventWeather && Boolean(place) && item.start !== undefined;
+  const start = parseLocal(startValue);
   const end = item.end ? parseLocal(item.end) : start;
-  const allDay = isAllDay(item.start);
+  const allDay = isAllDay(startValue);
   const timed = !allDay && item.end !== undefined;
-  const startKey = item.start.slice(0, 10);
-  const endKey = (item.end ?? item.start).slice(0, 10);
+  const startKey = startValue.slice(0, 10);
+  const endKey = (item.end ?? startValue).slice(0, 10);
   const horizon = horizonFor(startKey);
   const multiDay = endKey > startKey;
 
@@ -156,11 +157,12 @@ function zonedDateKey(instant: Date, timeZone?: string): string {
 export function EventWeatherGlyph({ item }: { item: PlanItem }) {
   const env = useEnvironmentSettings();
   const place = placeFromLocation(item.location);
-  const dateKey = item.start.slice(0, 10);
+  const startValue = item.start ?? formatLocalDate(new Date());
+  const dateKey = startValue.slice(0, 10);
   const horizon = horizonFor(dateKey);
-  const { byDate } = useDailyWeather(place, env.eventWeather && horizon !== "none", env.units);
-  if (!place || !env.eventWeather) return null;
-  const day = byDate.get(zonedDateKey(parseLocal(item.start), place.timezone));
+  const { byDate } = useDailyWeather(place, env.eventWeather && horizon !== "none" && item.start !== undefined, env.units);
+  if (!place || !env.eventWeather || item.start === undefined) return null;
+  const day = byDate.get(zonedDateKey(parseLocal(startValue), place.timezone));
   if (!day) return null;
   const kind = weatherKind(day.code);
   const title = `${kind.label} · ${formatRange(day.tMin, day.tMax, env.units)} · ${place.name}`;

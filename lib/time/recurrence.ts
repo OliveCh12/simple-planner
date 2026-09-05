@@ -154,12 +154,14 @@ function copyTime(from: Date, to: Date): Date {
  * The original `start` is always the first candidate (RFC 5545 DTSTART).
  */
 export function expandRecurrence(
-  item: { start: LocalDateTime; end?: LocalDateTime; recurrence?: string; recurrenceExceptions?: LocalDateTime[] },
+  item: { start?: LocalDateTime; end?: LocalDateTime; recurrence?: string; recurrenceExceptions?: LocalDateTime[] },
   range: { start: Date; end: Date },
   limit = DEFAULT_LIMIT
 ): Occurrence[] {
+  if (item.start === undefined) return [];
+  const template = { start: item.start, end: item.end };
   if (!item.recurrence) {
-    const interval = intervalOf(item);
+    const interval = intervalOf(template);
     if (interval.end <= range.start || interval.start >= range.end) return [];
     return item.end === undefined ? [{ start: item.start }] : [{ start: item.start, end: item.end }];
   }
@@ -178,7 +180,7 @@ export function expandRecurrence(
     if (rule.count !== undefined && generated > rule.count) return true;
     const start = formatLocal(date, allDay);
     if (exceptions.has(start)) return false;
-    const end = occurrenceEnd(start, item);
+    const end = occurrenceEnd(start, template);
     const interval = intervalOf({ start, end });
     if (interval.end > range.start && interval.start < range.end) {
       out.push(end === undefined ? { start } : { start, end });

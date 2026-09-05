@@ -80,7 +80,11 @@ export function CalendarDay({
   );
   const onCreate = ui?.canCreate ? ui.onCreateSlot : undefined;
   const hoverPreview = useUIStore((s) => s.settings.hoverPreview);
-  const pointerOptions = useMemo(() => ({ hoverPreview }), [hoverPreview]);
+  const placing = ui?.placing ?? null;
+  const pointerOptions = useMemo(
+    () => ({ hoverPreview: hoverPreview || Boolean(placing), hoverTitle: placing?.title }),
+    [hoverPreview, placing]
+  );
   const { preview, hover } = useCalendarPointer(gridEl, onCommit, onCreate, pointerOptions);
 
   useLayoutEffect(() => {
