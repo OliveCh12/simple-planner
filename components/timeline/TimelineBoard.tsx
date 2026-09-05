@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Bot, CalendarDays, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
+import { Bot, CalendarDays, ChevronLeft, ChevronRight, PanelLeft, SlidersHorizontal } from "lucide-react";
 import { CalendarUiProvider } from "@/components/calendar/calendar-ui";
 import { CalendarBoard } from "@/components/calendar/CalendarBoard";
 import { CalendarCreateButton } from "@/components/calendar/CalendarCreateButton";
 import { ItemEditor } from "@/components/item/ItemEditor";
 import { OccurrenceEditDialog } from "@/components/item/OccurrenceEditDialog";
 import { CalendarWorkspace } from "@/components/layout/CalendarWorkspace";
+import { PlanningPanel } from "@/components/planning/PlanningPanel";
 import { QuickAdd } from "@/components/item/QuickAdd";
 import { LaneGroup } from "@/components/timeline/LaneGroup";
 import { LaneLayer } from "@/components/timeline/LaneLayer";
@@ -33,11 +34,11 @@ import { useTaskPointer } from "@/hooks/useTaskPointer";
 import { useTimelinePan } from "@/hooks/useTimelinePan";
 import { useTimelineZoom } from "@/hooks/useTimelineZoom";
 import { useVisibleRange } from "@/hooks/useVisibleRange";
-import { periodLabel } from "@/lib/calendar";
+import { periodLabel, visibleCalendarRange } from "@/lib/calendar";
 import { formatDateDisplay } from "@/lib/date-utils";
 import { itemToTask } from "@/lib/domain/convert";
 import { createItem, moveItem, shiftSeries, splitOccurrence } from "@/lib/domain/items";
-import { ancestorIds, indexById, withExpandedChildren } from "@/lib/domain/tree";
+import { ancestorIds, calendarEntries, indexById, withoutSubtasks } from "@/lib/domain/tree";
 import { groupByObjective, laneTasksFromItems, layoutLanes, type LaneItem } from "@/lib/lanes";
 import { defaultTaskRange } from "@/lib/plan";
 import type { QuickAddResult } from "@/lib/quickadd";
@@ -155,10 +156,17 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
       ),
     [items]
   );
+  const leftPanelOpen = useUIStore((s) => s.leftPanelOpen);
+  const setLeftPanelOpen = useUIStore((s) => s.setLeftPanelOpen);
   const visibleItemsForView = useMemo(() => {
     if (aiQueue) return queueItems;
-    return showSubtasks ? items : withExpandedChildren(items, expandedIds);
-  }, [aiQueue, expandedIds, items, queueItems, showSubtasks]);
+    if (gantt) return showSubtasks ? items : withoutSubtasks(items);
+    return calendarEntries(items);
+  }, [aiQueue, gantt, items, queueItems, showSubtasks]);
+  const calendarRange = useMemo(
+    () => visibleCalendarRange(scale === "hour" ? "day" : scale, focus, weekStartsOn),
+    [focus, scale, weekStartsOn]
+  );
   const selectedItem = selectedId ? (items.find((item) => item.id === selectedId) ?? null) : null;
 
   const onSelectItem = useCallback((itemId: string, occurrenceStart?: string) => {
@@ -596,12 +604,14 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
               </Tooltip>
               <DropdownMenuContent align="start" className="w-48">
                 <DropdownMenuLabel>Show</DropdownMenuLabel>
-                <DropdownMenuCheckboxItem
-                  checked={showSubtasks}
-                  onCheckedChange={(checked) => setShowSubtasks(checked === true)}
-                >
-                  Subtasks
-                </DropdownMenuCheckboxItem>
+                {gantt && (
+                  <DropdownMenuCheckboxItem
+                    checked={showSubtasks}
+                    onCheckedChange={(checked) => setShowSubtasks(checked === true)}
+                  >
+                    Subtasks
+                  </DropdownMenuCheckboxItem>
+                )}
                 {!gantt && (
                   <DropdownMenuCheckboxItem
                     checked={showCompleted}
@@ -612,6 +622,19 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+            {!gantt && (
+              <Button
+                type="button"
+                variant={leftPanelOpen ? "secondary" : "ghost"}
+                size="xs"
+                aria-pressed={leftPanelOpen}
+                aria-label="Plan panel"
+                onClick={() => setLeftPanelOpen(!leftPanelOpen)}
+              >
+                <PanelLeft />
+                <span className="hidden sm:inline">Plan</span>
+              </Button>
+            )}
             <Button
               type="button"
               variant={aiQueue ? "secondary" : "ghost"}
@@ -682,6 +705,16 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
       </div>
 
       <CalendarWorkspace
+        left={
+          !gantt && leftPanelOpen ? (
+            <PlanningPanel
+              range={calendarRange}
+              scale={scale}
+              periodLabel={viewedPeriod}
+              onClose={() => setLeftPanelOpen(false)}
+            />
+          ) : null
+        }
         right={
           selectedItem ? (
             <ItemEditor
@@ -706,6 +739,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
               selectedHour={selectedHour}
               highlightId={selectedId ?? focusItemId}
               showCompleted={showCompleted}
+              showObjectives={!leftPanelOpen}
               onSelectDay={(day, hour) => {
                 setSelectedDay(day);
                 setSelectedHour(hour);

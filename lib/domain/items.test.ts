@@ -37,13 +37,24 @@ describe("createItem", () => {
     });
   });
 
-  it("rejects an event with a parent", () => {
+  it("lets an event belong to an objective", () => {
+    const event = createItem({
+      planId: "plan-1",
+      title: "Jazz",
+      start: "2026-06-01T20:00",
+      kind: "event",
+      parentId: "obj-1",
+    });
+    expect(event.parentId).toBe("obj-1");
+  });
+
+  it("rejects an objective with a parent", () => {
     expect(() =>
       createItem({
         planId: "plan-1",
-        title: "Jazz",
-        start: "2026-06-01T20:00",
-        kind: "event",
+        title: "Nested goal",
+        start: "2026-06-01",
+        kind: "objective",
         parentId: "obj-1",
       })
     ).toThrow(DomainError);
@@ -82,7 +93,7 @@ describe("item commands", () => {
     expect(setExecutor(task, "ai").executor).toBe("ai");
   });
 
-  it("adds a subtask under a task and refuses an event parent", () => {
+  it("adds a subtask under a task or an event", () => {
     const child = addSubtask(task, { title: "Outline", start: "2026-06-01" });
     expect(child.parentId).toBe(task.id);
     expect(child.kind).toBe("task");
@@ -93,7 +104,8 @@ describe("item commands", () => {
       start: "2026-06-01T20:00",
       kind: "event",
     });
-    expect(() => addSubtask(event, { title: "Nope", start: "2026-06-01" })).toThrow(/cannot have children/);
+    const prep = addSubtask(event, { title: "Book tickets", start: "2026-05-20" });
+    expect(prep.parentId).toBe(event.id);
   });
 });
 
@@ -117,8 +129,19 @@ describe("setParent / setKind", () => {
     expect(() => setParent(objective, child.id, [objective, nested, child])).toThrow(/descendant/);
   });
 
-  it("rejects turning a parent into an event", () => {
-    expect(() => setKind(task, "event", [task, child])).toThrow(/cannot have children/);
+  it("lets a task with subtasks become an event", () => {
+    expect(setKind(task, "event", [task, child]).kind).toBe("event");
+  });
+
+  it("nests an event under an objective, not under a task", () => {
+    const show = createItem({
+      planId: "plan-1",
+      title: "Show",
+      start: "2026-06-01T20:00",
+      kind: "event",
+    });
+    expect(setParent(show, objective.id, [objective, show]).parentId).toBe(objective.id);
+    expect(() => setParent(show, task.id, [objective, task, show])).toThrow(/objective/);
   });
 });
 

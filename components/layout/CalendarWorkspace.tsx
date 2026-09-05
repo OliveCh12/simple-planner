@@ -25,23 +25,36 @@ export function CalendarWorkspace({
   const setPanelWidth = useUIStore((s) => s.setPanelWidth);
   const frameRef = useRef<HTMLDivElement>(null);
 
+  const both = Boolean(left && right);
+  const share = both ? 0.32 : 0.45;
+
   const resize = useCallback(
     (side: PanelSide, width: number) => {
-      setPanelWidth(side, clampPanelWidth(width, frameRef.current?.clientWidth));
+      setPanelWidth(side, clampPanelWidth(width, frameRef.current?.clientWidth, share));
     },
-    [setPanelWidth]
+    [setPanelWidth, share]
   );
 
   return (
     <div ref={frameRef} className="relative flex min-h-0 flex-1 overflow-hidden">
       {left ? (
-        <CalendarPanel side="left" width={widths.left} onWidthChange={(width) => resize("left", width)}>
+        <CalendarPanel
+          side="left"
+          width={widths.left}
+          crowded={both}
+          onWidthChange={(width) => resize("left", width)}
+        >
           {left}
         </CalendarPanel>
       ) : null}
       <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">{children}</div>
       {right ? (
-        <CalendarPanel side="right" width={widths.right} onWidthChange={(width) => resize("right", width)}>
+        <CalendarPanel
+          side="right"
+          width={widths.right}
+          crowded={both}
+          onWidthChange={(width) => resize("right", width)}
+        >
           {right}
         </CalendarPanel>
       ) : null}
@@ -52,11 +65,13 @@ export function CalendarWorkspace({
 function CalendarPanel({
   side,
   width,
+  crowded,
   onWidthChange,
   children,
 }: {
   side: PanelSide;
   width: number;
+  crowded: boolean;
   onWidthChange: (width: number) => void;
   children: ReactNode;
 }) {
@@ -71,7 +86,8 @@ function CalendarPanel({
       className={cn(
         "relative flex h-full min-h-0 flex-col bg-sidebar text-sidebar-foreground",
         "max-md:absolute max-md:inset-0 max-md:z-20 max-md:w-full",
-        "md:relative md:w-[var(--panel-width)] md:max-w-[45%] md:min-w-[16.25rem] md:shrink-0",
+        "md:relative md:w-[var(--panel-width)] md:min-w-[16.25rem] md:shrink-0",
+        crowded ? "md:max-w-[32%]" : "md:max-w-[45%]",
         side === "right" && "md:border-l md:border-sidebar-border",
         side === "left" && "md:border-r md:border-sidebar-border",
         !dragging && "md:transition-[width] md:duration-200 md:ease-out"

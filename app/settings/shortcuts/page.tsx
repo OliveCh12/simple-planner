@@ -18,8 +18,8 @@ const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
   },
   {
     title: "Display",
-    description: "Subtasks stay folded into their parent, which shows a done/total count and a chevron. Open that hierarchy from the chevron without opening details, or reveal every subtask from Display.",
-    keys: ["Display"],
+    description: "Subtasks stay inside their parent card. The chevron opens a compact tree there, without dropping extra chips on the grid. Plan, on the left, lists objectives and prep for the visible period.",
+    keys: ["Display", "Plan"],
   },
   {
     title: "Zoom in or out",

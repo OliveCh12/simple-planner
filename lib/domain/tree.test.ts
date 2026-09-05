@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ancestorIds,
+  calendarEntries,
   childNoun,
   childProgress,
   childrenOf,
@@ -8,6 +9,7 @@ import {
   hasFoldableChildren,
   indexById,
   isSubtask,
+  nestedChildren,
   withExpandedChildren,
   withoutSubtasks,
 } from "@/lib/domain/tree";
@@ -97,6 +99,25 @@ describe("foldableChildren", () => {
   });
 });
 
+describe("calendarEntries", () => {
+  it("drops objectives and all-day subtasks, keeps a timed subtask on the grid", () => {
+    const timed = item({ id: "sub-timed", kind: "task", parentId: "task-b", start: "2026-09-02T14:00" });
+    expect(calendarEntries([...items, timed]).map((entry) => entry.id)).toEqual([
+      "task-a",
+      "task-b",
+      "loose",
+      "jazz",
+      "sub-timed",
+    ]);
+  });
+});
+
+describe("nestedChildren", () => {
+  it("keeps all-day work inside the parent card", () => {
+    expect(nestedChildren("task-b", items).map((entry) => entry.id)).toEqual(["sub-2", "sub-1"]);
+  });
+});
+
 describe("ancestorIds", () => {
   it("walks toward the root", () => {
     const byId = indexById(items);
@@ -124,5 +145,6 @@ describe("childNoun", () => {
     expect(childNoun("objective", 1)).toBe("task");
     expect(childNoun("task")).toBe("subtasks");
     expect(childNoun("task", 1)).toBe("subtask");
+    expect(childNoun("event")).toBe("prep tasks");
   });
 });

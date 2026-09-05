@@ -1,3 +1,4 @@
+import { isAllDay } from "@/lib/time/local";
 import type { ItemKind, PlanItem } from "@/types";
 
 /**
@@ -48,15 +49,50 @@ export function withExpandedChildren(items: PlanItem[], expandedIds: Iterable<st
   });
 }
 
+/** A timed start is an explicit calendar slot, not just a date on the parent. */
+export function hasOwnCalendarSlot(item: PlanItem): boolean {
+  return !isAllDay(item.start);
+}
+
+/**
+ * Children drawn inside the parent card. Timed children keep their own slot
+ * on the grid; all-day nested work stays in the tree.
+ */
+export function nestedChildren(parentId: string, items: PlanItem[]): PlanItem[] {
+  const byId = indexById(items);
+  const parent = byId.get(parentId);
+  return childrenOf(parentId, items).filter((child) => {
+    if (child.kind !== "task" || hasOwnCalendarSlot(child)) return false;
+    if (parent?.kind === "event") return true;
+    return isSubtask(child, byId);
+  });
+}
+
+export function hasNestedChildren(parentId: string, items: PlanItem[]): boolean {
+  return nestedChildren(parentId, items).length > 0;
+}
+
 /** Direct children that a chevron reveals: tasks nested under a task. */
 export function foldableChildren(parentId: string, items: PlanItem[]): PlanItem[] {
-  const byId = indexById(items);
-  return childrenOf(parentId, items).filter((child) => isSubtask(child, byId));
+  return nestedChildren(parentId, items);
 }
 
 export function hasFoldableChildren(parentId: string, items: PlanItem[]): boolean {
+  return hasNestedChildren(parentId, items);
+}
+
+/** Items that occupy their own place on the calendar grid. */
+export function calendarEntries(items: PlanItem[]): PlanItem[] {
   const byId = indexById(items);
-  return items.some((item) => item.parentId === parentId && isSubtask(item, byId));
+  return items.filter((item) => {
+    if (item.kind === "objective") return false;
+    if (hasOwnCalendarSlot(item)) return true;
+    if (item.kind === "task" && item.parentId) {
+      const parent = byId.get(item.parentId);
+      if (parent?.kind === "task" || parent?.kind === "event") return false;
+    }
+    return true;
+  });
 }
 
 /** Parent ids from the item up to the root, closest first. */
@@ -68,6 +104,16 @@ export function ancestorIds(item: PlanItem, byId: Map<string, PlanItem>): string
     current = current.parentId ? byId.get(current.parentId) : undefined;
   }
   return ids;
+}
+
+/** Closest objective ancestor, or the item itself when it is an objective. */
+export function objectiveOf(item: PlanItem, byId: Map<string, PlanItem>): PlanItem | undefined {
+  let current: PlanItem | undefined = item;
+  while (current) {
+    if (current.kind === "objective") return current;
+    current = current.parentId ? byId.get(current.parentId) : undefined;
+  }
+  return undefined;
 }
 
 export interface ChildProgress {
@@ -91,5 +137,6 @@ export function childProgress(parentId: string, items: PlanItem[]): ChildProgres
 export function childNoun(parentKind: ItemKind, count = 2): string {
   const plural = count !== 1;
   if (parentKind === "objective") return plural ? "tasks" : "task";
+  if (parentKind === "event") return plural ? "prep tasks" : "prep task";
   return plural ? "subtasks" : "subtask";
 }

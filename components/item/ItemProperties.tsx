@@ -67,7 +67,12 @@ export function ItemProperties({
   const presetLabel = RECURRENCE_PRESETS.find((entry) => entry.id === preset)?.label ?? "Does not repeat";
 
   const parentOptions = items
-    .filter((candidate) => candidate.id !== item.id && candidate.kind !== "event")
+    .filter((candidate) => {
+      if (candidate.id === item.id) return false;
+      if (item.kind === "event") return candidate.kind === "objective";
+      if (item.kind === "objective") return false;
+      return true;
+    })
     .map((candidate) => ({ value: candidate.id, label: candidate.title }));
 
   const personOptions = people.map((person) => ({

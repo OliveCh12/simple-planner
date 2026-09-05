@@ -27,6 +27,7 @@ interface CalendarBoardProps {
   onFocusMonth: (date: Date) => void;
   highlightId?: string | null;
   showCompleted?: boolean;
+  showObjectives?: boolean;
 }
 
 export function CalendarBoard({
@@ -41,6 +42,7 @@ export function CalendarBoard({
   onFocusMonth,
   highlightId,
   showCompleted = false,
+  showObjectives = true,
 }: CalendarBoardProps) {
   const range = useMemo(
     () => visibleCalendarRange(scale === "hour" ? "day" : scale, focus, weekStartsOn),
@@ -56,7 +58,9 @@ export function CalendarBoard({
     return showCompleted ? visible : visible.filter((occurrence) => isCalendarActive(occurrence.status));
   }, [items, range, categories, showCompleted]);
 
-  const strip = <ObjectiveStrip objectives={objectives} categories={categories} highlightId={highlightId} />;
+  const strip = showObjectives ? (
+    <ObjectiveStrip objectives={objectives} categories={categories} highlightId={highlightId} />
+  ) : null;
 
   if (scale === "year") {
     return (

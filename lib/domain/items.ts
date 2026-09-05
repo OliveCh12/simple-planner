@@ -118,8 +118,8 @@ export function setExecutor(item: PlanItem, executor: Executor): PlanItem {
 }
 
 export function addSubtask(parent: PlanItem, input: Omit<CreateItemInput, "planId" | "parentId">): PlanItem {
-  if (parent.kind === "event") {
-    throw new DomainError("Events cannot have children");
+  if (parent.kind === "event" && input.kind && input.kind !== "task") {
+    throw new DomainError("Only tasks can prepare an event");
   }
   return createItem({
     ...input,
@@ -159,7 +159,12 @@ export function setParent(item: PlanItem, parentId: string | undefined, items: P
   const parent = items.find((candidate) => candidate.id === parentId);
   if (!parent) throw new DomainError("Parent not found");
   if (parent.planId !== item.planId) throw new DomainError("Parent must be in the same plan");
-  if (parent.kind === "event") throw new DomainError("Events cannot have children");
+  if (item.kind === "event" && parent.kind !== "objective") {
+    throw new DomainError("An event can only belong to an objective");
+  }
+  if (parent.kind === "event" && item.kind !== "task") {
+    throw new DomainError("Only tasks can prepare an event");
+  }
   if (descendantIds(item.id, items).has(parentId)) {
     throw new DomainError("Cannot parent an item under its descendant");
   }
@@ -167,8 +172,14 @@ export function setParent(item: PlanItem, parentId: string | undefined, items: P
 }
 
 export function setKind(item: PlanItem, kind: ItemKind, items: PlanItem[]): PlanItem {
-  if (kind === "event" && items.some((candidate) => candidate.parentId === item.id)) {
-    throw new DomainError("Events cannot have children");
+  if (kind === "event" && items.some((candidate) => candidate.parentId === item.id && candidate.kind !== "task")) {
+    throw new DomainError("An event can only have tasks as children");
+  }
+  if (kind === "event" && item.parentId) {
+    const parent = items.find((candidate) => candidate.id === item.parentId);
+    if (parent && parent.kind !== "objective") {
+      throw new DomainError("An event can only belong to an objective");
+    }
   }
   return updateItem(item, { kind });
 }

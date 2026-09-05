@@ -16,8 +16,10 @@ interface UIStore {
   settings: AppSettings;
   timelineView: TimelineView;
   panelWidths: PanelWidths;
+  leftPanelOpen: boolean;
   setTimelineView: (view: TimelineView) => void;
   setPanelWidth: (side: keyof PanelWidths, width: number) => void;
+  setLeftPanelOpen: (open: boolean) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
   replaceSettings: (settings: AppSettings) => void;
 }
@@ -28,11 +30,13 @@ export const useUIStore = create<UIStore>()(
       settings: getDefaultSettings(),
       timelineView: "calendar",
       panelWidths: { left: PANEL_WIDTH.left, right: PANEL_WIDTH.right },
+      leftPanelOpen: true,
       setTimelineView: (timelineView) => set({ timelineView }),
       setPanelWidth: (side, width) =>
         set((state) => ({
           panelWidths: { ...state.panelWidths, [side]: clampPanelWidth(width) },
         })),
+      setLeftPanelOpen: (leftPanelOpen) => set({ leftPanelOpen }),
 
       updateSettings: (newSettings) =>
         set((state) => ({
@@ -46,15 +50,18 @@ export const useUIStore = create<UIStore>()(
     }),
     {
       name: "planner-ui-storage",
-      version: 2,
+      version: 3,
       partialize: (state) => ({
         settings: state.settings,
         timelineView: state.timelineView,
         panelWidths: state.panelWidths,
+        leftPanelOpen: state.leftPanelOpen,
       }),
       // v1: the calendar became the main view; reset the stored view once.
       migrate: (persisted, version) => {
-        const stored = (persisted ?? {}) as Partial<Pick<UIStore, "settings" | "timelineView" | "panelWidths">>;
+        const stored = (persisted ?? {}) as Partial<
+          Pick<UIStore, "settings" | "timelineView" | "panelWidths" | "leftPanelOpen">
+        >;
         return {
           settings: { ...getDefaultSettings(), ...stored.settings },
           timelineView: version < 1 ? "calendar" : (stored.timelineView ?? "calendar"),
@@ -62,6 +69,7 @@ export const useUIStore = create<UIStore>()(
             left: stored.panelWidths?.left ?? PANEL_WIDTH.left,
             right: stored.panelWidths?.right ?? PANEL_WIDTH.right,
           },
+          leftPanelOpen: stored.leftPanelOpen ?? true,
         };
       },
       merge: (persisted, current) => {
@@ -79,6 +87,7 @@ export const useUIStore = create<UIStore>()(
             left: stored?.panelWidths?.left ?? current.panelWidths.left,
             right: stored?.panelWidths?.right ?? current.panelWidths.right,
           },
+          leftPanelOpen: stored?.leftPanelOpen ?? current.leftPanelOpen,
         };
       },
     }

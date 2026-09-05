@@ -36,7 +36,7 @@ export interface PlanItem {
   kind: ItemKind;
   title: string;
   notes: string;
-  /** Tree: objective > task > subtask, any depth. Events cannot be parents. */
+  /** Tree: objective > (task | event); task > subtask; event > prep task. */
   parentId?: string;
   /** Local civil time. Required. */
   start: LocalDateTime;

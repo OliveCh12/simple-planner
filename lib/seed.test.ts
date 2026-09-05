@@ -38,6 +38,11 @@ describe("ensureDemoData", () => {
       kind: "event",
       categoryId: "cat-family",
     });
+    expect(byId.get("event-ardeche")).toMatchObject({
+      kind: "event",
+      parentId: "obj-ardeche",
+    });
+    expect(byId.get("task-cottage")?.parentId).toBe("event-ardeche");
     expect(await repo.categories.get("cat-finance")).toMatchObject({ color: "#0d9488" });
   });
 

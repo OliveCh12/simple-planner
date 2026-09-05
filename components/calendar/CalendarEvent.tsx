@@ -1,7 +1,8 @@
 "use client";
 
-import { ChevronRight, CornerDownRight } from "lucide-react";
+import { ChevronRight, CornerDownRight, Repeat } from "lucide-react";
 import { useCalendarUi } from "@/components/calendar/calendar-ui";
+import { SubtaskTree } from "@/components/calendar/SubtaskTree";
 import { useChildProgress, useHasFoldableChildren, useIsSubtask } from "@/hooks/useItemTree";
 import { timedLabel, type CalendarOccurrence } from "@/lib/calendar";
 import { categorySurface, surfaceTone } from "@/lib/colors";
@@ -41,11 +42,13 @@ export function CalendarEvent({
   const selected = highlight || ui?.selectedId === occurrence.itemId;
   const surface = color ? categorySurface(color, surfaceTone(occurrence.kind, subtask)) : undefined;
   const block = variant === "block";
+  const compactTree = variant === "chip";
 
   return (
     <div
       className={cn(
-        "flex w-full min-w-0 overflow-hidden rounded-md text-xs leading-tight",
+        "flex w-full min-w-0 flex-col rounded-md text-xs leading-tight",
+        expanded ? "z-20 overflow-visible" : "overflow-hidden",
         occurrence.kind === "event" && "font-medium",
         subtask && "text-muted-foreground",
         occurrence.status === "completed" && "opacity-50",
@@ -56,52 +59,56 @@ export function CalendarEvent({
       style={surface ? { backgroundImage: surface.backgroundImage } : undefined}
       onClick={(event) => event.stopPropagation()}
     >
-      {foldable && (
+      <div className="flex min-w-0 items-stretch">
+        {foldable && (
+          <button
+            type="button"
+            data-expand
+            aria-expanded={expanded}
+            aria-label={expanded ? `Hide subtasks of ${occurrence.title}` : `Show subtasks of ${occurrence.title}`}
+            title={expanded ? "Hide subtasks" : "Show subtasks"}
+            className="flex w-5 shrink-0 items-center justify-center text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+            onClick={(event) => {
+              event.stopPropagation();
+              ui?.onToggleExpand(occurrence.itemId);
+            }}
+          >
+            <ChevronRight className={cn("size-3 transition-transform", expanded && "rotate-90")} />
+          </button>
+        )}
         <button
           type="button"
-          data-expand
-          aria-expanded={expanded}
-          aria-label={expanded ? `Hide subtasks of ${occurrence.title}` : `Show subtasks of ${occurrence.title}`}
-          title={expanded ? "Hide subtasks" : "Show subtasks"}
-          className="flex w-5 shrink-0 items-center justify-center text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+          title={`${subtask ? "Subtask" : kind.label}: ${occurrence.title}`}
+          aria-label={`${subtask ? "Subtask" : kind.label}: ${occurrence.title}`}
+          aria-current={selected ? "true" : undefined}
+          className={cn(
+            "flex min-w-0 flex-1 gap-1.5 px-1.5 text-left",
+            block ? "h-full items-start py-1" : "items-center py-0.5",
+            occurrence.status === "completed" && "line-through"
+          )}
           onClick={(event) => {
             event.stopPropagation();
-            ui?.onToggleExpand(occurrence.itemId);
+            ui?.onSelect(occurrence.itemId, item.recurrence ? occurrence.start : undefined);
           }}
         >
-          <ChevronRight className={cn("size-3 transition-transform", expanded && "rotate-90")} />
+          <Icon
+            className={cn("size-3 shrink-0", block && "mt-px")}
+            style={surface ? { color: surface.color } : undefined}
+          />
+          {item.recurrence && <Repeat className="size-3 shrink-0 opacity-50" />}
+          {label && (
+            <span className="shrink-0 text-[10px] leading-4 tabular-nums text-muted-foreground">{label}</span>
+          )}
+          <span className="min-w-0 flex-1 truncate leading-4">{occurrence.title}</span>
+          {total > 0 && (
+            <span className="shrink-0 text-[10px] leading-4 tabular-nums text-muted-foreground" aria-label={`${done} of ${total} done`}>
+              {done}/{total}
+            </span>
+          )}
+          <status.icon className={cn("size-3 shrink-0", status.className)} />
         </button>
-      )}
-      <button
-        type="button"
-        title={`${subtask ? "Subtask" : kind.label}: ${occurrence.title}`}
-        aria-label={`${subtask ? "Subtask" : kind.label}: ${occurrence.title}`}
-        aria-current={selected ? "true" : undefined}
-        className={cn(
-          "flex min-w-0 flex-1 gap-1.5 px-1.5 text-left",
-          block ? "h-full items-start py-1" : "items-center py-0.5",
-          occurrence.status === "completed" && "line-through"
-        )}
-        onClick={(event) => {
-          event.stopPropagation();
-          ui?.onSelect(occurrence.itemId, item.recurrence ? occurrence.start : undefined);
-        }}
-      >
-        <Icon
-          className={cn("size-3 shrink-0", block && "mt-px")}
-          style={surface ? { color: surface.color } : undefined}
-        />
-        {label && (
-          <span className="shrink-0 text-[10px] leading-4 tabular-nums text-muted-foreground">{label}</span>
-        )}
-        <span className="min-w-0 flex-1 truncate leading-4">{occurrence.title}</span>
-        {total > 0 && (
-          <span className="shrink-0 text-[10px] leading-4 tabular-nums text-muted-foreground" aria-label={`${done} of ${total} done`}>
-            {done}/{total}
-          </span>
-        )}
-        <status.icon className={cn("size-3 shrink-0", status.className)} />
-      </button>
+      </div>
+      {foldable && expanded && <SubtaskTree parentId={occurrence.itemId} compact={compactTree} />}
     </div>
   );
 }

@@ -1,9 +1,9 @@
 "use client";
 
 import { memo } from "react";
-import { ChevronRight, CornerDownRight, Repeat } from "lucide-react";
+import { CornerDownRight, Repeat } from "lucide-react";
 import { useCalendarUi } from "@/components/calendar/calendar-ui";
-import { useChildProgress, useHasFoldableChildren, useIsSubtask } from "@/hooks/useItemTree";
+import { useChildProgress, useIsSubtask } from "@/hooks/useItemTree";
 import { categorySurface, surfaceTone } from "@/lib/colors";
 import { getKindOption } from "@/lib/constants";
 import type { DragPreview } from "@/hooks/useTaskPointer";
@@ -34,7 +34,6 @@ export const ItemBar = memo(function ItemBar({
 }: ItemBarProps) {
   const ui = useCalendarUi();
   const { done, total } = useChildProgress(planItem.id);
-  const foldable = useHasFoldableChildren(planItem.id);
   const subtask = useIsSubtask(planItem);
   const completed = planItem.status === "completed";
   const dragging = preview?.taskId === planItem.id;
@@ -49,7 +48,6 @@ export const ItemBar = memo(function ItemBar({
   const color = item.categoryColor;
   const occurrenceStart = item.occurrenceStart ?? planItem.start;
   const occurrenceEnd = item.occurrenceEnd ?? planItem.end ?? occurrenceStart;
-  const expanded = Boolean(ui?.showSubtasks || ui?.expandedIds.has(planItem.id));
   const selected = Boolean(highlight || ui?.selectedId === planItem.id);
   const surface = color ? categorySurface(color, surfaceTone(planItem.kind, subtask)) : undefined;
 
@@ -107,22 +105,6 @@ export const ItemBar = memo(function ItemBar({
           transform: stuck > 0 ? `translateX(${stuck}px)` : undefined,
         }}
       >
-        {foldable && (
-          <button
-            type="button"
-            data-expand
-            aria-expanded={expanded}
-            aria-label={expanded ? `Hide subtasks of ${planItem.title}` : `Show subtasks of ${planItem.title}`}
-            className="flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
-            onClick={(event) => {
-              event.stopPropagation();
-              ui?.onToggleExpand(planItem.id);
-            }}
-            onPointerDown={(event) => event.stopPropagation()}
-          >
-            <ChevronRight className={cn("size-3 transition-transform", expanded && "rotate-90")} />
-          </button>
-        )}
         <Icon
           className="size-3 shrink-0"
           style={surface ? { color: surface.color } : undefined}

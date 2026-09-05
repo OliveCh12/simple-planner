@@ -174,11 +174,11 @@ export const planItemSchema = z
     updatedAt: z.string(),
   })
   .superRefine((item, ctx) => {
-    if (item.kind === "event" && item.parentId) {
+    if (item.kind === "objective" && item.parentId) {
       ctx.addIssue({
         code: "custom",
         path: ["parentId"],
-        message: "Events cannot have a parent",
+        message: "Objectives cannot have a parent",
       });
     }
     if (item.end !== undefined) {

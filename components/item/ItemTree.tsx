@@ -59,7 +59,6 @@ interface ItemTreeProps {
 
 /** Children of an item as a checklist: tasks under an objective, subtasks under a task. */
 export function ItemTree({ planId, parent, items }: ItemTreeProps) {
-  if (parent.kind === "event") return null;
   const nodes = toBranchNodes(planId, parent.id, items);
   const { done, total } = childProgress(parent.id, items);
   const noun = childNoun(parent.kind);

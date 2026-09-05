@@ -1,5 +1,10 @@
 import { useShallow } from "zustand/react/shallow";
-import { childProgress, hasFoldableChildren, type ChildProgress } from "@/lib/domain/tree";
+import {
+  childProgress,
+  hasNestedChildren,
+  nestedChildren,
+  type ChildProgress,
+} from "@/lib/domain/tree";
 import { usePlannerStore } from "@/store/plannerStore";
 import type { PlanItem } from "@/types";
 
@@ -19,5 +24,10 @@ export function useIsSubtask(item: Pick<PlanItem, "kind" | "parentId">): boolean
 
 /** True when this item has task children folded behind a chevron. */
 export function useHasFoldableChildren(itemId: string): boolean {
-  return usePlannerStore((s) => hasFoldableChildren(itemId, s.items));
+  return usePlannerStore((s) => hasNestedChildren(itemId, s.items));
+}
+
+/** All-day nested work drawn inside the parent card. */
+export function useNestedChildren(itemId: string): PlanItem[] {
+  return usePlannerStore(useShallow((s) => nestedChildren(itemId, s.items)));
 }

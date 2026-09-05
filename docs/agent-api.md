@@ -17,20 +17,20 @@ Copied JSON includes `"$schema": "/schema/planner.schema.json"` and `"version": 
 
 - **Plan**: what the UI calls a *calendar* (one area of life, business or project). `id`, `title`, optional `color` (hex), inclusive `start` / `end` as `YYYY-MM-DD`.
 - **PlanItem**: one timed entity. `kind` is `task` | `event` | `objective`.
-- **Hierarchy**: objective > task > subtask. A task whose `parentId` is an objective contributes to it; a task whose `parentId` is a task is a *subtask* and stays folded into its parent in the views.
+- **Hierarchy**: objective > (task | event); task > subtask; event > prep task. A task whose `parentId` is a task is a *subtask* and stays inside its parent on the calendar.
 - **`end` absent**: a point in time (milestone). Do not copy `end` from `start`.
 - **`start` / `end`**: `YYYY-MM-DD` (all-day) or `YYYY-MM-DDTHH:mm` (timed). Local, not shifted by timezone.
 - **`recurrence`**: RFC 5545 RRULE body (`FREQ=WEEKLY;BYDAY=MO,WE`). Date-only `UNTIL=YYYYMMDD` is the last civil day, exclusive at next midnight locally.
 - **`recurrenceExceptions`**: occurrence starts removed from a series (EXDATE).
 - **`executor`**: `human` | `ai`. Agents work items with `executor: "ai"`.
 - **`agentBrief`**: instructions for an AI executor.
-- **`parentId`**: tree. Events cannot have children. An item cannot be parented under its descendant.
+- **`parentId`**: tree. An event may only belong to an objective. An event may have task children (prep). An item cannot be parented under its descendant.
 - **People / categories**: referenced by id on `assigneeIds`, `attendeeIds`, `categoryId`.
 
 ## Invariants
 
 - `end` must not be before `start`.
-- Events cannot be parents.
+- Events may only parent to an objective. Only tasks may nest under an event.
 - Status: `pending` | `in-progress` | `completed` | `cancelled` | `blocked`. Completing sets `completedAt`.
 - Writes validate with zod before persistence.
 

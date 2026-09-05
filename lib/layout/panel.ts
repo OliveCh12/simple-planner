@@ -6,8 +6,8 @@ export const PANEL_WIDTH = {
 } as const;
 
 /** Keep a panel usable without starving the calendar. */
-export function clampPanelWidth(width: number, available?: number): number {
-  const share = available === undefined ? PANEL_WIDTH.max : Math.floor(available * 0.45);
-  const cap = Math.max(PANEL_WIDTH.min, Math.min(PANEL_WIDTH.max, share));
+export function clampPanelWidth(width: number, available?: number, share = 0.45): number {
+  const capShare = available === undefined ? PANEL_WIDTH.max : Math.floor(available * share);
+  const cap = Math.max(PANEL_WIDTH.min, Math.min(PANEL_WIDTH.max, capShare));
   return Math.min(cap, Math.max(PANEL_WIDTH.min, Math.round(width)));
 }
