@@ -1,4 +1,5 @@
-import { isAllDay } from "@/lib/time/local";
+import { differenceInCalendarDays } from "date-fns";
+import { isAllDay, parseLocal } from "@/lib/time/local";
 import type { ItemKind, PlanItem } from "@/types";
 
 /**
@@ -55,6 +56,18 @@ export function hasOwnCalendarSlot(item: PlanItem): boolean {
 }
 
 /**
+ * Events always occupy the grid. A task does only when it is a real slot:
+ * timed, a single day, or a short all-day span. Long-running work stays in Plan.
+ */
+export function isPlacedOnGrid(item: PlanItem): boolean {
+  if (item.kind === "event") return true;
+  if (item.kind !== "task") return false;
+  if (hasOwnCalendarSlot(item)) return true;
+  if (!item.end) return true;
+  return differenceInCalendarDays(parseLocal(item.end), parseLocal(item.start)) <= 2;
+}
+
+/**
  * Children drawn inside the parent card. Timed children keep their own slot
  * on the grid; all-day nested work stays in the tree.
  */
@@ -86,11 +99,11 @@ export function calendarEntries(items: PlanItem[]): PlanItem[] {
   const byId = indexById(items);
   return items.filter((item) => {
     if (item.kind === "objective") return false;
-    if (hasOwnCalendarSlot(item)) return true;
-    if (item.kind === "task" && item.parentId) {
-      const parent = byId.get(item.parentId);
-      if (parent?.kind === "task" || parent?.kind === "event") return false;
-    }
+    if (item.kind === "event") return true;
+    if (item.kind !== "task" || !isPlacedOnGrid(item)) return false;
+    if (!item.parentId) return true;
+    const parent = byId.get(item.parentId);
+    if (parent?.kind === "task" || parent?.kind === "event") return hasOwnCalendarSlot(item);
     return true;
   });
 }

@@ -8,6 +8,7 @@ import { CalendarCreateButton } from "@/components/calendar/CalendarCreateButton
 import { ItemEditor } from "@/components/item/ItemEditor";
 import { OccurrenceEditDialog } from "@/components/item/OccurrenceEditDialog";
 import { CalendarWorkspace } from "@/components/layout/CalendarWorkspace";
+import { isPlanWritable } from "@/lib/sync/access";
 import { PlanningPanel } from "@/components/planning/PlanningPanel";
 import { QuickAdd } from "@/components/item/QuickAdd";
 import { LaneGroup } from "@/components/timeline/LaneGroup";
@@ -535,6 +536,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
       ? `${formatDateDisplay(selectedDay, "EEEE d MMMM")} · all day`
       : `${formatDateDisplay(selectedDay, "EEEE d MMMM")} · ${String(selectedHour).padStart(2, "0")}:00`;
 
+  const writable = isPlanWritable(plan);
   const range = `${formatDateDisplay(plan.start, dateFormat)} – ${formatDateDisplay(plan.end, dateFormat)}`;
   const viewedPeriod = gantt ? range : periodLabel(scale === "hour" ? "day" : scale, focus, weekStartsOn);
   const pastWidth = Math.min(layout.totalWidth, Math.max(0, nowX));
@@ -706,6 +708,8 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
                     defaultEnd={ganttQuickRange.end}
                     categories={categories}
                     defaultExecutor={aiQueue ? "ai" : "human"}
+                    disabled={!writable}
+                    disabledReason="This calendar is read-only"
                     onCreate={applyQuickAdd}
                   />
                 </div>
@@ -717,6 +721,8 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
                 defaultEnd={calendarQuickEnd}
                 categories={categories}
                 defaultExecutor={aiQueue ? "ai" : "human"}
+                disabled={!writable}
+                disabledReason="This calendar is read-only"
                 onCreate={applyQuickAdd}
               />
             )}

@@ -1,7 +1,7 @@
 import { isCalendarActive } from "@/lib/calendar";
-import { childProgress, childrenOf, indexById, isSubtask, objectiveOf } from "@/lib/domain/tree";
+import { childProgress, childrenOf, indexById, isPlacedOnGrid, isSubtask, objectiveOf } from "@/lib/domain/tree";
 import { expandRecurrence } from "@/lib/time/recurrence";
-import { intervalOf, intersects, parseLocal, type Interval } from "@/lib/time/local";
+import { intervalOf, intersects, type Interval } from "@/lib/time/local";
 import type { PlanItem, TimeScale } from "@/types";
 
 export interface PlanningObjective {
@@ -9,6 +9,7 @@ export interface PlanningObjective {
   progress: { done: number; total: number };
   events: PlanItem[];
   tasks: PlanItem[];
+  toSchedule: PlanItem[];
 }
 
 export interface PlanningPrep {
@@ -19,7 +20,7 @@ export interface PlanningPrep {
 export interface PlanningContext {
   objectives: PlanningObjective[];
   prep: PlanningPrep[];
-  open: PlanItem[];
+  toSchedule: PlanItem[];
 }
 
 function touchesRange(item: PlanItem, range: Interval): boolean {
@@ -30,32 +31,14 @@ function touchesRange(item: PlanItem, range: Interval): boolean {
   }
 }
 
-export function linkedObjective(item: PlanItem, items: PlanItem[], byId: Map<string, PlanItem>): PlanItem | undefined {
-  const fromTree = objectiveOf(item, byId);
-  if (fromTree) return fromTree;
-  if (item.kind !== "event" || !item.categoryId) return undefined;
-  const span = intervalOf(item);
-  return items.find(
-    (candidate) =>
-      candidate.kind === "objective" &&
-      isCalendarActive(candidate.status) &&
-      candidate.categoryId === item.categoryId &&
-      intersects(intervalOf(candidate), span)
-  );
-}
-
-function uniqueById(items: PlanItem[]): PlanItem[] {
-  const seen = new Set<string>();
-  return items.filter((item) => {
-    if (seen.has(item.id)) return false;
-    seen.add(item.id);
-    return true;
-  });
+/** Explicit tree only — never guess from category. */
+export function linkedObjective(item: PlanItem, byId: Map<string, PlanItem>): PlanItem | undefined {
+  return objectiveOf(item, byId);
 }
 
 /**
- * What the left pane should show for the visible period.
- * Year stays at objectives; week and day add event prep and still-open work.
+ * Plan pane for the visible period.
+ * Standalone events stay on the grid; this pane is goals, prep, and work to place.
  */
 export function planningContext(items: PlanItem[], range: Interval, scale: TimeScale): PlanningContext {
   const byId = indexById(items);
@@ -63,58 +46,57 @@ export function planningContext(items: PlanItem[], range: Interval, scale: TimeS
     .filter((item) => item.kind === "objective" && touchesRange(item, range) && isCalendarActive(item.status))
     .sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
 
-  const eventsHere = items.filter((item) => item.kind === "event" && touchesRange(item, range) && isCalendarActive(item.status));
-
   const groups: PlanningObjective[] = objectives.map((objective) => {
     const kids = childrenOf(objective.id, items);
-    const linkedEvents = uniqueById([
-      ...kids.filter((child) => child.kind === "event" && isCalendarActive(child.status)),
-      ...eventsHere.filter((event) => linkedObjective(event, items, byId)?.id === objective.id),
-    ]);
+    const events = kids.filter((child) => child.kind === "event" && isCalendarActive(child.status));
     const tasks = kids.filter((child) => child.kind === "task" && isCalendarActive(child.status));
+    const toSchedule = tasks.filter((task) => !isPlacedOnGrid(task) || !touchesRange(task, range));
     return {
       item: objective,
       progress: childProgress(objective.id, items),
-      events: linkedEvents,
-      tasks,
+      events: events.filter((event) => scale === "year" || touchesRange(event, range) || scale === "month"),
+      tasks: tasks.filter((task) => isPlacedOnGrid(task) && (scale === "year" || touchesRange(task, range))),
+      toSchedule,
     };
   });
 
   if (scale === "year") {
-    return { objectives: groups.map((group) => ({ ...group, events: [], tasks: [] })), prep: [], open: [] };
+    return {
+      objectives: groups.map((group) => ({ ...group, events: group.events, tasks: [], toSchedule: [] })),
+      prep: [],
+      toSchedule: [],
+    };
   }
 
-  const taskCap = scale === "month" ? 4 : 3;
+  const taskCap = scale === "month" ? 5 : 4;
   const trimmed = groups.map((group) => ({
     ...group,
     events: scale === "month" ? group.events : group.events.filter((event) => touchesRange(event, range)),
     tasks: group.tasks.slice(0, taskCap),
+    toSchedule: group.toSchedule.slice(0, taskCap),
   }));
 
   const prep: PlanningPrep[] = [];
   if (scale === "week" || scale === "day" || scale === "hour") {
-    for (const event of eventsHere) {
-      const nested = childrenOf(event.id, items).filter((child) => child.kind === "task" && child.status !== "cancelled");
+    for (const item of items) {
+      if (item.kind !== "event" || !touchesRange(item, range) || !isCalendarActive(item.status)) continue;
+      const nested = childrenOf(item.id, items).filter((child) => child.kind === "task" && child.status !== "cancelled");
       if (nested.length === 0) continue;
-      prep.push({ event, tasks: nested });
+      prep.push({ event: item, tasks: nested });
     }
   }
 
-  const open =
-    scale === "month"
-      ? []
-      : items
-          .filter((item) => {
-            if (item.kind !== "task" || !isCalendarActive(item.status)) return false;
-            if (isSubtask(item, byId)) return false;
-            const direct = item.parentId ? byId.get(item.parentId) : undefined;
-            if (direct?.kind === "event") return false;
-            if (touchesRange(item, range)) return false;
-            const parent = objectiveOf(item, byId);
-            if (!parent || !touchesRange(parent, range)) return false;
-            return parseLocal(item.start) < range.start;
-          })
-          .slice(0, 6);
+  const seen = new Set(trimmed.flatMap((group) => group.toSchedule.map((task) => task.id)));
+  const loose = items.filter((item) => {
+    if (item.kind !== "task" || !isCalendarActive(item.status)) return false;
+    if (isSubtask(item, byId)) return false;
+    const direct = item.parentId ? byId.get(item.parentId) : undefined;
+    if (direct?.kind === "event") return false;
+    if (seen.has(item.id)) return false;
+    if (isPlacedOnGrid(item) && touchesRange(item, range)) return false;
+    const parent = objectiveOf(item, byId);
+    return Boolean(parent && touchesRange(parent, range) && !isPlacedOnGrid(item));
+  });
 
-  return { objectives: trimmed, prep, open };
+  return { objectives: trimmed, prep, toSchedule: loose.slice(0, 8) };
 }

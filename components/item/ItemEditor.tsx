@@ -27,6 +27,8 @@ import { categorySurface } from "@/lib/colors";
 import { DEFAULT_SWATCH } from "@/lib/colors";
 import { createCategory } from "@/lib/domain/categories";
 import { duplicateItem, excludeOccurrence, splitOccurrence, updateItem } from "@/lib/domain/items";
+import { isItemReadOnly } from "@/lib/sync/access";
+import { providerInfo } from "@/lib/sync/providers";
 import { usePlannerStore } from "@/store/plannerStore";
 import type { PlanItem } from "@/types";
 
@@ -47,8 +49,11 @@ export function ItemEditor({ item, occurrenceStart, onClose }: ItemEditorProps) 
   const save = useSaveItem();
   const recurring = Boolean(item.recurrence);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const currentPlan = usePlannerStore((s) => s.currentPlan);
   const category = categories.find((entry) => entry.id === item.categoryId);
   const surface = category ? categorySurface(category.color, "task") : undefined;
+  const readOnly = isItemReadOnly(item, currentPlan);
+  const source = providerInfo(currentPlan?.source?.provider);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -112,6 +117,13 @@ export function ItemEditor({ item, occurrenceStart, onClose }: ItemEditorProps) 
             </Button>
           )}
         </div>
+        {currentPlan?.source && currentPlan.source.provider !== "local" && (
+          <p className="text-xs text-muted-foreground">
+            {source.short}
+            {currentPlan.source.account ? ` · ${currentPlan.source.account}` : ""}
+            {readOnly ? " · read-only — changes stay here until sync can write back" : " · edits sync to this calendar"}
+          </p>
+        )}
         <Combobox
           variant="ghost"
           aria-label="Category"

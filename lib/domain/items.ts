@@ -34,6 +34,7 @@ export type CreateItemInput = {
   categoryId?: string;
   location?: PlanItem["location"];
   images?: ItemImage[];
+  externalId?: string;
   id?: string;
 };
 
@@ -62,6 +63,7 @@ export function createItem(input: CreateItemInput): PlanItem {
   if (input.categoryId) item.categoryId = input.categoryId;
   if (input.location) item.location = input.location;
   if (input.images?.length) item.images = input.images;
+  if (input.externalId) item.externalId = input.externalId;
   return parseItem(item);
 }
 

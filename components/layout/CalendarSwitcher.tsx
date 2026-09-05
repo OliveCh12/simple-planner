@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Check, ChevronsUpDown, LayoutGrid, Plus } from "lucide-react";
 import { CalendarDot } from "@/components/plan/CalendarDot";
+import { SourceMark } from "@/components/plan/SourceMark";
 import { CreatePlanDialog } from "@/components/plan/CreatePlanDialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,6 +50,7 @@ export function CalendarSwitcher() {
           >
             <CalendarDot color={currentPlan.color} />
             <span className="truncate">{currentPlan.title}</span>
+            <SourceMark source={currentPlan.source} />
             <ChevronsUpDown className="size-3.5 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
@@ -66,6 +68,7 @@ export function CalendarSwitcher() {
               >
                 <CalendarDot color={plan.color} />
                 <span className="min-w-0 flex-1 truncate">{plan.title}</span>
+                <SourceMark source={plan.source} />
                 {active && <Check className="text-muted-foreground" />}
               </DropdownMenuItem>
             );

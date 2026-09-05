@@ -178,6 +178,7 @@ export const planItemSchema = z
         })
       )
       .optional(),
+    externalId: z.string().min(1).optional(),
     completedAt: z.string().optional(),
     createdAt: z.string(),
     updatedAt: z.string(),
@@ -224,6 +225,14 @@ export const categorySchema = z.object({
   icon: z.string().optional(),
 });
 
+export const calendarSourceSchema = z.object({
+  provider: z.enum(["local", "google", "icloud", "caldav"]),
+  access: z.enum(["readwrite", "readonly"]),
+  account: z.string().optional(),
+  externalId: z.string().optional(),
+  lastSyncedAt: z.string().optional(),
+});
+
 export const planSchemaV3 = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
@@ -232,6 +241,7 @@ export const planSchemaV3 = z.object({
   start: localDateSchema,
   end: localDateSchema,
   scale: timeScaleSchema.optional(),
+  source: calendarSourceSchema.optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   lastAccessedAt: z.string(),

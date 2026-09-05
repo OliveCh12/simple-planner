@@ -18,7 +18,7 @@ const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
   },
   {
     title: "Display",
-    description: "Subtasks stay inside their parent card. The chevron opens a compact tree there, without dropping extra chips on the grid. Plan, on the left, lists objectives and prep for the visible period.",
+    description: "Subtasks stay inside their parent card. Plan, on the left, lists goals for this period, work still to schedule, and prep for events that actually have some. Standalone events stay on the grid.",
     keys: ["Display", "Plan"],
   },
   {

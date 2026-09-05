@@ -39,6 +39,7 @@ export async function seedDemoPlan(repository: PlannerRepository): Promise<strin
     color: "#2563eb",
     start,
     end,
+    source: { provider: "local", access: "readwrite" },
   });
   await repository.plans.put(record);
 

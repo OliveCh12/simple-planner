@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, CalendarDays, Database, HardDrive, Keyboard, Palette, Tags, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, CalendarRange, Database, HardDrive, Keyboard, Palette, Tags, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const SECTIONS = [
   { href: "/settings/appearance", label: "Appearance", icon: Palette },
+  { href: "/settings/calendars", label: "Calendars", icon: CalendarRange },
   { href: "/settings/dates", label: "Dates", icon: CalendarDays },
   { href: "/settings/people", label: "People", icon: Users },
   { href: "/settings/categories", label: "Categories", icon: Tags },

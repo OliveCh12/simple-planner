@@ -42,6 +42,41 @@
               "hour"
             ]
           },
+          "source": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "local",
+                  "google",
+                  "icloud",
+                  "caldav"
+                ]
+              },
+              "access": {
+                "type": "string",
+                "enum": [
+                  "readwrite",
+                  "readonly"
+                ]
+              },
+              "account": {
+                "type": "string"
+              },
+              "externalId": {
+                "type": "string"
+              },
+              "lastSyncedAt": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "provider",
+              "access"
+            ],
+            "additionalProperties": false
+          },
           "createdAt": {
             "type": "string"
           },
@@ -200,6 +235,10 @@
               ],
               "additionalProperties": false
             }
+          },
+          "externalId": {
+            "type": "string",
+            "minLength": 1
           },
           "completedAt": {
             "type": "string"

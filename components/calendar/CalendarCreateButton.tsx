@@ -14,6 +14,8 @@ interface CalendarCreateButtonProps {
   defaultEnd?: LocalDateTime;
   categories?: QuickAddCategory[];
   defaultExecutor?: Executor;
+  disabled?: boolean;
+  disabledReason?: string;
   onCreate: (draft: QuickAddResult) => void;
 }
 
@@ -23,6 +25,8 @@ export function CalendarCreateButton({
   defaultEnd,
   categories = [],
   defaultExecutor,
+  disabled,
+  disabledReason,
   onCreate,
 }: CalendarCreateButtonProps) {
   const [open, setOpen] = useState(false);
@@ -42,14 +46,21 @@ export function CalendarCreateButton({
 
   return (
     <Popover
-      open={open}
+      open={open && !disabled}
       onOpenChange={(next) => {
+        if (disabled) return;
         setOpen(next);
         if (!next) setValue("");
       }}
     >
       <PopoverTrigger asChild>
-        <Button type="button" size="sm" aria-label="Create item">
+        <Button
+          type="button"
+          size="sm"
+          aria-label="Create item"
+          disabled={disabled}
+          title={disabled ? disabledReason : undefined}
+        >
           <Plus />
           <span className="hidden sm:inline">Create</span>
         </Button>

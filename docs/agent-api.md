@@ -15,9 +15,9 @@ Copied JSON includes `"$schema": "/schema/planner.schema.json"` and `"version": 
 
 ## Model
 
-- **Plan**: what the UI calls a *calendar* (one area of life, business or project). `id`, `title`, optional `color` (hex), inclusive `start` / `end` as `YYYY-MM-DD`.
-- **PlanItem**: one timed entity. `kind` is `task` | `event` | `objective`.
-- **Hierarchy**: objective > (task | event); task > subtask; event > prep task. A task whose `parentId` is a task is a *subtask* and stays inside its parent on the calendar.
+- **Plan**: a *calendar* (personal, work, or an external feed). Optional `source` (`local` \| `google` \| `icloud` \| `caldav`).
+- **PlanItem**: `kind` is `task` | `event` | `objective`. There is no separate “project” kind — a project is an objective with tasks.
+- **Hierarchy**: objective > (task | event); task > subtask; event > prep task. Events may have no parent. A task on the grid only when it is a real slot (timed or a short all-day date).
 - **`end` absent**: a point in time (milestone). Do not copy `end` from `start`.
 - **`start` / `end`**: `YYYY-MM-DD` (all-day) or `YYYY-MM-DDTHH:mm` (timed). Local, not shifted by timezone.
 - **`recurrence`**: RFC 5545 RRULE body (`FREQ=WEEKLY;BYDAY=MO,WE`). Date-only `UNTIL=YYYYMMDD` is the last civil day, exclusive at next midnight locally.
@@ -30,7 +30,7 @@ Copied JSON includes `"$schema": "/schema/planner.schema.json"` and `"version": 
 ## Invariants
 
 - `end` must not be before `start`.
-- Events may only parent to an objective. Only tasks may nest under an event.
+- Events may only parent to an objective, and may have none. Only tasks may nest under an event. Planning never syncs to Google or iCloud.
 - Status: `pending` | `in-progress` | `completed` | `cancelled` | `blocked`. Completing sets `completedAt`.
 - Writes validate with zod before persistence.
 

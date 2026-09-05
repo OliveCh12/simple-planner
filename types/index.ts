@@ -5,6 +5,19 @@ import type { AccentId } from '@/lib/themes';
 export type EnergyLevel = 'low' | 'medium' | 'high' | 'critical';
 
 export type ItemKind = 'task' | 'event' | 'objective';
+export type CalendarProvider = 'local' | 'google' | 'icloud' | 'caldav';
+export type CalendarAccess = 'readwrite' | 'readonly';
+
+/** Where a calendar's events live. Planning (objectives, tasks) always stays in the app. */
+export interface CalendarSource {
+  provider: CalendarProvider;
+  access: CalendarAccess;
+  /** Email or account label, when connected. */
+  account?: string;
+  /** Provider calendar id (Google calendarId, CalDAV href). */
+  externalId?: string;
+  lastSyncedAt?: string;
+}
 export type Executor = 'human' | 'ai';
 export type ItemStatus = 'pending' | 'in-progress' | 'completed' | 'cancelled' | 'blocked';
 
@@ -42,8 +55,13 @@ export interface PlanItem {
   kind: ItemKind;
   title: string;
   notes: string;
-  /** Tree: objective > (task | event); task > subtask; event > prep task. */
+  /**
+   * Tree: objective > (task | event); task > subtask; event > prep task.
+   * Events may be parentless — a family lunch does not need a goal.
+   */
   parentId?: string;
+  /** Id on an external calendar. Present only for imported or synced events. */
+  externalId?: string;
   /** Local civil time. Required. */
   start: LocalDateTime;
   /** Absent = a point in time: a milestone, or an instant for events. */
@@ -119,6 +137,8 @@ export interface Plan {
   end: string;
   /** Last scale used; absent means "pick from the plan duration". */
   scale?: TimeScale;
+  /** Absent means a local calendar owned by this app. */
+  source?: CalendarSource;
   createdAt: string;
   updatedAt: string;
   lastAccessedAt: string;

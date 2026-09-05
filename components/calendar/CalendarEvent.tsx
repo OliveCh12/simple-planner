@@ -8,6 +8,7 @@ import { timedLabel, type CalendarOccurrence } from "@/lib/calendar";
 import { categorySurface, surfaceTone } from "@/lib/colors";
 import { getKindOption, getStatusOption } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { SourceMark } from "@/components/plan/SourceMark";
 import { usePlannerStore } from "@/store/plannerStore";
 
 interface CalendarEventProps {
@@ -31,6 +32,7 @@ export function CalendarEvent({
   dimmed = false,
 }: CalendarEventProps) {
   const item = usePlannerStore((s) => s.items.find((entry) => entry.id === occurrence.itemId));
+  const currentPlan = usePlannerStore((s) => s.currentPlan);
   const ui = useCalendarUi();
   const { done, total } = useChildProgress(occurrence.itemId);
   const foldable = useHasFoldableChildren(occurrence.itemId);
@@ -131,6 +133,7 @@ export function CalendarEvent({
             style={surface ? { color: surface.color } : undefined}
           />
           {item.recurrence && <Repeat className="size-3 shrink-0 opacity-50" />}
+          {occurrence.kind === "event" && <SourceMark source={currentPlan?.source} />}
           {label && (
             <span className="shrink-0 text-[10px] leading-4 tabular-nums text-muted-foreground">{label}</span>
           )}

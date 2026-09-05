@@ -1,7 +1,7 @@
 import { createId } from "@/lib/id";
 import { normalizeHex, SWATCH_COLORS } from "@/lib/colors";
 import { planSchemaV3 } from "@/lib/validation";
-import type { Plan, TimeScale } from "@/types";
+import type { CalendarSource, Plan, TimeScale } from "@/types";
 import { DomainError } from "@/lib/domain/items";
 
 function nowIso() {
@@ -15,6 +15,7 @@ export function createPlanRecord(input: {
   description?: string;
   color?: string;
   scale?: TimeScale;
+  source?: CalendarSource;
   id?: string;
 }): Plan {
   const now = nowIso();
@@ -31,6 +32,7 @@ export function createPlanRecord(input: {
   if (description) plan.description = description;
   if (input.color) plan.color = normalizeHex(input.color);
   if (input.scale) plan.scale = input.scale;
+  if (input.source) plan.source = input.source;
   return parsePlan(plan);
 }
 
@@ -63,5 +65,6 @@ export function updatePlanRecord(plan: Plan, patch: Partial<Omit<Plan, "id" | "c
     else delete next.color;
   }
   if ("description" in patch && !patch.description) delete next.description;
+  if ("source" in patch && !patch.source) delete next.source;
   return parsePlan(next);
 }

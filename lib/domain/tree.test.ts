@@ -110,6 +110,11 @@ describe("calendarEntries", () => {
       "sub-timed",
     ]);
   });
+
+  it("keeps long-running tasks off the grid", () => {
+    const long = item({ id: "long", kind: "task", parentId: "obj", start: "2026-09-01", end: "2026-09-30" });
+    expect(calendarEntries([...items, long]).map((entry) => entry.id)).not.toContain("long");
+  });
 });
 
 describe("nestedChildren", () => {
