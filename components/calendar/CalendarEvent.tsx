@@ -4,6 +4,7 @@ import { useRef, type CSSProperties } from "react";
 import { ChevronRight, CornerDownRight, Repeat } from "lucide-react";
 import { useCalendarUi } from "@/components/calendar/calendar-ui";
 import { SubtaskTree } from "@/components/calendar/SubtaskTree";
+import { EventWeatherGlyph } from "@/components/environment/EventWeather";
 import { SourceMark } from "@/components/plan/SourceMark";
 import { useFlip } from "@/hooks/useFlip";
 import { useChildProgress, useHasFoldableChildren, useIsSubtask } from "@/hooks/useItemTree";
@@ -195,7 +196,12 @@ export function CalendarEvent({
                 )}
                 {showStatus && <status.icon className={cn("size-3 shrink-0", status.className)} />}
               </span>
-              {label && <span className="truncate text-[11px] tabular-nums opacity-75">{label}</span>}
+              {(label || (isEvent && item.location?.lat !== undefined)) && (
+                <span className="flex w-full min-w-0 items-center gap-1.5">
+                  {label && <span className="truncate text-[11px] tabular-nums opacity-75">{label}</span>}
+                  {isEvent && item.location?.lat !== undefined && <EventWeatherGlyph item={item} />}
+                </span>
+              )}
             </>
           ) : (
             <>

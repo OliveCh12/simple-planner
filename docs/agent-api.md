@@ -26,6 +26,8 @@ Copied JSON includes `"$schema": "/schema/planner.schema.json"` and `"version": 
 - **`agentBrief`**: instructions for an AI executor.
 - **`parentId`**: tree. An event may only belong to an objective. An event may have task children (prep). An item cannot be parented under its descendant.
 - **People / categories**: referenced by id on `assigneeIds`, `attendeeIds`, `categoryId`.
+- **`location`**: `{ name, address?, url?, lat?, lon?, timezone?, country? }`. Coordinates come from a picked suggestion (Open-Meteo geocoding) and unlock forecasts and sunrise/sunset for that item; a bare `name` is fine for "Online".
+- **`settings.environment`**: `{ weather, eventWeather, daylight, units, detail, location? }`. All display-only; nothing is fetched without a place.
 
 ## Invariants
 

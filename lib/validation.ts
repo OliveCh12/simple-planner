@@ -18,6 +18,31 @@ const localDateSchema = z
   .refine((value) => isValidLocal(value) && !value.includes("T"), "Expected YYYY-MM-DD");
 const localDateTimeSchema = z.string().refine(isValidLocal, "Expected a local date or datetime");
 
+export const placeSchema = z.object({
+  name: z.string().min(1),
+  lat: z.number().min(-90).max(90),
+  lon: z.number().min(-180).max(180),
+  timezone: z.string().optional(),
+  country: z.string().optional(),
+});
+
+const DEFAULT_ENVIRONMENT = {
+  weather: false,
+  eventWeather: true,
+  daylight: false,
+  units: "celsius" as const,
+  detail: "full" as const,
+};
+
+export const environmentSettingsSchema = z.object({
+  weather: z.boolean().default(false),
+  eventWeather: z.boolean().default(true),
+  daylight: z.boolean().default(false),
+  units: z.enum(["celsius", "fahrenheit"]).default("celsius"),
+  detail: z.enum(["icon", "full"]).default("full"),
+  location: placeSchema.optional(),
+});
+
 export const appSettingsSchema = z.object({
   theme: z.enum(["light", "dark", "auto"]),
   accent: z.enum(ACCENT_IDS).default(DEFAULT_ACCENT),
@@ -26,6 +51,7 @@ export const appSettingsSchema = z.object({
   firstDayOfWeek: z.union([z.literal(0), z.literal(1)]),
   dateFormat: z.string(),
   showWeekNumbers: z.boolean(),
+  environment: environmentSettingsSchema.default(DEFAULT_ENVIRONMENT),
 });
 
 // --- Version 1: roadmaps → months → objectives -------------------------------
@@ -147,6 +173,10 @@ export const locationSchema = z.object({
   name: z.string().min(1),
   address: z.string().optional(),
   url: z.string().optional(),
+  lat: z.number().min(-90).max(90).optional(),
+  lon: z.number().min(-180).max(180).optional(),
+  timezone: z.string().optional(),
+  country: z.string().optional(),
 });
 
 export const planItemSchema = z

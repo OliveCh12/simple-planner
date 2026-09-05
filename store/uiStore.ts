@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { clampPanelWidth, PANEL_WIDTH } from "@/lib/layout/panel";
-import { getDefaultSettings } from "@/lib/settings";
+import type { EnvironmentSettings } from "@/lib/environment/types";
+import { getDefaultSettings, normalizeSettings } from "@/lib/settings";
 import type { AppSettings } from "@/types";
 
 /** `gantt` is the roadmap view; the stored value is kept for compatibility. */
@@ -21,6 +22,7 @@ interface UIStore {
   setPanelWidth: (side: keyof PanelWidths, width: number) => void;
   setLeftPanelOpen: (open: boolean) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
+  updateEnvironment: (patch: Partial<EnvironmentSettings>) => void;
   replaceSettings: (settings: AppSettings) => void;
 }
 
@@ -43,9 +45,14 @@ export const useUIStore = create<UIStore>()(
           settings: { ...state.settings, ...newSettings },
         })),
 
+      updateEnvironment: (patch) =>
+        set((state) => ({
+          settings: { ...state.settings, environment: { ...state.settings.environment, ...patch } },
+        })),
+
       replaceSettings: (settings) =>
         set({
-          settings: { ...getDefaultSettings(), ...settings },
+          settings: normalizeSettings(settings),
         }),
     }),
     {
@@ -63,7 +70,7 @@ export const useUIStore = create<UIStore>()(
           Pick<UIStore, "settings" | "timelineView" | "panelWidths" | "leftPanelOpen">
         >;
         return {
-          settings: { ...getDefaultSettings(), ...stored.settings },
+          settings: normalizeSettings(stored.settings),
           timelineView: version < 1 ? "calendar" : (stored.timelineView ?? "calendar"),
           panelWidths: {
             left: stored.panelWidths?.left ?? PANEL_WIDTH.left,
@@ -77,11 +84,7 @@ export const useUIStore = create<UIStore>()(
         return {
           ...current,
           ...stored,
-          settings: {
-            ...getDefaultSettings(),
-            ...current.settings,
-            ...stored?.settings,
-          },
+          settings: normalizeSettings({ ...current.settings, ...stored?.settings }),
           timelineView: stored?.timelineView === "gantt" ? "gantt" : "calendar",
           panelWidths: {
             left: stored?.panelWidths?.left ?? current.panelWidths.left,

@@ -1,8 +1,19 @@
+import type { EnvironmentSettings } from "@/lib/environment/types";
 import { DEFAULT_ACCENT } from "@/lib/themes";
 import type { AppSettings } from "@/types";
 
 /** IndexedDB database name. Kept from v1 so existing data is found and migrated. */
 export const DB_NAME = "RoadmapDB";
+
+export function getDefaultEnvironment(): EnvironmentSettings {
+  return {
+    weather: false,
+    eventWeather: true,
+    daylight: false,
+    units: "celsius",
+    detail: "full",
+  };
+}
 
 export function getDefaultSettings(): AppSettings {
   return {
@@ -13,5 +24,16 @@ export function getDefaultSettings(): AppSettings {
     firstDayOfWeek: 1,
     dateFormat: "MMM d, yyyy",
     showWeekNumbers: false,
+    environment: getDefaultEnvironment(),
+  };
+}
+
+/** Fill gaps from older stored or imported settings, nested groups included. */
+export function normalizeSettings(partial?: Partial<AppSettings> | null): AppSettings {
+  const defaults = getDefaultSettings();
+  return {
+    ...defaults,
+    ...partial,
+    environment: { ...defaults.environment, ...(partial?.environment ?? {}) },
   };
 }

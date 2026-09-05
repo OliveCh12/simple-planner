@@ -3,7 +3,7 @@ import type { AppData, AppSettings, Category, Person, Plan, PlanItem } from "@/t
 import { migratePlansToItems, migrateRoadmapToPlan, type LegacyRoadmap, type PlanV2 } from "@/lib/migrations";
 import { itemMatches } from "@/lib/repository/filter";
 import type { CrudCollection, ItemFilter, PlannerRepository, RepositoryChange } from "@/lib/repository/types";
-import { DB_NAME, getDefaultSettings } from "@/lib/settings";
+import { DB_NAME, getDefaultSettings, normalizeSettings } from "@/lib/settings";
 
 export { DB_NAME };
 
@@ -132,8 +132,9 @@ export class IndexedDbRepository implements PlannerRepository {
     get: async () => {
       const row = await this.database.appSettings.get("default");
       if (!row) return undefined;
-      const { theme, accent, font, defaultView, firstDayOfWeek, dateFormat, showWeekNumbers } = row;
-      return { theme, accent, font, defaultView, firstDayOfWeek, dateFormat, showWeekNumbers };
+      const stored: Partial<AppSettings> & { id?: string } = { ...row };
+      delete stored.id;
+      return normalizeSettings(stored);
     },
     put: async (settings: AppSettings) => {
       await this.database.appSettings.put({ ...settings, id: "default" });

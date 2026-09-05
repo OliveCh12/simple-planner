@@ -1,15 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Sunrise } from "lucide-react";
 import { addDays, isSameDay } from "date-fns";
 import { useCalendarUi } from "@/components/calendar/calendar-ui";
 import { CalendarEvent } from "@/components/calendar/CalendarEvent";
 import { TimedGhost } from "@/components/calendar/CalendarGhost";
 import { CalendarNowLine, CalendarPastFill } from "@/components/calendar/CalendarNowLine";
+import { DayWeather, sunSummary } from "@/components/environment/DayWeather";
+import { DaylightLayer } from "@/components/environment/DaylightLayer";
 import { HOUR_PX, HourGutter, initialScrollTop } from "@/components/calendar/CalendarWeek";
 import { occurrenceInterval, packInRange, timedLabel, type CalendarOccurrence } from "@/lib/calendar";
 import { useCalendarPointer } from "@/hooks/useCalendarPointer";
 import { useNowCoarse } from "@/hooks/useNow";
+import { useDailyWeather, useEnvironmentSettings } from "@/hooks/useWeather";
+import { sunTimesCached } from "@/lib/environment/sun";
 import { useScrollbarGutter } from "@/hooks/useScrollbarGutter";
 import { formatLocalDate, formatLocalDateTime, parseLocal } from "@/lib/time/local";
 import { containsNow, isElapsedOccurrence } from "@/lib/time/presence";
@@ -55,6 +60,16 @@ export function CalendarDay({
   const now = useNowCoarse();
   const anchorNow = containsNow(range, now);
   const today = isSameDay(start, now);
+  const env = useEnvironmentSettings();
+  const place = env.location ?? null;
+  const { byDate: weather } = useDailyWeather(place, env.weather, env.units);
+  const showDaylight = env.daylight && place !== null;
+  const dateKey = formatLocalDate(start);
+  const dayWeather = env.weather ? weather.get(dateKey) : undefined;
+  const sun = showDaylight && place
+    ? sunTimesCached(place.lat, place.lon, { year: start.getFullYear(), month: start.getMonth() + 1, day: start.getDate() })
+    : undefined;
+  const sunText = sunSummary(sun, place?.timezone);
   const onMoveItem = ui?.onMoveItem;
   const onCommit = useCallback(
     (commit: Parameters<NonNullable<typeof onMoveItem>>[0]) => {
@@ -88,6 +103,19 @@ export function CalendarDay({
       data-cal-gutter={GUTTER_PX}
       className="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
+      {(dayWeather || sunText) && (
+        <div className="flex h-7 shrink-0 items-center justify-end gap-3 border-b border-cal-line px-3 text-[11px] text-muted-foreground">
+          {dayWeather && place && (
+            <DayWeather day={dayWeather} dateKey={dateKey} units={env.units} detail="full" wide sun={sun} timeZone={place.timezone} />
+          )}
+          {sunText && (
+            <span className="inline-flex items-center gap-1">
+              <Sunrise className="size-3" aria-hidden />
+              {sunText}
+            </span>
+          )}
+        </div>
+      )}
       <div
         data-cal-allday
         className="grid shrink-0 border-b border-cal-line-strong"
@@ -121,6 +149,7 @@ export function CalendarDay({
         >
           <HourGutter />
           <div className={cn("relative border-l border-cal-line", today && "bg-cal-today")}>
+            {showDaylight && place && <DaylightLayer place={place} day={start} />}
             {Array.from({ length: 24 }, (_, hour) => (
               <button
                 key={hour}

@@ -46,6 +46,8 @@
   --cal-past: oklch(0.141 0.005 285.823 / 3%);
   --cal-today: oklch(0.62 0.21 25 / 3.5%);
   --cal-selected: oklch(0.141 0.005 285.823 / 4%);
+  /* Night wash for the daylight layer: cool, barely there. */
+  --cal-night: oklch(0.3 0.03 275 / 6%);
 }
 
 .dark {
@@ -88,6 +90,7 @@
   --cal-past: oklch(1 0 0 / 3%);
   --cal-today: oklch(0.71 0.19 25 / 4%);
   --cal-selected: oklch(1 0 0 / 5%);
+  --cal-night: oklch(0 0 0 / 28%);
 }
 
 @theme inline {
@@ -98,6 +101,7 @@
   --color-cal-past: var(--cal-past);
   --color-cal-today: var(--cal-today);
   --color-cal-selected: var(--cal-selected);
+  --color-cal-night: var(--cal-night);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

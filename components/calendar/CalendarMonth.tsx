@@ -3,11 +3,13 @@
 import { addDays, addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfMonth, startOfWeek } from "date-fns";
 import { useCalendarUi } from "@/components/calendar/calendar-ui";
 import { CalendarEvent, CalendarOccurrenceList } from "@/components/calendar/CalendarEvent";
+import { DayWeather } from "@/components/environment/DayWeather";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { occupiesMonthDay, type CalendarOccurrence } from "@/lib/calendar";
 import { useState } from "react";
 import { useNowCoarse } from "@/hooks/useNow";
 import { useScrollbarGutter } from "@/hooks/useScrollbarGutter";
+import { useDailyWeather, useEnvironmentSettings } from "@/hooks/useWeather";
 import { formatLocalDate } from "@/lib/time/local";
 import { containsNow, isElapsedDay, isElapsedOccurrence } from "@/lib/time/presence";
 import { cn } from "@/lib/utils";
@@ -76,6 +78,9 @@ export function CalendarMonth({
   const ui = useCalendarUi();
   const [scrollerEl, setScrollerEl] = useState<HTMLDivElement | null>(null);
   const gutter = useScrollbarGutter(scrollerEl);
+  const env = useEnvironmentSettings();
+  const place = env.location ?? null;
+  const { byDate: weather } = useDailyWeather(place, env.weather, env.units);
   const monthRange = { start: monthStart, end: addMonths(monthStart, 1) };
   const anchorNow = containsNow(monthRange, now);
   const canCreate = Boolean(ui?.canCreate && ui.onCreateSlot);
@@ -168,17 +173,32 @@ export function CalendarMonth({
                     if (canCreate) createOnDay(day);
                   }}
                 >
-                  <button
-                    type="button"
-                    aria-current={current ? "date" : undefined}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onSelectDay(day);
-                    }}
-                    className="flex justify-end px-0.5 pt-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <DayNumber day={day} current={current} muted={!inMonth || elapsed} />
-                  </button>
+                  <div className="@container flex items-center justify-between gap-1 overflow-hidden px-0.5 pt-1">
+                    {env.weather && place ? (
+                      <DayWeather
+                        day={weather.get(formatLocalDate(day))}
+                        dateKey={formatLocalDate(day)}
+                        units={env.units}
+                        detail={env.detail}
+                        timeZone={place.timezone}
+                        className="min-w-0 pl-0.5"
+                        responsive
+                      />
+                    ) : (
+                      <span />
+                    )}
+                    <button
+                      type="button"
+                      aria-current={current ? "date" : undefined}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onSelectDay(day);
+                      }}
+                      className="flex justify-end outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <DayNumber day={day} current={current} muted={!inMonth || elapsed} />
+                    </button>
+                  </div>
                   <div className="flex min-h-0 flex-1 flex-col gap-px pt-0.5">
                     {visible.map((occurrence) => (
                       <CalendarEvent

@@ -1,3 +1,4 @@
+import type { EnvironmentSettings } from '@/lib/environment/types';
 import type { FontId } from '@/lib/fonts';
 import type { AccentId } from '@/lib/themes';
 
@@ -37,6 +38,12 @@ export interface Location {
   name: string;
   address?: string;
   url?: string;
+  /** Present once the place was picked from geocoding; enables forecasts and sun times. */
+  lat?: number;
+  lon?: number;
+  /** IANA zone of the place, e.g. `Europe/Lisbon`. */
+  timezone?: string;
+  country?: string;
 }
 
 export interface ItemImage {
@@ -163,6 +170,8 @@ export interface AppSettings {
   firstDayOfWeek: 0 | 1; // 0 = Sunday, 1 = Monday
   dateFormat: string;
   showWeekNumbers: boolean;
+  /** Weather, default place and daylight. Off unless the user opts in. */
+  environment: EnvironmentSettings;
 }
 
 /** Backup payload written by export and accepted by import. */

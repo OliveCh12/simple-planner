@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Copy, ExternalLink, MoreHorizontal, Trash2, X } from "lucide-react";
+import { EventWeather } from "@/components/environment/EventWeather";
 import { EditorSection } from "@/components/item/EditorSection";
 import { InlineEditable } from "@/components/item/InlineEditable";
 import { ImageAddButton, ItemImages } from "@/components/item/ItemImages";
@@ -221,6 +222,7 @@ export function ItemEditor({ item, occurrenceStart, onClose }: ItemEditorProps) 
               onChange={setDates}
               onRecurrenceChange={(rule) => void save(updateItem(item, { recurrence: rule }))}
             />
+            <EventWeather item={item} />
           </EditorSection>
 
           {!draft && (

@@ -6,6 +6,8 @@ import { useCalendarUi } from "@/components/calendar/calendar-ui";
 import { CalendarEvent } from "@/components/calendar/CalendarEvent";
 import { AllDayGhost, TimedGhost } from "@/components/calendar/CalendarGhost";
 import { CalendarNowLine, CalendarPastFill } from "@/components/calendar/CalendarNowLine";
+import { DayWeather, sunSummary } from "@/components/environment/DayWeather";
+import { DaylightLayer } from "@/components/environment/DaylightLayer";
 import {
   occupiesMonthDay,
   occurrenceInterval,
@@ -16,6 +18,8 @@ import {
 import { HOUR_PX, nowLineOffset, pad2 } from "@/lib/calendar-snap";
 import { useCalendarPointer } from "@/hooks/useCalendarPointer";
 import { useNowCoarse } from "@/hooks/useNow";
+import { useDailyWeather, useEnvironmentSettings } from "@/hooks/useWeather";
+import { sunTimesCached } from "@/lib/environment/sun";
 import { useScrollbarGutter } from "@/hooks/useScrollbarGutter";
 import { formatLocalDate, parseLocal } from "@/lib/time/local";
 import { containsNow, isElapsedDay, isElapsedOccurrence } from "@/lib/time/presence";
@@ -114,6 +118,10 @@ export function CalendarWeek({
   const ui = useCalendarUi();
   const now = useNowCoarse();
   const anchorNow = containsNow(weekRange, now);
+  const env = useEnvironmentSettings();
+  const place = env.location ?? null;
+  const { byDate: weather } = useDailyWeather(place, env.weather, env.units);
+  const showDaylight = env.daylight && place !== null;
   const onMoveItem = ui?.onMoveItem;
   const onCommit = useCallback(
     (commit: Parameters<NonNullable<typeof onMoveItem>>[0]) => {
@@ -151,14 +159,20 @@ export function CalendarWeek({
           const current = isSameDay(day, now);
           const selected = isSameDay(day, selectedDay);
           const elapsed = anchorNow && isElapsedDay(day, now);
+          const dateKey = formatLocalDate(day);
+          const sun = showDaylight && place
+            ? sunTimesCached(place.lat, place.lon, { year: day.getFullYear(), month: day.getMonth() + 1, day: day.getDate() })
+            : undefined;
+          const sunText = sunSummary(sun, place?.timezone);
           return (
             <button
               key={day.toISOString()}
               type="button"
               aria-current={current ? "date" : undefined}
+              title={!env.weather && sunText ? sunText : undefined}
               onClick={() => onSelectDay(day)}
               className={cn(
-                "flex h-9 min-w-0 items-center gap-1 border-l border-cal-line px-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:gap-1.5 sm:px-2",
+                "@container flex h-9 min-w-0 items-center gap-1 overflow-hidden border-l border-cal-line px-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:gap-1.5 sm:px-2",
                 current && "bg-cal-today",
                 selected && !current && "bg-cal-selected"
               )}
@@ -169,8 +183,8 @@ export function CalendarWeek({
                   current ? "text-now" : "text-muted-foreground"
                 )}
               >
-                <span className="sm:hidden">{format(day, "EEEEE")}</span>
-                <span className="hidden sm:inline">{format(day, "EEE")}</span>
+                <span className="@min-[5.5rem]:hidden">{format(day, "EEEEE")}</span>
+                <span className="hidden @min-[5.5rem]:inline">{format(day, "EEE")}</span>
               </span>
               <span
                 className={cn(
@@ -181,6 +195,18 @@ export function CalendarWeek({
               >
                 {format(day, "d")}
               </span>
+              {env.weather && place && (
+                <DayWeather
+                  day={weather.get(dateKey)}
+                  dateKey={dateKey}
+                  units={env.units}
+                  detail={env.detail}
+                  sun={sun}
+                  timeZone={place.timezone}
+                  className="ml-auto"
+                  responsive
+                />
+              )}
             </button>
           );
         })}
@@ -268,6 +294,7 @@ export function CalendarWeek({
                   onSelectDay(day, hour);
                 }}
               >
+                {showDaylight && place && <DaylightLayer place={place} day={day} />}
                 <HourRows />
                 {packedDay.spans.map((span) => {
                   const occurrence = byId.get(span.id);

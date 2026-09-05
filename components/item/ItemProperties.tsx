@@ -3,7 +3,7 @@
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { DateRangeField } from "@/components/item/DateRangeField";
-import { InlineEditable } from "@/components/item/InlineEditable";
+import { PlacePicker } from "@/components/environment/PlacePicker";
 import { PropertyRow } from "@/components/item/PropertyRow";
 import { EnergyChip } from "@/components/task/TaskProperties";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -164,14 +164,11 @@ export function ItemDetails({ item, items }: { item: PlanItem; items: PlanItem[]
         </PropertyRow>
       )}
 
-      <PropertyRow label="Place" htmlFor="location-name">
-        <InlineEditable
-          id="location-name"
-          value={item.location?.name ?? item.location?.address ?? item.location?.url ?? ""}
-          placeholder="Add a place"
-          aria-label="Place"
-          className="-ml-2 h-7"
-          onSave={(name) => save(updateItem(item, { location: name.trim() ? { name: name.trim() } : undefined }))}
+      <PropertyRow label="Place">
+        <PlacePicker
+          className="-ml-1"
+          value={item.location}
+          onChange={(next) => void save(updateItem(item, { location: next }))}
         />
       </PropertyRow>
     </div>

@@ -203,6 +203,22 @@
               },
               "url": {
                 "type": "string"
+              },
+              "lat": {
+                "type": "number",
+                "minimum": -90,
+                "maximum": 90
+              },
+              "lon": {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180
+              },
+              "timezone": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
               }
             },
             "required": [
@@ -399,6 +415,85 @@
         },
         "showWeekNumbers": {
           "type": "boolean"
+        },
+        "environment": {
+          "default": {
+            "weather": false,
+            "eventWeather": true,
+            "daylight": false,
+            "units": "celsius",
+            "detail": "full"
+          },
+          "type": "object",
+          "properties": {
+            "weather": {
+              "default": false,
+              "type": "boolean"
+            },
+            "eventWeather": {
+              "default": true,
+              "type": "boolean"
+            },
+            "daylight": {
+              "default": false,
+              "type": "boolean"
+            },
+            "units": {
+              "default": "celsius",
+              "type": "string",
+              "enum": [
+                "celsius",
+                "fahrenheit"
+              ]
+            },
+            "detail": {
+              "default": "full",
+              "type": "string",
+              "enum": [
+                "icon",
+                "full"
+              ]
+            },
+            "location": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "lat": {
+                  "type": "number",
+                  "minimum": -90,
+                  "maximum": 90
+                },
+                "lon": {
+                  "type": "number",
+                  "minimum": -180,
+                  "maximum": 180
+                },
+                "timezone": {
+                  "type": "string"
+                },
+                "country": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "lat",
+                "lon"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "weather",
+            "eventWeather",
+            "daylight",
+            "units",
+            "detail"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -408,7 +503,8 @@
         "defaultView",
         "firstDayOfWeek",
         "dateFormat",
-        "showWeekNumbers"
+        "showWeekNumbers",
+        "environment"
       ],
       "additionalProperties": false
     },

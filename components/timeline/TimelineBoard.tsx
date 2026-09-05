@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Bot, CalendarDays, ChevronLeft, ChevronRight, PanelLeft, PanelLeftClose, SlidersHorizontal } from "lucide-react";
+import Link from "next/link";
+import { Bot, CalendarDays, ChevronLeft, ChevronRight, CloudSun, MapPin, PanelLeft, PanelLeftClose, SlidersHorizontal, Sunrise } from "lucide-react";
 import { CalendarUiProvider } from "@/components/calendar/calendar-ui";
 import { CalendarBoard } from "@/components/calendar/CalendarBoard";
 import { CalendarCreateButton } from "@/components/calendar/CalendarCreateButton";
@@ -25,7 +26,9 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
@@ -162,6 +165,8 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
   );
   const leftPanelOpen = useUIStore((s) => s.leftPanelOpen);
   const setLeftPanelOpen = useUIStore((s) => s.setLeftPanelOpen);
+  const environment = useUIStore((s) => s.settings.environment);
+  const updateEnvironment = useUIStore((s) => s.updateEnvironment);
   const visibleItemsForView = useMemo(() => {
     if (aiQueue) return queueItems;
     if (gantt) return showSubtasks ? items : withoutSubtasks(items);
@@ -733,6 +738,36 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
                     <span className="ml-auto tabular-nums text-muted-foreground">{queueItems.length}</span>
                   ) : null}
                 </DropdownMenuCheckboxItem>
+                {!gantt && (
+                  <>
+                    <DropdownMenuSeparator />
+                    {environment.location ? (
+                      <>
+                        <DropdownMenuCheckboxItem
+                          checked={environment.weather}
+                          onCheckedChange={(checked) => updateEnvironment({ weather: checked === true })}
+                        >
+                          <CloudSun />
+                          Weather
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem
+                          checked={environment.daylight}
+                          onCheckedChange={(checked) => updateEnvironment({ daylight: checked === true })}
+                        >
+                          <Sunrise />
+                          Day and night
+                        </DropdownMenuCheckboxItem>
+                      </>
+                    ) : (
+                      <DropdownMenuItem asChild>
+                        <Link href="/settings/environment">
+                          <MapPin />
+                          Set a location for weather
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
             <ViewToggle value={view} onChange={switchView} />
