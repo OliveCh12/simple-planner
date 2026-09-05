@@ -19,7 +19,7 @@ describe("ensureDemoData", () => {
     expect(byId.get("obj-summer")).toMatchObject({ kind: "objective", categoryId: "cat-health" });
     expect(byId.get("task-gym")).toMatchObject({
       parentId: "obj-summer",
-      recurrence: expect.stringContaining("BYDAY=MO,TU,WE,TH,FR"),
+      recurrence: expect.stringContaining("BYDAY=MO,WE,FR"),
     });
     expect(byId.get(DEMO_EVENT_ID)).toMatchObject({
       kind: "event",
@@ -44,6 +44,17 @@ describe("ensureDemoData", () => {
     });
     expect(byId.get("task-cottage")?.parentId).toBe("event-ardeche");
     expect(await repo.categories.get("cat-finance")).toMatchObject({ color: "#0d9488" });
+    expect(byId.get("event-offsite")).toMatchObject({
+      kind: "event",
+      parentId: "obj-product",
+      attendeeIds: [DEFAULT_USER_ID, "person-maya"],
+    });
+    expect(byId.get("event-offsite")?.end).toBeDefined();
+    expect(byId.get("task-offsite-slides")?.parentId).toBe("event-offsite");
+    expect(byId.get("event-weekly-review")?.recurrence).toContain("BYDAY=FR");
+    expect(byId.get("task-planner-v3")?.notes).toContain("- [x] Item page");
+    expect(byId.get("task-planner-v3")?.images?.[0]?.src.startsWith("data:image/svg+xml")).toBe(true);
+    expect(byId.get("task-book-notes")?.parentId).toBe("obj-learn");
   });
 
   it("does not duplicate the demo plan on a second run", async () => {

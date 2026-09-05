@@ -3,6 +3,16 @@ import { formatLocal, formatLocalDate, formatLocalDateTime, isAllDay, parseLocal
 
 export const SNAP_MINUTES = 15;
 export const MIN_TIMED_MINUTES = 15;
+export const DEFAULT_TIMED_MINUTES = 60;
+export const HOUR_PX = 48;
+
+export type CalendarZone = "allDay" | "timed";
+
+export interface GridHit {
+  zone: CalendarZone;
+  day: Date;
+  minutes: number;
+}
 
 export function pad2(value: number): string {
   return value < 10 ? `0${value}` : String(value);
@@ -80,6 +90,38 @@ export function resizeAllDay(
   }
   const nextEnd = day < startDay ? startDay : day;
   return { start: formatLocalDate(startDay), end: formatLocalDate(nextEnd) };
+}
+
+export function nowLineOffset(now: Date, hourPx = HOUR_PX): number {
+  return (minutesOf(now) / 60) * hourPx;
+}
+
+export function slotFromClick(hit: GridHit): { start: string; end: string } {
+  if (hit.zone === "allDay") {
+    const day = formatLocalDate(hit.day);
+    return { start: day, end: day };
+  }
+  const start = atMinutes(hit.day, hit.minutes);
+  return {
+    start: formatLocalDateTime(start),
+    end: formatLocalDateTime(addMinutes(start, DEFAULT_TIMED_MINUTES)),
+  };
+}
+
+export function slotFromDrag(from: GridHit, to: GridHit): { start: string; end: string } {
+  if (from.zone === "allDay") {
+    const startDay = from.day <= to.day ? from.day : to.day;
+    const endDay = from.day <= to.day ? to.day : from.day;
+    return { start: formatLocalDate(startDay), end: formatLocalDate(endDay) };
+  }
+  const a = atMinutes(from.day, from.minutes);
+  const b = atMinutes(to.day, to.minutes);
+  const start = a <= b ? a : b;
+  let end = a <= b ? b : a;
+  if (end.getTime() - start.getTime() < MIN_TIMED_MINUTES * 60 * 1000) {
+    end = addMinutes(start, MIN_TIMED_MINUTES);
+  }
+  return { start: formatLocalDateTime(start), end: formatLocalDateTime(end) };
 }
 
 export function scheduleLabel(start: string, end?: string): string {

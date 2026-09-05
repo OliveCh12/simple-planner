@@ -18,7 +18,7 @@ const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
   },
   {
     title: "Display",
-    description: "Subtasks stay inside their parent card. Plan, on the left, lists goals for this period, work still to schedule, and prep for events that actually have some. Standalone events stay on the grid.",
+    description: "The sliders menu chooses what the grid shows: completed items, subtasks on the roadmap, or only the AI queue. The panel button on the left opens Plan: goals for this period, work still to schedule, and prep for events that have some.",
     keys: ["Display", "Plan"],
   },
   {
@@ -53,8 +53,8 @@ const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
   },
   {
     title: "AI queue",
-    description: "The AI queue toggle keeps items whose executor is AI and that are not completed or cancelled.",
-    keys: ["AI queue"],
+    description: "In the Display menu, “AI queue only” keeps items whose executor is AI and that are not completed or cancelled.",
+    keys: ["Display"],
   },
   {
     title: "Save a task",

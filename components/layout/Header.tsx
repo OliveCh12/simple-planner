@@ -42,10 +42,11 @@ function ThemeToggle() {
   );
 }
 
+/** Identity and global actions only. Period, views and creation live in the calendar toolbar. */
 export function Header() {
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className={cn(shellClasses(), "flex min-h-12 flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1")}>
+    <header className="sticky top-0 z-50 w-full border-b border-cal-line-strong bg-background">
+      <div className={cn(shellClasses(), "flex h-11 items-center justify-between gap-3")}>
         <div className="flex min-w-0 items-center gap-2">
           <Link
             href="/"
@@ -56,7 +57,7 @@ export function Header() {
           </Link>
           <CalendarSwitcher />
         </div>
-        <nav className="flex shrink-0 items-center gap-1">
+        <nav className="flex shrink-0 items-center gap-0.5">
           <ThemeToggle />
           <Tooltip>
             <TooltipTrigger asChild>

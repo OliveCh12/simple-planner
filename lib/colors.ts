@@ -13,23 +13,49 @@ export const SWATCH_COLORS = [
 
 export type SurfaceTone = "event" | "task" | "objective" | "subtask";
 
-const SURFACE_MIX: Record<SurfaceTone, { top: number; bottom: number }> = {
-  event: { top: 48, bottom: 26 },
-  task: { top: 34, bottom: 16 },
-  objective: { top: 24, bottom: 12 },
-  subtask: { top: 18, bottom: 10 },
+/** Share of the category color mixed into the background for each tone. */
+const SURFACE_MIX: Record<SurfaceTone, number> = {
+  event: 15,
+  task: 11,
+  objective: 9,
+  subtask: 7,
 };
 
-/** Category fill that follows `--background`, so light and dark stay readable. */
-export function categorySurface(
-  hex: string,
-  tone: SurfaceTone
-): { backgroundImage: string; color: string } {
+export interface CategorySurface {
+  /** Raw category color, for dots, bars and icons. */
+  color: string;
+  /** Text color on the tinted surface: the category pulled toward the foreground. */
+  ink: string;
+  /** Flat tint that follows `--background`, so light and dark stay readable. */
+  background: string;
+  /** Same tint with a whisper of depth, top slightly denser than bottom. */
+  backgroundImage: string;
+}
+
+export function categorySurface(hex: string, tone: SurfaceTone): CategorySurface {
   const color = normalizeHex(hex);
   const mix = SURFACE_MIX[tone];
+  const top = `color-mix(in oklab, ${color} ${mix + 2}%, var(--background))`;
+  const bottom = `color-mix(in oklab, ${color} ${Math.max(4, mix - 2)}%, var(--background))`;
   return {
     color,
-    backgroundImage: `linear-gradient(180deg, color-mix(in oklab, ${color} ${mix.top}%, var(--background)) 0%, color-mix(in oklab, ${color} ${mix.bottom}%, var(--background)) 100%)`,
+    ink: `color-mix(in oklab, ${color} 58%, var(--foreground))`,
+    background: `color-mix(in oklab, ${color} ${mix}%, var(--background))`,
+    backgroundImage: `linear-gradient(180deg, ${top} 0%, ${bottom} 100%)`,
+  };
+}
+
+/**
+ * Header atmosphere for the details pane: two soft radial glows that fade
+ * into the surface, so the category reads as a mood and never as a banner.
+ */
+export function categoryAtmosphere(hex: string): { backgroundImage: string } {
+  const color = normalizeHex(hex);
+  return {
+    backgroundImage: [
+      `radial-gradient(110% 95% at 0% 0%, color-mix(in oklab, ${color} 15%, transparent) 0%, transparent 62%)`,
+      `radial-gradient(70% 80% at 100% 100%, color-mix(in oklab, ${color} 8%, transparent) 0%, transparent 65%)`,
+    ].join(", "),
   };
 }
 

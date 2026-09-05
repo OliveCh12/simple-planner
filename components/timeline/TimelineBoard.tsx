@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Bot, CalendarDays, ChevronLeft, ChevronRight, PanelLeft, SlidersHorizontal } from "lucide-react";
+import { Bot, CalendarDays, ChevronLeft, ChevronRight, PanelLeft, PanelLeftClose, SlidersHorizontal } from "lucide-react";
 import { CalendarUiProvider } from "@/components/calendar/calendar-ui";
 import { CalendarBoard } from "@/components/calendar/CalendarBoard";
 import { CalendarCreateButton } from "@/components/calendar/CalendarCreateButton";
@@ -38,7 +38,8 @@ import { useVisibleRange } from "@/hooks/useVisibleRange";
 import { periodLabel, visibleCalendarRange } from "@/lib/calendar";
 import { formatDateDisplay } from "@/lib/date-utils";
 import { itemToTask } from "@/lib/domain/convert";
-import { createItem, moveItem, shiftSeries, splitOccurrence } from "@/lib/domain/items";
+import { createItem, isUnconfirmedDraft, moveItem, shiftSeries, splitOccurrence } from "@/lib/domain/items";
+import { captureRect } from "@/lib/motion";
 import type { CalendarCommit } from "@/hooks/useCalendarPointer";
 import { ancestorIds, calendarEntries, indexById, withoutSubtasks } from "@/lib/domain/tree";
 import { groupByObjective, laneTasksFromItems, layoutLanes, type LaneItem } from "@/lib/lanes";
@@ -150,6 +151,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
   const [createExecutor, setCreateExecutor] = useState<Executor>("human");
   const [pendingEdit, setPendingEdit] = useState<PendingOccurrenceEdit | null>(null);
   const putItem = usePlannerStore((s) => s.putItem);
+  const deleteItemById = usePlannerStore((s) => s.deleteItem);
 
   const queueItems = useMemo(
     () =>
@@ -165,16 +167,40 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     if (gantt) return showSubtasks ? items : withoutSubtasks(items);
     return calendarEntries(items);
   }, [aiQueue, gantt, items, queueItems, showSubtasks]);
+  const objectivesForStrip = useMemo(
+    () => items.filter((item) => item.kind === "objective" && !item.draft),
+    [items]
+  );
   const calendarRange = useMemo(
     () => visibleCalendarRange(scale === "hour" ? "day" : scale, focus, weekStartsOn),
     [focus, scale, weekStartsOn]
   );
   const selectedItem = selectedId ? (items.find((item) => item.id === selectedId) ?? null) : null;
 
-  const onSelectItem = useCallback((itemId: string, occurrenceStart?: string) => {
-    setSelectedId(itemId);
-    setSelectedOccurrenceStart(occurrenceStart);
-  }, []);
+  const discardUnconfirmed = useCallback(
+    async (id?: string | null) => {
+      const targetId = id ?? selectedId;
+      if (!targetId) return;
+      const item = items.find((entry) => entry.id === targetId);
+      if (!item || !isUnconfirmedDraft(item)) return;
+      await deleteItemById(targetId);
+      if (selectedId === targetId) {
+        setSelectedId(null);
+        setSelectedOccurrenceStart(undefined);
+      }
+    },
+    [deleteItemById, items, selectedId]
+  );
+  const onSelectItem = useCallback(
+    (itemId: string, occurrenceStart?: string) => {
+      if (itemId !== selectedId) {
+        void discardUnconfirmed(selectedId);
+      }
+      setSelectedId(itemId);
+      setSelectedOccurrenceStart(occurrenceStart);
+    },
+    [discardUnconfirmed, selectedId]
+  );
   const onMoveItem = useCallback(
     (commit: CalendarCommit) => {
       const item = items.find((entry) => entry.id === commit.itemId);
@@ -189,6 +215,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
         });
         return;
       }
+      captureRect(commit.occurrenceId);
       void saveItem(moveItem(item, commit.start, commit.end));
     },
     [items, saveItem]
@@ -202,9 +229,29 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     });
   }, []);
   const onCloseDetails = useCallback(() => {
+    void discardUnconfirmed(selectedId);
     setSelectedId(null);
     setSelectedOccurrenceStart(undefined);
-  }, []);
+  }, [discardUnconfirmed, selectedId]);
+  // One draft at a time: an empty draft follows the next click instead of
+  // leaving a trail of new items. It only reaches storage once it has a title.
+  const onCreateSlot = useCallback(
+    (start: string, end?: string) => {
+      if (!isPlanWritable(plan)) return;
+      const existing = items.find(isUnconfirmedDraft);
+      const item = existing
+        ? moveItem(existing, start, end)
+        : createItem({ planId: plan.id, title: "", start, end, kind: "event", draft: true });
+      if (existing) captureRect(existing.id);
+      void putItem(item);
+      setSelectedId(item.id);
+      setSelectedOccurrenceStart(undefined);
+      const from = parseLocal(start);
+      setSelectedDay(from);
+      setSelectedHour(start.includes("T") ? from.getHours() : undefined);
+    },
+    [items, plan, putItem]
+  );
   const calendarUi = useMemo(
     () => ({
       selectedId,
@@ -213,8 +260,10 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
       expandedIds,
       onToggleExpand,
       showSubtasks,
+      canCreate: isPlanWritable(plan),
+      onCreateSlot,
     }),
-    [expandedIds, onMoveItem, onSelectItem, onToggleExpand, selectedId, showSubtasks]
+    [expandedIds, onCreateSlot, onMoveItem, onSelectItem, onToggleExpand, plan, selectedId, showSubtasks]
   );
 
   const layout = useMemo(
@@ -389,6 +438,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
     (next: TimeScale | null, clientX?: number) => {
       if (!next || next === scale) return;
       if (view === "calendar" && next === "hour") return;
+      void discardUnconfirmed();
       if (gantt && boardEl) {
         const offset =
           clientX === undefined
@@ -403,7 +453,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
       setScaleState(next);
       void updatePlan({ scale: next });
     },
-    [boardEl, gantt, instantAtOffset, scale, updatePlan, view]
+    [boardEl, discardUnconfirmed, gantt, instantAtOffset, scale, updatePlan, view]
   );
 
   const [calendarEl, setCalendarEl] = useState<HTMLDivElement | null>(null);
@@ -413,6 +463,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
 
   const shiftUnit = useCallback(
     (delta: number) => {
+      void discardUnconfirmed();
       if (!gantt) {
         const next = addUnits(startOfUnit(focus, scale, { weekStartsOn }), scale, delta);
         setUserFocus(next);
@@ -425,10 +476,11 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
       const current = centered >= 0 ? centered : homeIndex;
       scrollToUnit(Math.min(layout.units.length - 1, Math.max(0, current + delta)));
     },
-    [centeredIndex, focus, gantt, homeIndex, layout.units.length, scale, scrollToUnit, weekStartsOn]
+    [centeredIndex, discardUnconfirmed, focus, gantt, homeIndex, layout.units.length, scale, scrollToUnit, weekStartsOn]
   );
 
   const goToday = useCallback(() => {
+    void discardUnconfirmed();
     const now = new Date();
     setUserFocus(now);
     setSelectedDay(now);
@@ -437,11 +489,12 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
       if (todayIndex >= 0) scrollToX(nowX);
       else scrollToUnit(homeIndex);
     }
-  }, [gantt, homeIndex, nowX, scrollToUnit, scrollToX, todayIndex]);
+  }, [discardUnconfirmed, gantt, homeIndex, nowX, scrollToUnit, scrollToX, todayIndex]);
 
   const switchView = useCallback(
     (next: TimelineView) => {
       if (next === view) return;
+      void discardUnconfirmed();
       if (next === "calendar") {
         const instant = gantt ? instantAtOffset(boardEl?.clientWidth ? boardEl.clientWidth / 2 : 0) : null;
         if (instant) setUserFocus(instant);
@@ -452,7 +505,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
       }
       setTimelineView(next);
     },
-    [boardEl, focus, gantt, instantAtOffset, scale, setScale, setTimelineView, view]
+    [boardEl, discardUnconfirmed, focus, gantt, instantAtOffset, scale, setScale, setTimelineView, view]
   );
 
   useEffect(() => {
@@ -540,91 +593,119 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
   const range = `${formatDateDisplay(plan.start, dateFormat)} – ${formatDateDisplay(plan.end, dateFormat)}`;
   const viewedPeriod = gantt ? range : periodLabel(scale === "hour" ? "day" : scale, focus, weekStartsOn);
   const pastWidth = Math.min(layout.totalWidth, Math.max(0, nowX));
-  const displayCount = Number(showSubtasks) + Number(!gantt && showCompleted);
+  const displayCount = Number(gantt && showSubtasks) + Number(!gantt && showCompleted) + Number(aiQueue);
 
   return (
     <CalendarUiProvider value={calendarUi}>
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="shrink-0 border-b bg-background/80 backdrop-blur-md">
-        <div className={cn(shellClasses(), "flex flex-col gap-2 py-2")}>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
-            <ButtonGroup>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon-sm"
-                    aria-label={`Previous ${scale}`}
-                    onClick={() => shiftUnit(-1)}
-                  >
-                    <ChevronLeft />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Previous {scale} <Kbd>←</Kbd>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="sm" className="px-2 sm:px-3" onClick={goToday}>
-                    <CalendarDays />
-                    <span className="hidden sm:inline">Today</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Jump to now <Kbd>T</Kbd>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon-sm"
-                    aria-label={`Next ${scale}`}
-                    onClick={() => shiftUnit(1)}
-                  >
-                    <ChevronRight />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  Next {scale} <Kbd>→</Kbd>
-                </TooltipContent>
-              </Tooltip>
-            </ButtonGroup>
-            <h1 className="min-w-0 flex-1 basis-32 truncate text-sm font-semibold tracking-tight sm:text-base">
-              {viewedPeriod}
-            </h1>
-            <div className="flex flex-wrap items-center gap-2">
-              <ViewToggle value={view} onChange={switchView} />
-              <ScaleControl
-                value={gantt || scale !== "hour" ? scale : "day"}
-                onChange={(next) => setScale(next)}
-                scales={gantt ? undefined : CALENDAR_SCALES}
-              />
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+      <div className="shrink-0 border-b border-cal-line-strong bg-background">
+        <div className={cn(shellClasses(), "flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1 py-1")}>
+          {!gantt && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-pressed={leftPanelOpen}
+                  aria-label={leftPanelOpen ? "Hide plan" : "Show plan"}
+                  className="-ml-1.5 text-muted-foreground hover:text-foreground aria-pressed:text-foreground"
+                  onClick={() => setLeftPanelOpen(!leftPanelOpen)}
+                >
+                  {leftPanelOpen ? <PanelLeftClose /> : <PanelLeft />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{leftPanelOpen ? "Hide plan" : "Show plan"}</TooltipContent>
+            </Tooltip>
+          )}
+          <ButtonGroup>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label={`Previous ${scale}`}
+                  onClick={() => shiftUnit(-1)}
+                >
+                  <ChevronLeft />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                Previous {scale} <Kbd>←</Kbd>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" className="px-2 sm:px-3" onClick={goToday}>
+                  <CalendarDays />
+                  <span className="hidden sm:inline">Today</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                Jump to now <Kbd>T</Kbd>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label={`Next ${scale}`}
+                  onClick={() => shiftUnit(1)}
+                >
+                  <ChevronRight />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                Next {scale} <Kbd>→</Kbd>
+              </TooltipContent>
+            </Tooltip>
+          </ButtonGroup>
+          <h1 className="min-w-0 flex-1 basis-40 truncate pl-1 text-[15px] font-semibold tracking-tight">
+            {viewedPeriod}
+          </h1>
+          {gantt && (
+            <p
+              className={cn(
+                "hidden items-center gap-1.5 text-xs transition-colors xl:flex",
+                panReady ? "text-foreground" : "text-muted-foreground"
+              )}
+            >
+              {panReady ? "Drag to pan" : "Hold"}
+              <Kbd
+                aria-pressed={panReady}
+                className={cn("transition-colors", panReady && "bg-foreground text-background")}
+              >
+                Space
+              </Kbd>
+              {!panReady && "to pan"}
+            </p>
+          )}
+          <div className="flex items-center gap-1.5">
             <DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
                     <Button
                       type="button"
-                      variant={displayCount > 0 ? "secondary" : "ghost"}
-                      size="xs"
+                      variant="ghost"
+                      size="icon-sm"
                       aria-label="Display options"
+                      className="relative text-muted-foreground hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
                     >
                       <SlidersHorizontal />
-                      <span className="hidden sm:inline">Display</span>
                       {displayCount > 0 ? (
-                        <span className="tabular-nums text-muted-foreground">{displayCount}</span>
+                        <span
+                          aria-hidden
+                          className="absolute top-1 right-1 size-1.5 rounded-full bg-primary ring-2 ring-background"
+                        />
                       ) : null}
                     </Button>
                   </DropdownMenuTrigger>
                 </TooltipTrigger>
-                <TooltipContent>What to show</TooltipContent>
+                <TooltipContent>Display</TooltipContent>
               </Tooltip>
-              <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuContent align="end" className="w-52">
                 <DropdownMenuLabel>Show</DropdownMenuLabel>
                 {gantt && (
                   <DropdownMenuCheckboxItem
@@ -642,103 +723,69 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
                     Completed items
                   </DropdownMenuCheckboxItem>
                 )}
+                <DropdownMenuCheckboxItem
+                  checked={aiQueue}
+                  onCheckedChange={(checked) => setAiQueue(checked === true)}
+                >
+                  <Bot />
+                  AI queue only
+                  {queueItems.length > 0 ? (
+                    <span className="ml-auto tabular-nums text-muted-foreground">{queueItems.length}</span>
+                  ) : null}
+                </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            {!gantt && (
-              <Button
-                type="button"
-                variant={leftPanelOpen ? "secondary" : "ghost"}
-                size="xs"
-                aria-pressed={leftPanelOpen}
-                aria-label="Plan panel"
-                onClick={() => setLeftPanelOpen(!leftPanelOpen)}
-              >
-                <PanelLeft />
-                <span className="hidden sm:inline">Plan</span>
-              </Button>
-            )}
-            <Button
-              type="button"
-              variant={aiQueue ? "secondary" : "ghost"}
-              size="xs"
-              aria-pressed={aiQueue}
-              aria-label="AI queue"
-              onClick={() => setAiQueue((current) => !current)}
-            >
-              <Bot />
-              <span className="hidden sm:inline">AI queue</span>
-              {queueItems.length > 0 ? (
-                <span className="tabular-nums text-muted-foreground">{queueItems.length}</span>
-              ) : null}
-            </Button>
-            {gantt && (
-              <p
-                className={cn(
-                  "hidden items-center gap-1.5 text-xs transition-colors lg:flex",
-                  panReady ? "text-foreground" : "text-muted-foreground"
-                )}
-              >
-                {panReady ? "Drag to pan" : "Hold"}
-                <Kbd
-                  aria-pressed={panReady}
-                  className={cn("transition-colors", panReady && "bg-foreground text-background")}
-                >
-                  Space
-                </Kbd>
-                {!panReady && "to pan"}
-              </p>
-            )}
-            <div className="flex-1" />
-            {gantt ? (
-              <>
-                <div className="hidden min-w-44 max-w-sm flex-1 md:block">
-                  <QuickAdd
-                    defaultStart={ganttQuickRange.start}
-                    defaultEnd={ganttQuickRange.end}
-                    categories={categories}
-                    defaultExecutor={aiQueue ? "ai" : "human"}
-                    placeholder="Gym every weekday 7am #health @ai"
-                    onCreate={applyQuickAdd}
-                  />
-                </div>
-                <div className="md:hidden">
-                  <CalendarCreateButton
-                    when="Current column"
-                    defaultStart={ganttQuickRange.start}
-                    defaultEnd={ganttQuickRange.end}
-                    categories={categories}
-                    defaultExecutor={aiQueue ? "ai" : "human"}
-                    disabled={!writable}
-                    disabledReason="This calendar is read-only"
-                    onCreate={applyQuickAdd}
-                  />
-                </div>
-              </>
-            ) : (
-              <CalendarCreateButton
-                when={createWhen}
-                defaultStart={calendarQuickStart}
-                defaultEnd={calendarQuickEnd}
-                categories={categories}
-                defaultExecutor={aiQueue ? "ai" : "human"}
-                disabled={!writable}
-                disabledReason="This calendar is read-only"
-                onCreate={applyQuickAdd}
-              />
-            )}
+            <ViewToggle value={view} onChange={switchView} />
+            <ScaleControl
+              value={gantt || scale !== "hour" ? scale : "day"}
+              onChange={(next) => setScale(next)}
+              scales={gantt ? undefined : CALENDAR_SCALES}
+            />
           </div>
+          {gantt ? (
+            <>
+              <div className="hidden w-64 md:block">
+                <QuickAdd
+                  defaultStart={ganttQuickRange.start}
+                  defaultEnd={ganttQuickRange.end}
+                  categories={categories}
+                  defaultExecutor={aiQueue ? "ai" : "human"}
+                  placeholder="Gym every weekday 7am #health @ai"
+                  onCreate={applyQuickAdd}
+                />
+              </div>
+              <div className="md:hidden">
+                <CalendarCreateButton
+                  when="Current column"
+                  defaultStart={ganttQuickRange.start}
+                  defaultEnd={ganttQuickRange.end}
+                  categories={categories}
+                  defaultExecutor={aiQueue ? "ai" : "human"}
+                  disabled={!writable}
+                  disabledReason="This calendar is read-only"
+                  onCreate={applyQuickAdd}
+                />
+              </div>
+            </>
+          ) : (
+            <CalendarCreateButton
+              when={createWhen}
+              defaultStart={calendarQuickStart}
+              defaultEnd={calendarQuickEnd}
+              categories={categories}
+              defaultExecutor={aiQueue ? "ai" : "human"}
+              disabled={!writable}
+              disabledReason="This calendar is read-only"
+              onCreate={applyQuickAdd}
+            />
+          )}
         </div>
       </div>
 
       <CalendarWorkspace
         left={
           !gantt && leftPanelOpen ? (
-            <PlanningPanel
-              range={calendarRange}
-              scale={scale}
-              periodLabel={viewedPeriod}
-              onClose={() => setLeftPanelOpen(false)}
-            />
+            <PlanningPanel range={calendarRange} scale={scale} periodLabel={viewedPeriod} />
           ) : null
         }
         right={
@@ -763,6 +810,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
               weekStartsOn={weekStartsOn}
               selectedDay={selectedDay}
               selectedHour={selectedHour}
+              objectives={aiQueue ? [] : objectivesForStrip}
               highlightId={selectedId ?? focusItemId}
               showCompleted={showCompleted}
               showObjectives={!leftPanelOpen}
@@ -771,6 +819,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
                 setSelectedHour(hour);
               }}
               onFocusMonth={(date) => {
+                void discardUnconfirmed();
                 setUserFocus(date);
                 setSelectedDay(date);
                 setScale("month");

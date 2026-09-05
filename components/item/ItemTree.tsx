@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { ItemBranchTree, type BranchNode } from "@/components/item/ItemBranchTree";
+import { ProgressDonut } from "@/components/item/ProgressDonut";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -13,7 +14,6 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { ProgressDonut } from "@/components/item/ProgressDonut";
 import { useSaveItem } from "@/hooks/useSaveItem";
 import { addSubtask, applyStatus, DomainError } from "@/lib/domain/items";
 import { childNoun, childProgress, childrenOf } from "@/lib/domain/tree";
@@ -33,7 +33,7 @@ function ChildRow({ planId, item }: { planId: string; item: PlanItem }) {
       <Link
         href={`/plan/${planId}/item/${item.id}`}
         className={cn(
-          "min-w-0 flex-1 truncate text-sm hover:underline",
+          "min-w-0 flex-1 truncate rounded-sm text-[13px] outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring",
           done && "text-muted-foreground line-through"
         )}
       >
@@ -55,27 +55,42 @@ interface ItemTreeProps {
   planId: string;
   parent: PlanItem;
   items: PlanItem[];
+  /** Print the section heading with the count; off when a parent section already names it. */
+  heading?: boolean;
 }
 
 /** Children of an item as a checklist: tasks under an objective, subtasks under a task. */
-export function ItemTree({ planId, parent, items }: ItemTreeProps) {
+export function ItemTree({ planId, parent, items, heading = true }: ItemTreeProps) {
   const nodes = toBranchNodes(planId, parent.id, items);
   const { done, total } = childProgress(parent.id, items);
   const noun = childNoun(parent.kind);
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center gap-3">
-        <h2 className="text-sm font-medium capitalize">{noun}</h2>
-        {total > 0 && <ProgressDonut done={done} total={total} />}
-      </div>
+    <section className="flex flex-col gap-2">
+      {heading && (
+        <div className="flex items-center gap-3">
+          <h2 className="text-sm font-medium capitalize">{noun}</h2>
+          {total > 0 && <ProgressDonut done={done} total={total} />}
+        </div>
+      )}
       {nodes.length > 0 ? (
         <ItemBranchTree nodes={nodes} className="-ml-1" />
       ) : (
-        <p className="text-sm text-muted-foreground">No {noun} yet.</p>
+        <p className="text-[13px] text-muted-foreground">No {noun} yet.</p>
       )}
       <AddChildRow parent={parent} noun={childNoun(parent.kind, 1)} />
     </section>
+  );
+}
+
+export function ItemTreeProgress({ parent, items }: { parent: PlanItem; items: PlanItem[] }) {
+  const { done, total } = childProgress(parent.id, items);
+  if (total === 0) return null;
+  return (
+    <span className="flex items-center gap-1.5 text-[11px] tabular-nums text-muted-foreground">
+      <ProgressDonut done={done} total={total} size={16} stroke={2.5} label={false} />
+      {done}/{total}
+    </span>
   );
 }
 
@@ -98,7 +113,13 @@ function AddChildRow({ parent, noun }: { parent: PlanItem; noun: string }) {
 
   if (!open) {
     return (
-      <Button type="button" variant="ghost" size="xs" className="text-muted-foreground" onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        className="-ml-1.5 w-fit text-muted-foreground"
+        onClick={() => setOpen(true)}
+      >
         <Plus />
         Add {noun}
       </Button>
@@ -112,7 +133,7 @@ function AddChildRow({ parent, noun }: { parent: PlanItem; noun: string }) {
         void submit();
       }}
     >
-      <InputGroup>
+      <InputGroup className="h-8">
         <InputGroupAddon>
           <Plus />
         </InputGroupAddon>

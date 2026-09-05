@@ -4,76 +4,92 @@ import { ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { createId } from "@/lib/id";
+import { cn } from "@/lib/utils";
 import type { ItemImage } from "@/types";
 
 const MAX_BYTES = 1_500_000;
+
+async function readImages(files: FileList | null): Promise<ItemImage[]> {
+  if (!files?.length) return [];
+  const next: ItemImage[] = [];
+  for (const file of Array.from(files)) {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Choose an image file.");
+      continue;
+    }
+    if (file.size > MAX_BYTES) {
+      toast.error("Keep images under 1.5 MB.");
+      continue;
+    }
+    const src = await readFile(file);
+    next.push({ id: createId(), name: file.name, src });
+  }
+  return next;
+}
+
+/** Quiet "add image" affordance, usable in a section header or as an empty-state action. */
+export function ImageAddButton({
+  onAdd,
+  className,
+  label = "Image",
+}: {
+  onAdd: (images: ItemImage[]) => void;
+  className?: string;
+  label?: string;
+}) {
+  return (
+    <label
+      className={cn(
+        "inline-flex h-6 cursor-pointer items-center gap-1 rounded-md px-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring",
+        className
+      )}
+    >
+      <ImagePlus className="size-3" />
+      {label}
+      <input
+        type="file"
+        accept="image/*"
+        multiple
+        className="sr-only"
+        onChange={(event) => {
+          const input = event.target;
+          void readImages(input.files).then((images) => {
+            if (images.length) onAdd(images);
+            input.value = "";
+          });
+        }}
+      />
+    </label>
+  );
+}
 
 interface ItemImagesProps {
   images: ItemImage[];
   onChange: (images: ItemImage[]) => void;
 }
 
+/** Thumbnails only; adding lives in `ImageAddButton`. Renders nothing when empty. */
 export function ItemImages({ images, onChange }: ItemImagesProps) {
-  const addFiles = async (files: FileList | null) => {
-    if (!files?.length) return;
-    const next = [...images];
-    for (const file of Array.from(files)) {
-      if (!file.type.startsWith("image/")) {
-        toast.error("Choose an image file.");
-        continue;
-      }
-      if (file.size > MAX_BYTES) {
-        toast.error("Keep images under 1.5 MB.");
-        continue;
-      }
-      const src = await readFile(file);
-      next.push({ id: createId(), name: file.name, src });
-    }
-    onChange(next);
-  };
-
+  if (images.length === 0) return null;
   return (
-    <section className="space-y-2">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium">Images</h2>
-        <label className="inline-flex cursor-pointer items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-          <ImagePlus className="size-3.5" />
-          Add
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            className="sr-only"
-            onChange={(event) => {
-              void addFiles(event.target.files);
-              event.target.value = "";
-            }}
-          />
-        </label>
-      </div>
-      {images.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Optional photos, tickets or references.</p>
-      ) : (
-        <ul className="grid grid-cols-2 gap-2">
-          {images.map((image) => (
-            <li key={image.id} className="group relative overflow-hidden rounded-md border">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={image.src} alt={image.name} className="h-24 w-full object-cover" />
-              <Button
-                type="button"
-                size="icon-xs"
-                variant="secondary"
-                className="absolute top-1 right-1 opacity-0 group-hover:opacity-100"
-                aria-label={`Remove ${image.name}`}
-                onClick={() => onChange(images.filter((entry) => entry.id !== image.id))}
-              >
-                <X />
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+    <ul className="grid grid-cols-3 gap-1.5">
+      {images.map((image) => (
+        <li key={image.id} className="group relative overflow-hidden rounded-md border border-cal-line-strong">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image.src} alt={image.name} className="aspect-[4/3] w-full object-cover" />
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="secondary"
+            className="absolute top-1 right-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+            aria-label={`Remove ${image.name}`}
+            onClick={() => onChange(images.filter((entry) => entry.id !== image.id))}
+          >
+            <X />
+          </Button>
+        </li>
+      ))}
+    </ul>
   );
 }
 

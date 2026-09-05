@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { addDays, differenceInCalendarDays, eachDayOfInterval, format, isSameDay, startOfWeek } from "date-fns";
+import { addDays, eachDayOfInterval, format, isSameDay, startOfWeek } from "date-fns";
 import { useCalendarUi } from "@/components/calendar/calendar-ui";
 import { CalendarEvent } from "@/components/calendar/CalendarEvent";
+import { AllDayGhost, TimedGhost } from "@/components/calendar/CalendarGhost";
+import { CalendarNowLine, CalendarPastFill } from "@/components/calendar/CalendarNowLine";
 import {
   occupiesMonthDay,
   occurrenceInterval,
@@ -11,21 +13,60 @@ import {
   timedLabel,
   type CalendarOccurrence,
 } from "@/lib/calendar";
-import { minutesOf } from "@/lib/calendar-snap";
-import { useCalendarPointer, type CalendarDragPreview } from "@/hooks/useCalendarPointer";
+import { HOUR_PX, nowLineOffset, pad2 } from "@/lib/calendar-snap";
+import { useCalendarPointer } from "@/hooks/useCalendarPointer";
+import { useNowCoarse } from "@/hooks/useNow";
+import { useScrollbarGutter } from "@/hooks/useScrollbarGutter";
 import { formatLocalDate, parseLocal } from "@/lib/time/local";
+import { containsNow, isElapsedDay, isElapsedOccurrence } from "@/lib/time/presence";
 import { cn } from "@/lib/utils";
 
-export const HOUR_PX = 44;
+export { HOUR_PX };
+export { AllDayGhost, TimedGhost } from "@/components/calendar/CalendarGhost";
 const LANE_PX = 22;
-
-function pad(value: number): string {
-  return value < 10 ? `0${value}` : String(value);
-}
+const GUTTER = "3.25rem";
+const GUTTER_PX = 52;
 
 function dayRange(date: Date): { start: Date; end: Date } {
   const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   return { start, end: addDays(start, 1) };
+}
+
+/** Open the day around now when today is in view, otherwise at the morning. */
+export function initialScrollTop(range: { start: Date; end: Date }): number {
+  const now = new Date();
+  if (containsNow(range, now)) return Math.max(0, nowLineOffset(now) - 2 * HOUR_PX);
+  return 8 * HOUR_PX;
+}
+
+/** Hour labels sit on the line they name; midnight is implied by the top edge. */
+export function HourGutter() {
+  return (
+    <div className="relative" aria-hidden>
+      {Array.from({ length: 23 }, (_, index) => {
+        const hour = index + 1;
+        return (
+          <span
+            key={hour}
+            className="absolute right-2 -translate-y-1/2 text-[11px] leading-none tabular-nums text-muted-foreground"
+            style={{ top: hour * HOUR_PX }}
+          >
+            {pad2(hour)}:00
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+export function HourRows() {
+  return (
+    <>
+      {Array.from({ length: 24 }, (_, hour) => (
+        <div key={hour} className="border-b border-cal-line last:border-b-0" style={{ height: HOUR_PX }} />
+      ))}
+    </>
+  );
 }
 
 interface CalendarWeekProps {
@@ -48,7 +89,6 @@ export function CalendarWeek({
   const weekStart = startOfWeek(focus, { weekStartsOn });
   const days = eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) });
   const weekRange = { start: weekStart, end: addDays(weekStart, 7) };
-  const today = new Date();
   const allDay = occurrences.filter((occurrence) => occurrence.allDay);
   const packed = packInRange(
     allDay
@@ -63,9 +103,17 @@ export function CalendarWeek({
     weekRange
   );
   const allDayById = new Map(allDay.map((occurrence) => [occurrence.id, occurrence]));
-  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [scrollerEl, setScrollerEl] = useState<HTMLDivElement | null>(null);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const attachScroller = useCallback((el: HTMLDivElement | null) => {
+    scrollerRef.current = el;
+    setScrollerEl(el);
+  }, []);
   const [gridEl, setGridEl] = useState<HTMLDivElement | null>(null);
+  const scrollbar = useScrollbarGutter(scrollerEl);
   const ui = useCalendarUi();
+  const now = useNowCoarse();
+  const anchorNow = containsNow(weekRange, now);
   const onMoveItem = ui?.onMoveItem;
   const onCommit = useCallback(
     (commit: Parameters<NonNullable<typeof onMoveItem>>[0]) => {
@@ -73,13 +121,20 @@ export function CalendarWeek({
     },
     [onMoveItem]
   );
-  const { preview, draggingId } = useCalendarPointer(gridEl, onCommit);
+  const onCreate = ui?.canCreate ? ui.onCreateSlot : undefined;
+  const { preview, draggingId } = useCalendarPointer(gridEl, onCommit, onCreate);
 
   useEffect(() => {
-    if (!scrollerRef.current) return;
-    const hour = isSameDay(focus, new Date()) ? new Date().getHours() : 8;
-    scrollerRef.current.scrollTop = Math.max(0, (hour - 1) * HOUR_PX);
-  }, [focus]);
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const start = startOfWeek(focus, { weekStartsOn });
+    scroller.scrollTop = initialScrollTop({ start, end: addDays(start, 7) });
+  }, [focus, scrollerEl, weekStartsOn]);
+
+  const columns = `${GUTTER} repeat(7, minmax(0, 1fr))`;
+  // Rows above the scroller reserve its scrollbar width, so every column
+  // (header, all-day, timed) shares one reference grid.
+  const rowStyle = { gridTemplateColumns: columns, paddingRight: scrollbar };
 
   return (
     <div
@@ -87,59 +142,78 @@ export function CalendarWeek({
       data-cal-grid="week"
       data-cal-origin={formatLocalDate(weekStart)}
       data-cal-days="7"
-      data-cal-gutter="56"
+      data-cal-gutter={GUTTER_PX}
       className="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
-      <div className="grid border-b" style={{ gridTemplateColumns: "3.5rem repeat(7, minmax(0, 1fr))" }}>
+      <div className="grid border-b border-cal-line-strong" style={rowStyle}>
         <div />
         {days.map((day) => {
-          const current = isSameDay(day, today);
+          const current = isSameDay(day, now);
           const selected = isSameDay(day, selectedDay);
+          const elapsed = anchorNow && isElapsedDay(day, now);
           return (
             <button
               key={day.toISOString()}
               type="button"
+              aria-current={current ? "date" : undefined}
               onClick={() => onSelectDay(day)}
               className={cn(
-                "border-l px-1 py-2 text-left sm:px-2",
-                current && "bg-primary/5",
-                selected && "bg-accent/70"
+                "flex h-9 min-w-0 items-center gap-1 border-l border-cal-line px-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:gap-1.5 sm:px-2",
+                current && "bg-cal-today",
+                selected && !current && "bg-cal-selected"
               )}
             >
-              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                {format(day, "EEE")}
-              </p>
-              <p
+              <span
                 className={cn(
-                  "text-lg font-semibold tabular-nums",
-                  current &&
-                    "inline-flex size-8 items-center justify-center rounded-full bg-primary text-sm text-primary-foreground"
+                  "text-[11px] font-medium uppercase tracking-wide",
+                  current ? "text-now" : "text-muted-foreground"
+                )}
+              >
+                <span className="sm:hidden">{format(day, "EEEEE")}</span>
+                <span className="hidden sm:inline">{format(day, "EEE")}</span>
+              </span>
+              <span
+                className={cn(
+                  "inline-flex size-6 items-center justify-center rounded-full text-[15px] font-semibold tabular-nums",
+                  current && "bg-now text-now-foreground",
+                  elapsed && !current && "text-muted-foreground"
                 )}
               >
                 {format(day, "d")}
-              </p>
+              </span>
             </button>
           );
         })}
       </div>
 
-      <div className="shrink-0 border-b">
-        <div className="grid" style={{ gridTemplateColumns: "3.5rem repeat(7, minmax(0, 1fr))" }}>
-          <p className="px-1 pt-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+      <div className="shrink-0 border-b border-cal-line-strong">
+        <div className="grid" style={rowStyle}>
+          <p className="self-center pr-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             All day
           </p>
           <div
             data-cal-allday
             className="relative col-span-7"
-            style={{ height: Math.max(1, packed.laneCount) * LANE_PX + 8 }}
+            style={{ height: Math.max(1, packed.laneCount) * LANE_PX + 6 }}
           >
+            {days.map((day, index) => (
+              <div
+                key={day.toISOString()}
+                aria-hidden
+                className={cn(
+                  "absolute inset-y-0 border-l border-cal-line",
+                  isSameDay(day, now) && "bg-cal-today"
+                )}
+                style={{ left: `${(index / 7) * 100}%`, width: `${100 / 7}%` }}
+              />
+            ))}
             {packed.spans.map((span) => {
               const occurrence = allDayById.get(span.id);
               if (!occurrence) return null;
               return (
                 <div
                   key={span.id}
-                  className="absolute px-0.5"
+                  className="absolute px-0.5 pt-[3px]"
                   style={{
                     left: `${span.startFrac * 100}%`,
                     width: `${Math.max(1 / 7, span.endFrac - span.startFrac) * 100}%`,
@@ -151,40 +225,26 @@ export function CalendarWeek({
                     highlight={occurrence.itemId === highlightId}
                     draggable
                     dimmed={draggingId === occurrence.itemId}
+                    elapsed={anchorNow && isElapsedOccurrence(occurrence, now)}
                   />
                 </div>
               );
             })}
-            {preview?.allDay && (
-              <AllDayGhost preview={preview} origin={weekStart} />
-            )}
+            {preview?.allDay && <AllDayGhost preview={preview} origin={weekStart} />}
           </div>
         </div>
       </div>
 
-      <div ref={scrollerRef} data-cal-timed className="min-h-0 flex-1 overflow-y-auto">
-        <div
-          className="relative grid"
-          style={{
-            gridTemplateColumns: "3.5rem repeat(7, minmax(0, 1fr))",
-            height: 24 * HOUR_PX,
-          }}
-        >
-          <div>
-            {Array.from({ length: 24 }, (_, hour) => (
-              <div
-                key={hour}
-                className="border-b border-border/50 px-1 text-[11px] tabular-nums text-muted-foreground"
-                style={{ height: HOUR_PX }}
-              >
-                {pad(hour)}:00
-              </div>
-            ))}
-          </div>
+      <div ref={attachScroller} data-cal-timed className="scroll-thin min-h-0 flex-1 overflow-y-auto">
+        <div data-cal-columns className="relative grid" style={{ gridTemplateColumns: columns, height: 24 * HOUR_PX }}>
+          <HourGutter />
           {days.map((day) => {
             const range = dayRange(day);
             const timed = occurrences.filter(
-              (occurrence) => !occurrence.allDay && occurrenceInterval(occurrence).start < range.end && occurrenceInterval(occurrence).end > range.start
+              (occurrence) =>
+                !occurrence.allDay &&
+                occurrenceInterval(occurrence).start < range.end &&
+                occurrenceInterval(occurrence).end > range.start
             );
             const packedDay = packInRange(
               timed.map((occurrence) => ({ id: occurrence.id, interval: occurrenceInterval(occurrence) })),
@@ -192,20 +252,23 @@ export function CalendarWeek({
             );
             const byId = new Map(timed.map((occurrence) => [occurrence.id, occurrence]));
             const laneCount = Math.max(1, packedDay.laneCount);
+            const current = isSameDay(day, now);
             const selected = isSameDay(day, selectedDay);
             return (
               <div
                 key={day.toISOString()}
-                className={cn("relative border-l", selected && "bg-accent/30")}
+                className={cn(
+                  "relative border-l border-cal-line",
+                  current && "bg-cal-today",
+                  selected && !current && "bg-cal-selected"
+                )}
                 onClick={(event) => {
                   const rect = event.currentTarget.getBoundingClientRect();
                   const hour = Math.min(23, Math.max(0, Math.floor((event.clientY - rect.top) / HOUR_PX)));
                   onSelectDay(day, hour);
                 }}
               >
-                {Array.from({ length: 24 }, (_, hour) => (
-                  <div key={hour} className="border-b border-border/50" style={{ height: HOUR_PX }} />
-                ))}
+                <HourRows />
                 {packedDay.spans.map((span) => {
                   const occurrence = byId.get(span.id);
                   if (!occurrence) return null;
@@ -213,10 +276,10 @@ export function CalendarWeek({
                   return (
                     <div
                       key={span.id}
-                      className="absolute px-0.5"
+                      className="absolute px-0.5 py-px"
                       style={{
                         top: span.startFrac * 24 * HOUR_PX,
-                        height: Math.max(18, (span.endFrac - span.startFrac) * 24 * HOUR_PX),
+                        height: Math.max(20, (span.endFrac - span.startFrac) * 24 * HOUR_PX),
                         left: `${span.lane * colWidth}%`,
                         width: `${colWidth}%`,
                       }}
@@ -226,10 +289,10 @@ export function CalendarWeek({
                         occurrence={occurrence}
                         time={timedLabel(occurrence)}
                         variant="block"
-                        className="h-full"
                         highlight={occurrence.itemId === highlightId}
                         draggable
                         dimmed={draggingId === occurrence.itemId}
+                        elapsed={anchorNow && isElapsedOccurrence(occurrence, now)}
                       />
                     </div>
                   );
@@ -237,62 +300,16 @@ export function CalendarWeek({
               </div>
             );
           })}
+          {anchorNow && (
+            <>
+              <CalendarPastFill origin={weekStart} days={7} gutter={GUTTER} />
+              <CalendarNowLine origin={weekStart} days={7} gutter={GUTTER} />
+            </>
+          )}
           {preview && !preview.allDay && (
-            <TimedGhost preview={preview} origin={weekStart} days={7} gutter="3.5rem" />
+            <TimedGhost preview={preview} origin={weekStart} days={7} gutter={GUTTER} />
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-export function AllDayGhost({ preview, origin }: { preview: CalendarDragPreview; origin: Date }) {
-  const start = parseLocal(preview.start.slice(0, 10));
-  const end = parseLocal((preview.end ?? preview.start).slice(0, 10));
-  const from = Math.max(0, differenceInCalendarDays(start, origin));
-  const to = Math.min(6, differenceInCalendarDays(end, origin));
-  if (to < 0 || from > 6) return null;
-  return (
-    <div
-      className="pointer-events-none absolute top-0 z-30 px-0.5"
-      style={{ left: `${(from / 7) * 100}%`, width: `${((to - from + 1) / 7) * 100}%` }}
-    >
-      <div className="rounded-md border border-dashed border-foreground/40 bg-background/85 px-1.5 py-0.5 text-[11px]">
-        {preview.label}
-      </div>
-    </div>
-  );
-}
-
-export function TimedGhost({
-  preview,
-  origin,
-  days,
-  gutter,
-}: {
-  preview: CalendarDragPreview;
-  origin: Date;
-  days: number;
-  gutter: string;
-}) {
-  const start = parseLocal(preview.start);
-  const end = parseLocal(preview.end ?? preview.start);
-  const index = differenceInCalendarDays(new Date(start.getFullYear(), start.getMonth(), start.getDate()), origin);
-  if (index < 0 || index >= days) return null;
-  const top = (minutesOf(start) / 60) * HOUR_PX;
-  const height = Math.max(18, ((end.getTime() - start.getTime()) / 3_600_000) * HOUR_PX);
-  return (
-    <div
-      className="pointer-events-none absolute z-30 px-0.5"
-      style={{
-        left: `calc(${gutter} + ${index} * (100% - ${gutter}) / ${days})`,
-        width: `calc((100% - ${gutter}) / ${days})`,
-        top,
-        height,
-      }}
-    >
-      <div className="flex h-full items-start rounded-md border border-dashed border-foreground/40 bg-background/85 px-1.5 py-1 text-[11px] font-medium">
-        {preview.label}
       </div>
     </div>
   );

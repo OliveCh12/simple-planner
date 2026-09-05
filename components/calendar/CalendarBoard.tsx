@@ -16,7 +16,10 @@ import {
 import type { Category, PlanItem, TimeScale } from "@/types";
 
 interface CalendarBoardProps {
+  /** Entries that occupy the grid. Objectives are passed separately. */
   items: PlanItem[];
+  /** Objectives to consider for the strip; filtered to the visible range here. */
+  objectives?: PlanItem[];
   categories: Category[];
   scale: TimeScale;
   focus: Date;
@@ -32,6 +35,7 @@ interface CalendarBoardProps {
 
 export function CalendarBoard({
   items,
+  objectives: objectiveSource = [],
   categories,
   scale,
   focus,
@@ -49,9 +53,9 @@ export function CalendarBoard({
     [scale, focus, weekStartsOn]
   );
   const objectives = useMemo(() => {
-    const active = objectivesInRange(items, range);
+    const active = objectivesInRange(objectiveSource, range);
     return showCompleted ? active : active.filter((objective) => isCalendarActive(objective.status));
-  }, [items, range, showCompleted]);
+  }, [objectiveSource, range, showCompleted]);
   const occurrences = useMemo(() => {
     const dated = items.filter((item) => item.kind !== "objective");
     const visible = occurrencesInRange(dated, range, categories);

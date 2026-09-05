@@ -35,8 +35,13 @@ export type CreateItemInput = {
   location?: PlanItem["location"];
   images?: ItemImage[];
   externalId?: string;
+  draft?: boolean;
   id?: string;
 };
+
+export function isUnconfirmedDraft(item: PlanItem): boolean {
+  return Boolean(item.draft) && !item.title.trim();
+}
 
 export function createItem(input: CreateItemInput): PlanItem {
   const now = nowIso();
@@ -64,6 +69,7 @@ export function createItem(input: CreateItemInput): PlanItem {
   if (input.location) item.location = input.location;
   if (input.images?.length) item.images = input.images;
   if (input.externalId) item.externalId = input.externalId;
+  if (input.draft) item.draft = true;
   return parseItem(item);
 }
 
@@ -93,6 +99,7 @@ export function updateItem(item: PlanItem, patch: Partial<Omit<PlanItem, "id" | 
   if ("location" in patch && !patch.location) delete next.location;
   if ("images" in patch && !patch.images?.length) delete next.images;
   if ("completedAt" in patch && !patch.completedAt) delete next.completedAt;
+  if ("draft" in patch && !patch.draft) delete next.draft;
   return parseItem(next);
 }
 

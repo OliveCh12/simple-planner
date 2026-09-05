@@ -41,19 +41,20 @@ export function linkedObjective(item: PlanItem, byId: Map<string, PlanItem>): Pl
  * Standalone events stay on the grid; this pane is goals, prep, and work to place.
  */
 export function planningContext(items: PlanItem[], range: Interval, scale: TimeScale): PlanningContext {
-  const byId = indexById(items);
-  const objectives = items
+  const live = items.filter((item) => !item.draft);
+  const byId = indexById(live);
+  const objectives = live
     .filter((item) => item.kind === "objective" && touchesRange(item, range) && isCalendarActive(item.status))
     .sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
 
   const groups: PlanningObjective[] = objectives.map((objective) => {
-    const kids = childrenOf(objective.id, items);
+    const kids = childrenOf(objective.id, live);
     const events = kids.filter((child) => child.kind === "event" && isCalendarActive(child.status));
     const tasks = kids.filter((child) => child.kind === "task" && isCalendarActive(child.status));
     const toSchedule = tasks.filter((task) => !isPlacedOnGrid(task) || !touchesRange(task, range));
     return {
       item: objective,
-      progress: childProgress(objective.id, items),
+      progress: childProgress(objective.id, live),
       events: events.filter((event) => scale === "year" || touchesRange(event, range) || scale === "month"),
       tasks: tasks.filter((task) => isPlacedOnGrid(task) && (scale === "year" || touchesRange(task, range))),
       toSchedule,
@@ -78,16 +79,16 @@ export function planningContext(items: PlanItem[], range: Interval, scale: TimeS
 
   const prep: PlanningPrep[] = [];
   if (scale === "week" || scale === "day" || scale === "hour") {
-    for (const item of items) {
+    for (const item of live) {
       if (item.kind !== "event" || !touchesRange(item, range) || !isCalendarActive(item.status)) continue;
-      const nested = childrenOf(item.id, items).filter((child) => child.kind === "task" && child.status !== "cancelled");
+      const nested = childrenOf(item.id, live).filter((child) => child.kind === "task" && child.status !== "cancelled");
       if (nested.length === 0) continue;
       prep.push({ event: item, tasks: nested });
     }
   }
 
   const seen = new Set(trimmed.flatMap((group) => group.toSchedule.map((task) => task.id)));
-  const loose = items.filter((item) => {
+  const loose = live.filter((item) => {
     if (item.kind !== "task" || !isCalendarActive(item.status)) return false;
     if (isSubtask(item, byId)) return false;
     const direct = item.parentId ? byId.get(item.parentId) : undefined;

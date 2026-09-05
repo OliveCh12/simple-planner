@@ -62,6 +62,11 @@ export interface PlanItem {
   parentId?: string;
   /** Id on an external calendar. Present only for imported or synced events. */
   externalId?: string;
+  /**
+   * In-progress create from an empty slot. Untitled drafts are not real events:
+   * abandoning the editor deletes them. Confirmed once the title is set.
+   */
+  draft?: boolean;
   /** Local civil time. Required. */
   start: LocalDateTime;
   /** Absent = a point in time: a milestone, or an instant for events. */

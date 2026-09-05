@@ -6,11 +6,13 @@ import {
   createItem,
   DomainError,
   excludeOccurrence,
+  isUnconfirmedDraft,
   moveItem,
   setExecutor,
   setKind,
   setParent,
   splitOccurrence,
+  updateItem,
 } from "@/lib/domain/items";
 import { expandRecurrence } from "@/lib/time/recurrence";
 
@@ -58,6 +60,23 @@ describe("createItem", () => {
         parentId: "obj-1",
       })
     ).toThrow(DomainError);
+  });
+
+  it("keeps an untitled event as an unconfirmed draft", () => {
+    const item = createItem({
+      planId: "plan-1",
+      title: "",
+      start: "2026-09-05T13:00",
+      end: "2026-09-05T14:00",
+      kind: "event",
+      draft: true,
+    });
+    expect(item.draft).toBe(true);
+    expect(item.title).toBe("");
+    expect(isUnconfirmedDraft(item)).toBe(true);
+    const confirmed = updateItem(item, { title: "Lunch", draft: undefined });
+    expect(confirmed.draft).toBeUndefined();
+    expect(isUnconfirmedDraft(confirmed)).toBe(false);
   });
 
   it("rejects an inverted range", () => {

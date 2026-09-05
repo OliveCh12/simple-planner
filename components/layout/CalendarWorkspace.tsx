@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useRef, useState, type ReactNode } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { clampPanelWidth, PANEL_WIDTH } from "@/lib/layout/panel";
+import { revealPane } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/store/uiStore";
 
@@ -47,7 +48,7 @@ export function CalendarWorkspace({
           {left}
         </CalendarPanel>
       ) : null}
-      <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">{children}</div>
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
       {right ? (
         <CalendarPanel
           side="right"
@@ -77,9 +78,19 @@ function CalendarPanel({
 }) {
   const [dragging, setDragging] = useState(false);
   const label = side === "right" ? "Details" : "Sidebar";
+  const asideRef = useRef<HTMLElement>(null);
+
+  // Grow into place on mount; the laid-out width is the target, whatever the clamp chose.
+  useLayoutEffect(() => {
+    const el = asideRef.current;
+    if (!el || !window.matchMedia("(min-width: 768px)").matches) return;
+    const target = el.getBoundingClientRect().width;
+    if (target > 0) revealPane(el, target);
+  }, []);
 
   return (
     <aside
+      ref={asideRef}
       aria-label={label}
       data-calendar-panel={side}
       style={{ ["--panel-width" as string]: `${width}px` }}
@@ -88,8 +99,8 @@ function CalendarPanel({
         "max-md:absolute max-md:inset-0 max-md:z-20 max-md:w-full",
         "md:relative md:w-[var(--panel-width)] md:min-w-[16.25rem] md:shrink-0",
         crowded ? "md:max-w-[32%]" : "md:max-w-[45%]",
-        side === "right" && "md:border-l md:border-sidebar-border",
-        side === "left" && "md:border-r md:border-sidebar-border",
+        side === "right" && "md:border-l md:border-cal-line-strong",
+        side === "left" && "md:border-r md:border-cal-line-strong",
         !dragging && "md:transition-[width] md:duration-200 md:ease-out"
       )}
     >

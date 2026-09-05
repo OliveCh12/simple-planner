@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { itemToTask, taskToItem } from "@/lib/domain/convert";
+import { isUnconfirmedDraft } from "@/lib/domain/items";
 import { updatePlanRecord } from "@/lib/domain/plans";
 import { getRepository } from "@/lib/repository/create";
 import type { Category, Person, Plan, PlanItem, Task } from "@/types";
@@ -41,6 +42,14 @@ function repo() {
 
 function upsertById<T extends { id: string }>(list: T[], entity: T): T[] {
   return [...list.filter((entry) => entry.id !== entity.id), entity];
+}
+
+/** Keep in-memory drafts across a repository refresh. */
+function withDrafts(loaded: PlanItem[], previous: PlanItem[]): PlanItem[] {
+  const drafts = previous.filter((item) => item.draft);
+  if (drafts.length === 0) return loaded;
+  const draftIds = new Set(drafts.map((item) => item.id));
+  return [...loaded.filter((item) => !draftIds.has(item.id)), ...drafts];
 }
 
 function sortPlans(plans: Plan[]): Plan[] {
@@ -116,11 +125,14 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
       const touched = { ...plan, lastAccessedAt };
       await repo().plans.put(touched);
 
-      const [items, people, categories] = await Promise.all([
+      const [loaded, people, categories] = await Promise.all([
         repo().items.listByPlan(id),
         repo().people.list(),
         repo().categories.list(),
       ]);
+      const orphans = loaded.filter(isUnconfirmedDraft);
+      const items = loaded.filter((item) => !isUnconfirmedDraft(item));
+      await Promise.all(orphans.map((item) => repo().items.delete(item.id)));
 
       set({
         currentPlan: touched,
@@ -154,7 +166,7 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
         set({ currentPlan: null, items: [], error: "Plan not found" });
         return;
       }
-      set({ currentPlan: plan, items, people, categories, error: null });
+      set({ currentPlan: plan, items: withDrafts(items, get().items), people, categories, error: null });
     } catch (error) {
       console.error("Failed to refresh plan:", error);
     } finally {
@@ -182,6 +194,11 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
   putItem: async (item) => {
     const current = get().currentPlan;
     if (!current) return;
+    if (item.draft) {
+      // Drafts live in memory only; they reach the repository once titled.
+      set({ items: upsertById(get().items, item) });
+      return;
+    }
     const plan = updatePlanRecord(current, {});
     set({ currentPlan: plan, items: upsertById(get().items, item) });
     beginWrite();
@@ -200,6 +217,10 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
   deleteItem: async (id) => {
     const current = get().currentPlan;
     if (!current) return;
+    if (get().items.find((item) => item.id === id)?.draft) {
+      set({ items: get().items.filter((item) => item.id !== id) });
+      return;
+    }
     const plan = updatePlanRecord(current, {});
     set({
       currentPlan: plan,

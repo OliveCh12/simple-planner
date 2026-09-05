@@ -9,7 +9,7 @@ import type { PlannerRepository } from "@/lib/repository/types";
 
 export const DEMO_PLAN_ID = "plan-demo-career";
 export const DEMO_EVENT_ID = "event-jazz";
-export const DEMO_SEED_ITEM = "event-ardeche";
+export const DEMO_SEED_ITEM = "event-offsite";
 
 function currentYearRange() {
   const year = new Date().getFullYear();

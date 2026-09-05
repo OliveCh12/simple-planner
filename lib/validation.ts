@@ -179,6 +179,7 @@ export const planItemSchema = z
       )
       .optional(),
     externalId: z.string().min(1).optional(),
+    draft: z.boolean().optional(),
     completedAt: z.string().optional(),
     createdAt: z.string(),
     updatedAt: z.string(),

@@ -1,25 +1,60 @@
 "use client";
 
+import { useRef, type CSSProperties } from "react";
 import { ChevronRight, CornerDownRight, Repeat } from "lucide-react";
 import { useCalendarUi } from "@/components/calendar/calendar-ui";
 import { SubtaskTree } from "@/components/calendar/SubtaskTree";
+import { SourceMark } from "@/components/plan/SourceMark";
+import { useFlip } from "@/hooks/useFlip";
 import { useChildProgress, useHasFoldableChildren, useIsSubtask } from "@/hooks/useItemTree";
 import { timedLabel, type CalendarOccurrence } from "@/lib/calendar";
 import { categorySurface, surfaceTone } from "@/lib/colors";
 import { getKindOption, getStatusOption } from "@/lib/constants";
+import { isElapsedOccurrence } from "@/lib/time/presence";
 import { cn } from "@/lib/utils";
-import { SourceMark } from "@/components/plan/SourceMark";
 import { usePlannerStore } from "@/store/plannerStore";
+
+export type CalendarEventVariant = "chip" | "block" | "dot";
 
 interface CalendarEventProps {
   occurrence: CalendarOccurrence;
   time?: string;
-  /** Compact row (month, all-day) or a filling block (week/day timed). */
-  variant?: "chip" | "block";
+  /**
+   * `chip`: one tinted row (all-day lanes, lists). `block`: fills a timed
+   * slot in week/day grids. `dot`: plain text with a color dot, for timed
+   * items listed inside a month cell.
+   */
+  variant?: CalendarEventVariant;
   className?: string;
   highlight?: boolean;
   draggable?: boolean;
   dimmed?: boolean;
+  /** Past occurrence while the visible range still contains now. */
+  elapsed?: boolean;
+}
+
+/** Grab zone on the edge with a small pill that only shows on hover or selection. */
+function ResizeHandle({ edge, block, visible }: { edge: "start" | "end"; block: boolean; visible: boolean }) {
+  return (
+    <span
+      data-cal-resize={edge}
+      aria-hidden
+      className={cn(
+        "absolute z-[3] flex opacity-0 transition-opacity duration-150 group-hover/cal:opacity-100",
+        visible && "opacity-100",
+        block
+          ? cn("inset-x-0 h-2.5 cursor-ns-resize justify-center", edge === "start" ? "top-0 items-start" : "bottom-0 items-end")
+          : cn("inset-y-0 w-2.5 cursor-ew-resize items-center", edge === "start" ? "left-0 justify-start" : "right-0 justify-end")
+      )}
+    >
+      <span
+        className={cn(
+          "rounded-full bg-current/45",
+          block ? cn("h-[3px] w-5", edge === "start" ? "mt-[3px]" : "mb-[3px]") : cn("h-3 w-[3px]", edge === "start" ? "ml-[3px]" : "mr-[3px]")
+        )}
+      />
+    </span>
+  );
 }
 
 export function CalendarEvent({
@@ -30,6 +65,7 @@ export function CalendarEvent({
   highlight,
   draggable = false,
   dimmed = false,
+  elapsed = false,
 }: CalendarEventProps) {
   const item = usePlannerStore((s) => s.items.find((entry) => entry.id === occurrence.itemId));
   const currentPlan = usePlannerStore((s) => s.currentPlan);
@@ -37,74 +73,82 @@ export function CalendarEvent({
   const { done, total } = useChildProgress(occurrence.itemId);
   const foldable = useHasFoldableChildren(occurrence.itemId);
   const subtask = useIsSubtask({ kind: occurrence.kind, parentId: item?.parentId });
+  const rootRef = useRef<HTMLDivElement>(null);
+  useFlip(occurrence.id, rootRef);
   if (!item) return null;
 
   const kind = getKindOption(occurrence.kind);
   const status = getStatusOption(occurrence.status);
-  const color = occurrence.categoryColor;
+  const tint = occurrence.categoryColor ?? currentPlan?.color;
+  const surface = tint ? categorySurface(tint, surfaceTone(occurrence.kind, subtask)) : undefined;
   const label = time ?? timedLabel(occurrence);
-  const Icon = subtask ? CornerDownRight : kind.icon;
+  const block = variant === "block";
+  const dot = variant === "dot";
+  const draft = Boolean(item.draft);
+  const tinted = !dot;
+  const isEvent = occurrence.kind === "event";
   const expanded = Boolean(ui?.showSubtasks || ui?.expandedIds.has(occurrence.itemId));
   const selected = highlight || ui?.selectedId === occurrence.itemId;
-  const surface = color ? categorySurface(color, surfaceTone(occurrence.kind, subtask)) : undefined;
-  const block = variant === "block";
-  const compactTree = variant === "chip";
+  const untitled = !occurrence.title.trim();
+  const displayTitle = untitled ? `New ${kind.label.toLowerCase()}` : occurrence.title;
+  const showStatus = !draft && (!isEvent || occurrence.status !== "pending");
+  const Icon = subtask ? CornerDownRight : kind.icon;
+
+  const style: CSSProperties | undefined = surface
+    ? {
+        ["--cat" as string]: surface.color,
+        ...(tinted ? { backgroundImage: surface.backgroundImage, color: surface.ink } : {}),
+      }
+    : undefined;
 
   return (
     <div
+      ref={rootRef}
       data-cal-item={occurrence.id}
       data-item-id={occurrence.itemId}
       data-occurrence-start={occurrence.start}
       data-start={occurrence.start}
       data-end={occurrence.end ?? ""}
       data-all-day={occurrence.allDay ? "true" : "false"}
+      data-draft={draft ? "true" : undefined}
+      data-cat={surface?.color}
+      data-kind={occurrence.kind}
+      data-title={displayTitle}
       className={cn(
-        "group/cal relative flex w-full min-w-0 flex-col rounded-md text-xs leading-tight",
-        draggable && "cursor-grab",
+        "group/cal relative flex w-full min-w-0 flex-col rounded-[5px] text-xs leading-4 transition-[box-shadow,opacity] duration-150 will-change-transform",
+        draggable && "cursor-grab active:cursor-grabbing",
         expanded ? "z-20 overflow-visible" : "overflow-hidden",
-        occurrence.kind === "event" && "font-medium",
-        subtask && "text-muted-foreground",
+        block && "h-full",
+        tinted && !surface && "bg-foreground/[0.07]",
+        tinted && isEvent && !draft && "before:absolute before:left-1 before:w-[3px] before:rounded-full before:bg-[var(--cat,var(--primary))]",
+        tinted && isEvent && !draft && (block ? "before:top-1.5 before:bottom-1.5" : "before:top-[5px] before:bottom-[5px]"),
+        dot && "hover:bg-accent/70",
+        draft && "border border-dashed border-current/50",
         (occurrence.status === "completed" || dimmed) && "opacity-50",
-        !color && "bg-primary/15",
-        selected && "ring-1 ring-ring ring-offset-1 ring-offset-background",
+        elapsed && !draft && occurrence.status !== "completed" && "opacity-65",
+        selected
+          ? "z-10 shadow-sm ring-2 ring-ring"
+          : tinted && "hover:shadow-sm hover:ring-1 hover:ring-foreground/15",
         className
       )}
-      style={surface ? { backgroundImage: surface.backgroundImage } : undefined}
+      style={style}
       onClick={(event) => event.stopPropagation()}
     >
       {draggable && (
         <>
-          <span
-            data-cal-resize="start"
-            className={cn(
-              "absolute z-[3] opacity-0 transition-opacity group-hover/cal:opacity-100",
-              selected && "opacity-100",
-              block
-                ? "inset-x-1 top-0 h-1.5 cursor-ns-resize rounded-t-md bg-foreground/25"
-                : "inset-y-1 left-0 w-1.5 cursor-ew-resize rounded-l-md bg-foreground/25"
-            )}
-          />
-          <span
-            data-cal-resize="end"
-            className={cn(
-              "absolute z-[3] opacity-0 transition-opacity group-hover/cal:opacity-100",
-              selected && "opacity-100",
-              block
-                ? "inset-x-1 bottom-0 h-1.5 cursor-ns-resize rounded-b-md bg-foreground/25"
-                : "inset-y-1 right-0 w-1.5 cursor-ew-resize rounded-r-md bg-foreground/25"
-            )}
-          />
+          <ResizeHandle edge="start" block={block} visible={Boolean(selected)} />
+          <ResizeHandle edge="end" block={block} visible={Boolean(selected)} />
         </>
       )}
-      <div className="flex min-w-0 items-stretch">
+      <div className={cn("flex min-w-0 items-stretch", block && "min-h-0 flex-1")}>
         {foldable && (
           <button
             type="button"
             data-expand
             aria-expanded={expanded}
-            aria-label={expanded ? `Hide subtasks of ${occurrence.title}` : `Show subtasks of ${occurrence.title}`}
+            aria-label={expanded ? `Hide subtasks of ${displayTitle}` : `Show subtasks of ${displayTitle}`}
             title={expanded ? "Hide subtasks" : "Show subtasks"}
-            className="flex w-5 shrink-0 items-center justify-center text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+            className="flex w-5 shrink-0 items-center justify-center rounded-l-[5px] opacity-70 outline-none hover:bg-foreground/5 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
             onClick={(event) => {
               event.stopPropagation();
               ui?.onToggleExpand(occurrence.itemId);
@@ -115,12 +159,13 @@ export function CalendarEvent({
         )}
         <button
           type="button"
-          title={`${subtask ? "Subtask" : kind.label}: ${occurrence.title}`}
-          aria-label={`${subtask ? "Subtask" : kind.label}: ${occurrence.title}`}
+          title={`${subtask ? "Subtask" : kind.label}: ${displayTitle}`}
+          aria-label={`${draft ? "Draft " : ""}${subtask ? "Subtask" : kind.label}: ${displayTitle}`}
           aria-current={selected ? "true" : undefined}
           className={cn(
-            "flex min-w-0 flex-1 gap-1.5 px-1.5 text-left",
-            block ? "h-full items-start py-1" : "items-center py-0.5",
+            "flex min-w-0 flex-1 rounded-[5px] text-left outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            block ? "flex-col items-start gap-0 px-1.5 py-1" : "items-center gap-1.5 px-1.5 py-[3px]",
+            tinted && isEvent && !draft && "pl-2.5",
             occurrence.status === "completed" && "line-through"
           )}
           onClick={(event) => {
@@ -128,25 +173,71 @@ export function CalendarEvent({
             ui?.onSelect(occurrence.itemId, item.recurrence ? occurrence.start : undefined);
           }}
         >
-          <Icon
-            className={cn("size-3 shrink-0", block && "mt-px")}
-            style={surface ? { color: surface.color } : undefined}
-          />
-          {item.recurrence && <Repeat className="size-3 shrink-0 opacity-50" />}
-          {occurrence.kind === "event" && <SourceMark source={currentPlan?.source} />}
-          {label && (
-            <span className="shrink-0 text-[10px] leading-4 tabular-nums text-muted-foreground">{label}</span>
+          {block ? (
+            <>
+              <span className="flex w-full min-w-0 items-center gap-1">
+                {!isEvent && (
+                  <Icon className="size-3 shrink-0 text-[var(--cat,currentColor)]" />
+                )}
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate font-medium",
+                    untitled && "font-normal italic opacity-70"
+                  )}
+                >
+                  {displayTitle}
+                </span>
+                {item.recurrence && <Repeat className="size-3 shrink-0 opacity-60" />}
+                {total > 0 && (
+                  <span className="shrink-0 text-[11px] tabular-nums opacity-75" aria-label={`${done} of ${total} done`}>
+                    {done}/{total}
+                  </span>
+                )}
+                {showStatus && <status.icon className={cn("size-3 shrink-0", status.className)} />}
+              </span>
+              {label && <span className="truncate text-[11px] tabular-nums opacity-75">{label}</span>}
+            </>
+          ) : (
+            <>
+              {dot && (
+                <span
+                  aria-hidden
+                  className="size-2 shrink-0 rounded-full bg-[var(--cat,var(--primary))]"
+                />
+              )}
+              {!dot && !isEvent && (
+                <Icon className="size-3 shrink-0 text-[var(--cat,currentColor)]" />
+              )}
+              {item.recurrence && <Repeat className="size-3 shrink-0 opacity-60" />}
+              {isEvent && <SourceMark source={currentPlan?.source} />}
+              {label && (
+                <span className={cn("shrink-0 text-[11px] tabular-nums", dot ? "text-muted-foreground" : "opacity-75")}>
+                  {label}
+                </span>
+              )}
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate",
+                  isEvent && "font-medium",
+                  untitled && "font-normal italic opacity-70"
+                )}
+              >
+                {displayTitle}
+              </span>
+              {total > 0 && (
+                <span
+                  className={cn("shrink-0 text-[11px] tabular-nums", dot ? "text-muted-foreground" : "opacity-75")}
+                  aria-label={`${done} of ${total} done`}
+                >
+                  {done}/{total}
+                </span>
+              )}
+              {showStatus && <status.icon className={cn("size-3 shrink-0", status.className)} />}
+            </>
           )}
-          <span className="min-w-0 flex-1 truncate leading-4">{occurrence.title}</span>
-          {total > 0 && (
-            <span className="shrink-0 text-[10px] leading-4 tabular-nums text-muted-foreground" aria-label={`${done} of ${total} done`}>
-              {done}/{total}
-            </span>
-          )}
-          <status.icon className={cn("size-3 shrink-0", status.className)} />
         </button>
       </div>
-      {foldable && expanded && <SubtaskTree parentId={occurrence.itemId} compact={compactTree} />}
+      {foldable && expanded && <SubtaskTree parentId={occurrence.itemId} compact={!block} />}
     </div>
   );
 }
@@ -154,19 +245,26 @@ export function CalendarEvent({
 export function CalendarOccurrenceList({
   occurrences,
   highlightId,
+  now,
 }: {
   occurrences: CalendarOccurrence[];
   highlightId?: string | null;
+  now?: Date;
 }) {
   if (occurrences.length === 0) {
-    return <p className="px-1.5 text-xs text-muted-foreground">Nothing on this day.</p>;
+    return <p className="px-1.5 py-1 text-xs text-muted-foreground">Nothing on this day.</p>;
   }
 
   return (
-    <ul className="flex flex-col gap-1">
+    <ul className="flex flex-col gap-px">
       {occurrences.map((occurrence) => (
         <li key={occurrence.id}>
-          <CalendarEvent occurrence={occurrence} highlight={occurrence.itemId === highlightId} />
+          <CalendarEvent
+            occurrence={occurrence}
+            variant={occurrence.allDay ? "chip" : "dot"}
+            highlight={occurrence.itemId === highlightId}
+            elapsed={now ? isElapsedOccurrence(occurrence, now) : false}
+          />
         </li>
       ))}
     </ul>

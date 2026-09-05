@@ -46,4 +46,23 @@ describe("planningContext", () => {
     expect(context.objectives[0].toSchedule.map((task) => task.id)).toEqual(["later"]);
     expect(context.objectives[0].events.map((entry) => entry.id)).toEqual(["trip"]);
   });
+
+  it("ignores untitled drafts", () => {
+    const context = planningContext(
+      [
+        ...items,
+        item({
+          id: "ghost",
+          kind: "event",
+          title: "",
+          start: "2026-10-13T10:00",
+          end: "2026-10-13T11:00",
+          draft: true,
+        }),
+      ],
+      octoberWeek,
+      "week"
+    );
+    expect(context.prep.map((entry) => entry.event.id)).toEqual(["trip"]);
+  });
 });

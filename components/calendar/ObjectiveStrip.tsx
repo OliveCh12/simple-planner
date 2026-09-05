@@ -2,9 +2,8 @@
 
 import { Flag } from "lucide-react";
 import { useCalendarUi } from "@/components/calendar/calendar-ui";
-import { Progress } from "@/components/ui/progress";
+import { ProgressDonut } from "@/components/item/ProgressDonut";
 import { useChildProgress } from "@/hooks/useItemTree";
-import { categorySurface } from "@/lib/colors";
 import { cn, shellClasses } from "@/lib/utils";
 import type { Category, PlanItem } from "@/types";
 
@@ -16,7 +15,7 @@ interface ObjectiveStripProps {
 
 /**
  * Objectives active in the visible period, above the calendar grid.
- * They are not listed per day: this is where the long horizon lives.
+ * Shown when the plan pane is closed, so the long horizon stays one glance away.
  */
 export function ObjectiveStrip({ objectives, categories, highlightId }: ObjectiveStripProps) {
   if (objectives.length === 0) return null;
@@ -26,12 +25,11 @@ export function ObjectiveStrip({ objectives, categories, highlightId }: Objectiv
     <div
       className={cn(
         shellClasses(),
-        "flex shrink-0 items-center gap-2 overflow-x-auto border-b py-2 [scrollbar-width:thin]"
+        "scroll-thin flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-cal-line-strong"
       )}
     >
-      <span className="flex shrink-0 items-center gap-1 pr-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        <Flag className="size-3" />
-        Objectives
+      <span className="mr-1 shrink-0 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        Goals
       </span>
       {objectives.map((objective) => (
         <ObjectiveChip
@@ -58,7 +56,6 @@ function ObjectiveChip({
   const { done, total } = useChildProgress(item.id);
   const completed = item.status === "completed";
   const selected = highlight || ui?.selectedId === item.id;
-  const surface = color ? categorySurface(color, "objective") : undefined;
 
   return (
     <button
@@ -66,30 +63,21 @@ function ObjectiveChip({
       title={`Objective: ${item.title}`}
       aria-current={selected ? "true" : undefined}
       className={cn(
-        "flex h-7 shrink-0 items-center gap-2 rounded-md px-2 text-xs transition-colors hover:bg-accent/40",
-        !color && "bg-primary/10",
-        completed && "opacity-60",
-        selected && "ring-1 ring-ring ring-offset-1 ring-offset-background"
+        "flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+        selected ? "bg-accent text-foreground" : "text-foreground/85 hover:bg-accent/70 hover:text-foreground",
+        completed && "opacity-60"
       )}
-      style={surface ? { backgroundImage: surface.backgroundImage } : undefined}
       onClick={() => ui?.onSelect(item.id)}
     >
-      <Flag className="size-3 shrink-0" style={surface ? { color: surface.color } : undefined} />
+      <Flag className="size-3 shrink-0" style={color ? { color } : undefined} />
       <span className={cn("max-w-48 truncate font-medium", completed && "line-through")}>{item.title}</span>
       {total > 0 && (
-        <span
-          className="flex items-center gap-1.5 [&_[data-slot=progress-indicator]]:bg-current"
-          style={color ? { color } : undefined}
-        >
-          <Progress
-            value={Math.round((done / total) * 100)}
-            aria-label={`${done} of ${total} tasks done`}
-            className={cn("h-1 w-10", color ? "bg-current/15" : "bg-primary/20")}
-          />
+        <>
+          <ProgressDonut done={done} total={total} size={14} stroke={2.5} label={false} color={color} />
           <span className="tabular-nums text-muted-foreground">
             {done}/{total}
           </span>
-        </span>
+        </>
       )}
     </button>
   );

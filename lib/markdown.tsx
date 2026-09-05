@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Check } from "lucide-react";
 
 function inline(text: string, keyPrefix: string): ReactNode[] {
   const nodes: ReactNode[] = [];
@@ -47,20 +48,52 @@ function inline(text: string, keyPrefix: string): ReactNode[] {
   return nodes;
 }
 
-/** Small, safe subset: paragraphs, lists, emphasis, links and images. */
+interface ListItem {
+  text: string;
+  /** `undefined` for a plain bullet, otherwise the checkbox state. */
+  checked?: boolean;
+}
+
+function parseListItem(raw: string): ListItem {
+  const box = /^\[( |x|X)\]\s+(.*)$/.exec(raw);
+  if (!box) return { text: raw };
+  return { text: box[2], checked: box[1] !== " " };
+}
+
+/** Small, safe subset: paragraphs, headings, lists, task lists, emphasis, links and images. */
 export function renderMarkdown(source: string): ReactNode {
   const lines = source.replace(/\r\n/g, "\n").split("\n");
   const blocks: ReactNode[] = [];
-  let list: string[] = [];
+  let list: ListItem[] = [];
   const flushList = () => {
     if (list.length === 0) return;
     const items = list;
     list = [];
+    const tasks = items.every((item) => item.checked !== undefined);
     blocks.push(
-      <ul key={`ul-${blocks.length}`} className="list-disc space-y-1 pl-5">
-        {items.map((item, index) => (
-          <li key={index}>{inline(item, `li-${blocks.length}-${index}`)}</li>
-        ))}
+      <ul key={`ul-${blocks.length}`} className={tasks ? "space-y-1" : "list-disc space-y-1 pl-5"}>
+        {items.map((item, index) =>
+          item.checked === undefined ? (
+            <li key={index}>{inline(item.text, `li-${blocks.length}-${index}`)}</li>
+          ) : (
+            <li key={index} className="flex items-start gap-2">
+              <span
+                aria-hidden
+                className={
+                  item.checked
+                    ? "mt-[3px] flex size-3.5 shrink-0 items-center justify-center rounded-[3px] bg-foreground text-background"
+                    : "mt-[3px] size-3.5 shrink-0 rounded-[3px] border border-foreground/40"
+                }
+              >
+                {item.checked && <Check className="size-2.5" strokeWidth={3} />}
+              </span>
+              <span className={item.checked ? "text-muted-foreground line-through" : undefined}>
+                {inline(item.text, `li-${blocks.length}-${index}`)}
+              </span>
+              <span className="sr-only">{item.checked ? "done" : "to do"}</span>
+            </li>
+          )
+        )}
       </ul>
     );
   };
@@ -68,7 +101,7 @@ export function renderMarkdown(source: string): ReactNode {
   for (const line of lines) {
     const bullet = /^[-*]\s+(.+)$/.exec(line);
     if (bullet) {
-      list.push(bullet[1]);
+      list.push(parseListItem(bullet[1]));
       continue;
     }
     flushList();
@@ -77,7 +110,7 @@ export function renderMarkdown(source: string): ReactNode {
     if (heading) {
       const Tag = heading[1].length === 1 ? "h3" : "h4";
       blocks.push(
-        <Tag key={`h-${blocks.length}`} className="text-sm font-semibold">
+        <Tag key={`h-${blocks.length}`} className="pt-1 text-sm font-semibold">
           {inline(heading[2], `h-${blocks.length}`)}
         </Tag>
       );

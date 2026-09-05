@@ -10,6 +10,8 @@ export interface CalendarUiValue {
   expandedIds: ReadonlySet<string>;
   onToggleExpand: (itemId: string) => void;
   showSubtasks: boolean;
+  canCreate?: boolean;
+  onCreateSlot?: (start: string, end?: string) => void;
 }
 
 const CalendarUiContext = createContext<CalendarUiValue | null>(null);

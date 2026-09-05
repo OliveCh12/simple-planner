@@ -1,10 +1,10 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { useCalendarUi } from "@/components/calendar/calendar-ui";
 import { useNestedChildren } from "@/hooks/useItemTree";
 import { useSaveItem } from "@/hooks/useSaveItem";
 import { applyStatus } from "@/lib/domain/items";
-import { getStatusOption } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { PlanItem } from "@/types";
 
@@ -23,72 +23,61 @@ export function SubtaskTree({ parentId, compact = false, depth = 0 }: SubtaskTre
   const extra = children.length - visible.length;
 
   return (
-    <ul className={cn(depth === 0 && "border-t border-foreground/10 py-0.5")}>
-      {visible.map((child, index) => (
-        <SubtaskRow
-          key={child.id}
-          item={child}
-          last={index === visible.length - 1 && extra <= 0}
-          compact={compact}
-          depth={depth}
-        />
+    <ul className={cn(depth === 0 && "border-t border-current/15 py-0.5")}>
+      {visible.map((child) => (
+        <SubtaskRow key={child.id} item={child} compact={compact} depth={depth} />
       ))}
       {extra > 0 && (
-        <li className="px-2 py-0.5 pl-3 text-[10px] text-muted-foreground">+{extra} more</li>
+        <li className="px-2 py-0.5 pl-3 text-[11px] opacity-70">{extra} more</li>
       )}
     </ul>
   );
 }
 
-function SubtaskRow({
-  item,
-  last,
-  compact,
-  depth,
-}: {
-  item: PlanItem;
-  last: boolean;
-  compact: boolean;
-  depth: number;
-}) {
+function SubtaskRow({ item, compact, depth }: { item: PlanItem; compact: boolean; depth: number }) {
   const ui = useCalendarUi();
   const save = useSaveItem();
   const selected = ui?.selectedId === item.id;
   const done = item.status === "completed";
-  const status = getStatusOption(item.status);
   const showNested = !compact && depth < 1;
 
   return (
     <li>
       <div
         className={cn(
-          "flex min-w-0 items-center gap-1 py-0.5 pr-1.5 text-[11px] leading-4",
-          "pl-2.5",
-          done && "text-muted-foreground",
-          selected && "bg-foreground/5"
+          "flex min-w-0 items-center gap-1.5 py-px pr-1.5 pl-2 text-[11px] leading-4",
+          done && "opacity-60",
+          selected && "bg-foreground/[0.06]"
         )}
       >
-        <span aria-hidden className={cn("size-1 shrink-0 rounded-full bg-current/40", last && "opacity-70")} />
-        {!compact && (
+        {compact ? (
+          <span aria-hidden className={cn("size-1 shrink-0 rounded-full bg-current opacity-50")} />
+        ) : (
           <button
             type="button"
-            aria-pressed={done}
+            role="checkbox"
+            aria-checked={done}
             aria-label={done ? `Reopen ${item.title}` : `Complete ${item.title}`}
             className={cn(
-              "flex size-3.5 shrink-0 items-center justify-center rounded-sm border border-current/35",
-              done && "bg-current/15"
+              "flex size-3.5 shrink-0 items-center justify-center rounded-[3px] border border-current/40 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              done && "border-transparent bg-current/25"
             )}
             onClick={(event) => {
               event.stopPropagation();
               void save(applyStatus(item, done ? "pending" : "completed"));
             }}
-          />
+          >
+            {done && <Check className="size-2.5" strokeWidth={3} />}
+          </button>
         )}
         <button
           type="button"
           aria-current={selected ? "true" : undefined}
           aria-label={`Subtask: ${item.title}`}
-          className={cn("min-w-0 flex-1 truncate text-left", done && "line-through")}
+          className={cn(
+            "min-w-0 flex-1 truncate rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            done && "line-through"
+          )}
           onClick={(event) => {
             event.stopPropagation();
             ui?.onSelect(item.id);
@@ -96,7 +85,6 @@ function SubtaskRow({
         >
           {item.title}
         </button>
-        <status.icon className={cn("size-3 shrink-0 opacity-70", status.className)} />
       </div>
       {showNested && <SubtaskTree parentId={item.id} depth={depth + 1} />}
     </li>

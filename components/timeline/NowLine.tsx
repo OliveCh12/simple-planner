@@ -10,7 +10,7 @@ export function NowLine({ x, totalWidth }: NowLineProps) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-y-0 z-20 w-px bg-primary"
+      className="pointer-events-none absolute inset-y-0 z-20 w-px bg-now"
       style={{ left: x }}
     />
   );

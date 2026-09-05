@@ -1,14 +1,19 @@
 "use client";
 
-import { addDays, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfMonth, startOfWeek } from "date-fns";
+import { addDays, addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfMonth, startOfWeek } from "date-fns";
+import { useCalendarUi } from "@/components/calendar/calendar-ui";
 import { CalendarEvent, CalendarOccurrenceList } from "@/components/calendar/CalendarEvent";
-import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { occupiesMonthDay, type CalendarOccurrence } from "@/lib/calendar";
+import { useState } from "react";
+import { useNowCoarse } from "@/hooks/useNow";
+import { useScrollbarGutter } from "@/hooks/useScrollbarGutter";
+import { formatLocalDate } from "@/lib/time/local";
+import { containsNow, isElapsedDay, isElapsedOccurrence } from "@/lib/time/presence";
 import { cn } from "@/lib/utils";
 
 const WEEKDAY_COUNT = 7;
-const MONTH_VISIBLE = 3;
+const MONTH_VISIBLE = 4;
 
 interface CalendarMonthProps {
   focus: Date;
@@ -19,21 +24,35 @@ interface CalendarMonthProps {
   highlightId?: string | null;
 }
 
-function WeekdayHeaders({ weekStartsOn }: { weekStartsOn: 0 | 1 }) {
+function WeekdayHeaders({ weekStartsOn, gutter }: { weekStartsOn: 0 | 1; gutter: number }) {
   const start = startOfWeek(new Date(2027, 8, 13), { weekStartsOn });
   const days = eachDayOfInterval({ start, end: addDays(start, 6) });
   return (
-    <div className="grid grid-cols-7 border-b">
+    <div className="grid grid-cols-7 border-b border-cal-line-strong" style={{ paddingRight: gutter }}>
       {days.map((day) => (
         <div
           key={day.toISOString()}
-          className="px-1 py-1.5 text-center text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:px-2"
+          className="px-2 py-1.5 text-right text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
         >
           <span className="sm:hidden">{format(day, "EEEEE")}</span>
           <span className="hidden sm:inline">{format(day, "EEE")}</span>
         </div>
       ))}
     </div>
+  );
+}
+
+function DayNumber({ day, current, muted }: { day: Date; current: boolean; muted: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex size-6 items-center justify-center rounded-full text-xs tabular-nums",
+        current && "bg-now font-semibold text-now-foreground",
+        !current && muted && "text-muted-foreground"
+      )}
+    >
+      {format(day, "d")}
+    </span>
   );
 }
 
@@ -53,61 +72,85 @@ export function CalendarMonth({
   for (let index = 0; index < days.length; index += WEEKDAY_COUNT) {
     weeks.push(days.slice(index, index + WEEKDAY_COUNT));
   }
-  const today = new Date();
+  const now = useNowCoarse();
+  const ui = useCalendarUi();
+  const [scrollerEl, setScrollerEl] = useState<HTMLDivElement | null>(null);
+  const gutter = useScrollbarGutter(scrollerEl);
+  const monthRange = { start: monthStart, end: addMonths(monthStart, 1) };
+  const anchorNow = containsNow(monthRange, now);
+  const canCreate = Boolean(ui?.canCreate && ui.onCreateSlot);
   const selectedItems = occurrences.filter((occurrence) => occupiesMonthDay(occurrence, selectedDay));
+
+  const createOnDay = (day: Date) => {
+    const date = formatLocalDate(day);
+    ui?.onCreateSlot?.(date, date);
+  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <WeekdayHeaders weekStartsOn={weekStartsOn} />
+      <WeekdayHeaders weekStartsOn={weekStartsOn} gutter={gutter} />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:hidden">
-        <div className="grid grid-cols-7 border-b">
+        <div className="grid grid-cols-7 border-b border-cal-line-strong">
           {days.map((day) => {
             const inMonth = isSameMonth(day, monthStart);
-            const current = isSameDay(day, today);
+            const current = isSameDay(day, now);
             const selected = isSameDay(day, selectedDay);
+            const elapsed = anchorNow && inMonth && isElapsedDay(day, now);
             const count = occurrences.filter((occurrence) => occupiesMonthDay(occurrence, day)).length;
             return (
               <button
                 key={day.toISOString()}
                 type="button"
+                aria-current={current ? "date" : undefined}
                 onClick={() => onSelectDay(day)}
                 className={cn(
-                  "flex flex-col items-center gap-1 border-r border-b py-2 last:border-r-0",
-                  !inMonth && "text-muted-foreground",
-                  selected && "bg-accent",
-                  current && !selected && "bg-primary/5"
+                  "flex flex-col items-center gap-1 border-r border-b border-cal-line py-2 outline-none last:border-r-0 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                  selected && "bg-cal-selected"
                 )}
               >
-                <span
-                  className={cn(
-                    "inline-flex size-7 items-center justify-center text-sm tabular-nums",
-                    current && "rounded-full bg-primary font-semibold text-primary-foreground"
-                  )}
-                >
-                  {format(day, "d")}
-                </span>
+                <DayNumber day={day} current={current} muted={!inMonth || elapsed} />
                 <span className="flex h-1.5 items-center gap-0.5">
                   {count > 0 && (
-                    <span className="size-1.5 rounded-full bg-primary" aria-label={`${count} items`} />
+                    <span className="size-1.5 rounded-full bg-foreground/50" aria-label={`${count} items`} />
                   )}
                 </span>
               </button>
             );
           })}
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <div className="scroll-thin min-h-0 flex-1 overflow-y-auto p-3">
           <p className="mb-2 text-sm font-medium">{format(selectedDay, "EEEE d MMMM")}</p>
-          <CalendarOccurrenceList occurrences={selectedItems} highlightId={highlightId} />
+          <CalendarOccurrenceList
+            occurrences={selectedItems}
+            highlightId={highlightId}
+            now={anchorNow ? now : undefined}
+          />
+          {canCreate && (
+            <button
+              type="button"
+              className="mt-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => createOnDay(selectedDay)}
+            >
+              Add event
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="hidden min-h-0 flex-1 flex-col overflow-y-auto md:flex">
-        {weeks.map((weekDays) => (
-          <div key={weekDays[0].toISOString()} className="grid min-h-[7.5rem] flex-1 grid-cols-7 border-b">
+      <div ref={setScrollerEl} className="scroll-thin hidden min-h-0 flex-1 flex-col overflow-y-auto md:flex">
+        {weeks.map((weekDays, weekIndex) => (
+          <div
+            key={weekDays[0].toISOString()}
+            className={cn(
+              "grid min-h-[7.5rem] flex-1 grid-cols-7",
+              weekIndex < weeks.length - 1 && "border-b border-cal-line"
+            )}
+          >
             {weekDays.map((day) => {
               const inMonth = isSameMonth(day, monthStart);
-              const current = isSameDay(day, today);
+              const current = isSameDay(day, now);
               const selected = isSameDay(day, selectedDay);
+              const elapsed = anchorNow && inMonth && isElapsedDay(day, now);
               const dayItems = occurrences.filter((occurrence) => occupiesMonthDay(occurrence, day));
               const visible = dayItems.slice(0, MONTH_VISIBLE);
               const extra = dayItems.length - visible.length;
@@ -115,51 +158,56 @@ export function CalendarMonth({
                 <div
                   key={day.toISOString()}
                   className={cn(
-                    "flex flex-col border-r px-1 pb-1 last:border-r-0",
-                    !inMonth && "bg-muted/30 text-muted-foreground",
-                    current && "bg-primary/5",
-                    selected && "bg-accent/60"
+                    "flex min-w-0 flex-col border-r border-cal-line px-1 pb-1 last:border-r-0",
+                    !inMonth && "text-muted-foreground",
+                    current && "bg-cal-today",
+                    selected && !current && "bg-cal-selected"
                   )}
-                  onClick={() => onSelectDay(day)}
+                  onClick={() => {
+                    onSelectDay(day);
+                    if (canCreate) createOnDay(day);
+                  }}
                 >
                   <button
                     type="button"
-                    onClick={() => onSelectDay(day)}
-                    className="flex items-center justify-start px-0.5 pt-1 text-left"
+                    aria-current={current ? "date" : undefined}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSelectDay(day);
+                    }}
+                    className="flex justify-end px-0.5 pt-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <span
-                      className={cn(
-                        "inline-flex size-6 items-center justify-center text-xs tabular-nums",
-                        current && "rounded-full bg-primary font-semibold text-primary-foreground"
-                      )}
-                    >
-                      {format(day, "d")}
-                    </span>
+                    <DayNumber day={day} current={current} muted={!inMonth || elapsed} />
                   </button>
-                  <div className="flex min-h-0 flex-1 flex-col gap-0.5">
+                  <div className="flex min-h-0 flex-1 flex-col gap-px pt-0.5">
                     {visible.map((occurrence) => (
                       <CalendarEvent
                         key={occurrence.id}
                         occurrence={occurrence}
+                        variant={occurrence.allDay ? "chip" : "dot"}
                         highlight={occurrence.itemId === highlightId}
+                        elapsed={anchorNow && isElapsedOccurrence(occurrence, now)}
                       />
                     ))}
                     {extra > 0 && (
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
+                          <button
                             type="button"
-                            variant="ghost"
-                            size="xs"
-                            className="h-5 justify-start px-1 text-[11px] text-muted-foreground"
+                            className="w-fit rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                             aria-label={`${extra} more on ${format(day, "d MMMM")}`}
+                            onClick={(event) => event.stopPropagation()}
                           >
-                            +{extra} more
-                          </Button>
+                            {extra} more
+                          </button>
                         </PopoverTrigger>
                         <PopoverContent align="start" className="w-72 p-2">
                           <p className="mb-2 px-1 text-sm font-medium">{format(day, "EEEE d MMMM")}</p>
-                          <CalendarOccurrenceList occurrences={dayItems} highlightId={highlightId} />
+                          <CalendarOccurrenceList
+                            occurrences={dayItems}
+                            highlightId={highlightId}
+                            now={anchorNow ? now : undefined}
+                          />
                         </PopoverContent>
                       </Popover>
                     )}

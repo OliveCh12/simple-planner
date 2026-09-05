@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -14,6 +14,9 @@ interface InlineEditableProps {
   "aria-label": string;
   multiline?: boolean;
   required?: boolean;
+  autoFocus?: boolean;
+  /** Changing this value focuses the field again, e.g. after a draft moved. */
+  focusKey?: string;
   className?: string;
   id?: string;
 }
@@ -25,6 +28,8 @@ export function InlineEditable({
   "aria-label": ariaLabel,
   multiline = false,
   required = false,
+  autoFocus = false,
+  focusKey,
   className,
   id,
 }: InlineEditableProps) {
@@ -34,6 +39,14 @@ export function InlineEditable({
   const [focused, setFocused] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const shown = focused ? draft : value;
+
+  useEffect(() => {
+    if (!autoFocus) return;
+    const node = ref.current;
+    if (!node) return;
+    node.focus();
+    node.select();
+  }, [autoFocus, focusKey]);
 
   const commit = async () => {
     let next = draft;

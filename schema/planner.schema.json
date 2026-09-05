@@ -240,6 +240,9 @@
             "type": "string",
             "minLength": 1
           },
+          "draft": {
+            "type": "boolean"
+          },
           "completedAt": {
             "type": "string"
           },

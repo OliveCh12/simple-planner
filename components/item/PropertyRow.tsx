@@ -1,6 +1,6 @@
 "use client";
 
-import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
+import { FieldError } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
 
 interface PropertyRowProps {
@@ -11,23 +11,22 @@ interface PropertyRowProps {
   className?: string;
 }
 
+/** Label column on the left, control on the right, rows aligned on one grid. */
 export function PropertyRow({ label, htmlFor, children, error, className }: PropertyRowProps) {
+  const Label = htmlFor ? "label" : "span";
   return (
-    <Field
-      orientation="responsive"
+    <div
+      role="group"
       data-invalid={error ? true : undefined}
-      className={cn("gap-x-3 gap-y-1 py-1.5", className)}
+      className={cn("grid min-h-8 grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-x-3 py-0.5", className)}
     >
-      <FieldLabel
-        htmlFor={htmlFor}
-        className="w-28 shrink-0 font-normal text-muted-foreground @md/field-group:pt-0"
-      >
+      <Label htmlFor={htmlFor} className="text-xs leading-snug text-muted-foreground">
         {label}
-      </FieldLabel>
-      <FieldContent className="min-w-0 gap-1">
-        <div className="min-w-0">{children}</div>
+      </Label>
+      <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex min-w-0 items-center">{children}</div>
         {error ? <FieldError>{error}</FieldError> : null}
-      </FieldContent>
-    </Field>
+      </div>
+    </div>
   );
 }

@@ -23,7 +23,8 @@ export function useItemMutations(item: PlanItem) {
     }
   };
 
-  const saveTitle = (title: string) => run(() => updateItem(item, { title }));
+  const saveTitle = (title: string) =>
+    run(() => updateItem(item, item.draft ? { title, draft: undefined } : { title }));
   const saveNotes = (notes: string) => run(() => updateItem(item, { notes }));
   const saveBrief = (brief: string) =>
     run(() => updateItem(item, { agentBrief: brief.trim() || undefined }));
