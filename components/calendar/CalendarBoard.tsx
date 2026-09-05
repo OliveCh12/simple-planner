@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { startOfYear } from "date-fns";
 import { CalendarDay } from "@/components/calendar/CalendarDay";
 import { CalendarMonth } from "@/components/calendar/CalendarMonth";
 import { CalendarWeek } from "@/components/calendar/CalendarWeek";
 import { CalendarYear } from "@/components/calendar/CalendarYear";
 import { ObjectiveStrip } from "@/components/calendar/ObjectiveStrip";
+import { useSwapMotion } from "@/hooks/useSwapMotion";
 import {
   isCalendarActive,
   objectivesInRange,
@@ -66,52 +67,49 @@ export function CalendarBoard({
     <ObjectiveStrip objectives={objectives} categories={categories} highlightId={highlightId} />
   ) : null;
 
+  // A new period slides in from the side it came from; a new zoom breathes in.
+  const rootRef = useRef<HTMLDivElement>(null);
+  useSwapMotion(rootRef, `${scale}:${range.start.getTime()}`, (previous, next) => {
+    const [previousScale, previousStart] = previous.split(":");
+    const [nextScale, nextStart] = next.split(":");
+    if (previousScale !== nextScale) return "zoom";
+    return Number(nextStart) > Number(previousStart) ? "next" : "previous";
+  });
+
+  let view;
   if (scale === "year") {
-    return (
-      <>
-        {strip}
-        <CalendarYear
-          year={startOfYear(focus)}
-          weekStartsOn={weekStartsOn}
-          occurrences={occurrences}
-          onFocusMonth={onFocusMonth}
-        />
-      </>
+    view = (
+      <CalendarYear
+        year={startOfYear(focus)}
+        weekStartsOn={weekStartsOn}
+        occurrences={occurrences}
+        onFocusMonth={onFocusMonth}
+      />
     );
-  }
-  if (scale === "month") {
-    return (
-      <>
-        {strip}
-        <CalendarMonth
-          focus={focus}
-          weekStartsOn={weekStartsOn}
-          occurrences={occurrences}
-          selectedDay={selectedDay}
-          onSelectDay={(day) => onSelectDay(day)}
-          highlightId={highlightId}
-        />
-      </>
+  } else if (scale === "month") {
+    view = (
+      <CalendarMonth
+        focus={focus}
+        weekStartsOn={weekStartsOn}
+        occurrences={occurrences}
+        selectedDay={selectedDay}
+        onSelectDay={(day) => onSelectDay(day)}
+        highlightId={highlightId}
+      />
     );
-  }
-  if (scale === "week") {
-    return (
-      <>
-        {strip}
-        <CalendarWeek
-          focus={focus}
-          weekStartsOn={weekStartsOn}
-          occurrences={occurrences}
-          selectedDay={selectedDay}
-          onSelectDay={onSelectDay}
-          highlightId={highlightId}
-        />
-      </>
+  } else if (scale === "week") {
+    view = (
+      <CalendarWeek
+        focus={focus}
+        weekStartsOn={weekStartsOn}
+        occurrences={occurrences}
+        selectedDay={selectedDay}
+        onSelectDay={onSelectDay}
+        highlightId={highlightId}
+      />
     );
-  }
-  return (
-    <>
-      {strip}
+  } else {
+    view = (
       <CalendarDay
         focus={focus}
         occurrences={occurrences}
@@ -119,6 +117,13 @@ export function CalendarBoard({
         onSelectHour={(hour) => onSelectDay(focus, hour)}
         highlightId={highlightId}
       />
-    </>
+    );
+  }
+
+  return (
+    <div ref={rootRef} className="flex min-h-0 flex-1 flex-col">
+      {strip}
+      {view}
+    </div>
   );
 }

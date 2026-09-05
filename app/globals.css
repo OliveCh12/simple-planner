@@ -233,9 +233,9 @@
 /* Calendar cards: quiet at rest, glass when touched, lifted while dragged. */
 .cal-card {
   transition:
-    box-shadow 150ms ease,
-    background-color 150ms ease,
-    opacity 150ms ease;
+    box-shadow 120ms ease-out,
+    background-color 120ms ease-out,
+    opacity 120ms ease-out;
 }
 .cal-card[data-tinted="true"]:hover,
 .cal-card[data-tinted="true"][data-selected="true"],

@@ -127,7 +127,7 @@ function GoalBlock({
               aria-label="Toggle goal details"
               className="ml-2.5 flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <ChevronRight className="size-3.5 transition-transform group-data-[state=open]/goal:rotate-90" />
+              <ChevronRight className="size-3.5 transition-transform duration-150 ease-out group-data-[state=open]/goal:rotate-90" />
             </button>
           </CollapsibleTrigger>
         ) : (
@@ -159,7 +159,7 @@ function GoalBlock({
         )}
       </div>
       {hasBody && (
-        <CollapsibleContent className="ml-[19px] border-l border-cal-line-strong pl-1.5 pt-0.5 pb-1">
+        <CollapsibleContent className="ml-[19px] overflow-hidden border-l border-cal-line-strong pl-1.5 pt-0.5 pb-1 duration-150 ease-out data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
           {group.events.map((event) => (
             <ItemLine key={event.id} item={event} nested />
           ))}

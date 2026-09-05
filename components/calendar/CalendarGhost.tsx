@@ -17,7 +17,7 @@ function ghostStyle(preview: CalendarDragPreview): { className: string; style?: 
   if (preview.mode === "hover") {
     return {
       className:
-        "border border-foreground/15 bg-foreground/[0.035] text-muted-foreground backdrop-blur-[2px] transition-[top,height] duration-100 ease-out",
+        "border border-foreground/15 bg-foreground/[0.035] text-muted-foreground backdrop-blur-[2px]",
     };
   }
   if (preview.mode === "create" || !preview.color) {
@@ -99,7 +99,7 @@ export function TimedGhost({
       data-cal-ghost={hover ? "hover" : "landing"}
       className={cn(
         "pointer-events-none absolute z-20 px-0.5 py-px",
-        hover && "transition-[top] duration-100 ease-out motion-reduce:transition-none"
+        hover && "will-change-[top]"
       )}
       style={{
         left: `calc(${gutter} + ${index} * (100% - ${gutter}) / ${days})`,

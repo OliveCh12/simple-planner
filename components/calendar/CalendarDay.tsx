@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Sunrise } from "lucide-react";
 import { addDays, isSameDay } from "date-fns";
 import { useCalendarUi } from "@/components/calendar/calendar-ui";
@@ -83,16 +83,20 @@ export function CalendarDay({
   const pointerOptions = useMemo(() => ({ hoverPreview }), [hoverPreview]);
   const { preview, hover } = useCalendarPointer(gridEl, onCommit, onCreate, pointerOptions);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
     const highlighted = highlightId
       ? occurrences.find((occurrence) => occurrence.itemId === highlightId && !occurrence.allDay)
       : undefined;
+    if (highlighted) {
+      scroller.scrollTo({ top: Math.max(0, (parseLocal(highlighted.start).getHours() - 1) * HOUR_PX), behavior: "smooth" });
+      return;
+    }
+    if (scroller.dataset.settled) return;
+    scroller.dataset.settled = "true";
     const dayStart = new Date(focus.getFullYear(), focus.getMonth(), focus.getDate());
-    scroller.scrollTop = highlighted
-      ? Math.max(0, (parseLocal(highlighted.start).getHours() - 1) * HOUR_PX)
-      : initialScrollTop({ start: dayStart, end: addDays(dayStart, 1) });
+    scroller.scrollTop = initialScrollTop({ start: dayStart, end: addDays(dayStart, 1) });
   }, [focus, highlightId, occurrences, scrollerEl]);
 
   const columns = `${GUTTER} minmax(0, 1fr)`;

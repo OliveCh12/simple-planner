@@ -6,7 +6,7 @@ import { useCalendarUi } from "@/components/calendar/calendar-ui";
 import { useNestedChildren } from "@/hooks/useItemTree";
 import { useSaveItem } from "@/hooks/useSaveItem";
 import { applyStatus } from "@/lib/domain/items";
-import { gsap, prefersReducedMotion } from "@/lib/motion";
+import { gsap, unfold } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import type { PlanItem } from "@/types";
 
@@ -24,8 +24,8 @@ export function SubtaskTree({ parentId, compact = false, depth = 0 }: SubtaskTre
   // Unfold from the parent instead of popping in; the height settles, then clears.
   useLayoutEffect(() => {
     const el = listRef.current;
-    if (!el || depth > 0 || prefersReducedMotion()) return;
-    gsap.from(el, { height: 0, opacity: 0, duration: 0.18, ease: "power2.out", clearProps: "height,opacity" });
+    if (!el || depth > 0) return;
+    unfold(el);
     return () => {
       gsap.killTweensOf(el);
     };

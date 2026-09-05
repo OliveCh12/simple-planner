@@ -12,7 +12,7 @@ import {
   snapMinutes,
   type GridHit,
 } from "@/lib/calendar-snap";
-import { captureRectOf, gsap, prefersReducedMotion } from "@/lib/motion";
+import { captureRectOf, gsap, MOTION, prefersReducedMotion } from "@/lib/motion";
 import { formatLocalDate, parseLocal } from "@/lib/time/local";
 import type { ItemKind } from "@/types";
 
@@ -147,7 +147,7 @@ function minutesOf(value: string): number {
 function lift(card: HTMLElement) {
   card.dataset.lifted = "true";
   document.body.classList.add("cal-dragging");
-  if (!prefersReducedMotion()) gsap.to(card, { scale: LIFT_SCALE, duration: 0.12, ease: "power2.out" });
+  if (!prefersReducedMotion()) gsap.to(card, { scale: LIFT_SCALE, duration: 0.1, ease: "power3.out" });
 }
 
 /** Put a card back: either it settles elsewhere through FLIP, or it glides home. */
@@ -156,7 +156,7 @@ function drop(card: HTMLElement, home: boolean) {
   document.body.classList.remove("cal-dragging");
   gsap.killTweensOf(card);
   if (home && !prefersReducedMotion()) {
-    gsap.to(card, { x: 0, y: 0, scale: 1, duration: 0.2, ease: "power2.out", clearProps: "transform" });
+    gsap.to(card, { x: 0, y: 0, scale: 1, ...MOTION.settle, clearProps: "transform" });
     return;
   }
   gsap.set(card, { clearProps: "transform" });

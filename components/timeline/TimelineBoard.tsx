@@ -72,6 +72,7 @@ import {
 } from "@/lib/time/scale";
 import { cn, shellClasses } from "@/lib/utils";
 import { useSaveItem } from "@/hooks/useSaveItem";
+import { useSwapMotion } from "@/hooks/useSwapMotion";
 import { useHistoryStore } from "@/store/historyStore";
 import { usePlannerStore } from "@/store/plannerStore";
 import { useUIStore, type TimelineView } from "@/store/uiStore";
@@ -481,6 +482,8 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
   );
 
   const [calendarEl, setCalendarEl] = useState<HTMLDivElement | null>(null);
+  const viewRef = useRef<HTMLDivElement>(null);
+  useSwapMotion(viewRef, view, () => "fade");
   useTimelineZoom(gantt ? boardEl : calendarEl, (direction, clientX) => {
     setScale(direction > 0 ? zoomIn(scale) : zoomOut(scale), clientX);
   });
@@ -1003,6 +1006,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
             <PlanningPanel range={calendarRange} scale={scale} periodLabel={viewedPeriod} />
           ) : null
         }
+        rightKey={selectedItem?.id}
         right={
           selectedItem ? (
             <ItemEditor
@@ -1014,7 +1018,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
           ) : null
         }
       >
-        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div ref={viewRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {!gantt ? (
           <div ref={setCalendarEl} className="flex h-full min-h-0 flex-1 flex-col">
             <CalendarBoard

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays, eachDayOfInterval, format, isSameDay, startOfWeek } from "date-fns";
 import { useCalendarUi } from "@/components/calendar/calendar-ui";
 import { CalendarEvent } from "@/components/calendar/CalendarEvent";
@@ -135,12 +135,13 @@ export function CalendarWeek({
   const pointerOptions = useMemo(() => ({ hoverPreview }), [hoverPreview]);
   const { preview, hover } = useCalendarPointer(gridEl, onCommit, onCreate, pointerOptions);
 
-  useEffect(() => {
+  // Open on the useful hours once; moving between weeks keeps the hand's scroll position.
+  useLayoutEffect(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
-    const start = startOfWeek(focus, { weekStartsOn });
+    const start = startOfWeek(scroller.dataset.focus ? parseLocal(scroller.dataset.focus) : new Date(), { weekStartsOn });
     scroller.scrollTop = initialScrollTop({ start, end: addDays(start, 7) });
-  }, [focus, scrollerEl, weekStartsOn]);
+  }, [scrollerEl, weekStartsOn]);
 
   const columns = `${GUTTER} repeat(7, minmax(0, 1fr))`;
   // Rows above the scroller reserve its scrollbar width, so every column
@@ -264,7 +265,12 @@ export function CalendarWeek({
         </div>
       </div>
 
-      <div ref={attachScroller} data-cal-timed className="scroll-thin min-h-0 flex-1 overflow-y-auto">
+      <div
+        ref={attachScroller}
+        data-cal-timed
+        data-focus={formatLocalDate(focus)}
+        className="scroll-thin min-h-0 flex-1 overflow-y-auto"
+      >
         <div data-cal-columns className="relative grid" style={{ gridTemplateColumns: columns, height: 24 * HOUR_PX }}>
           <HourGutter />
           {days.map((day) => {
