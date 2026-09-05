@@ -4,7 +4,7 @@ import { categorySurface, normalizeHex, surfaceTone } from "@/lib/colors";
 describe("categorySurface", () => {
   it("mixes the category into --background so light and dark stay readable", () => {
     const surface = categorySurface("#2563eb", "event");
-    expect(surface.borderColor).toBe("#2563eb");
+    expect(surface.color).toBe("#2563eb");
     expect(surface.backgroundImage).toContain("color-mix(in oklab, #2563eb");
     expect(surface.backgroundImage).toContain("var(--background)");
   });

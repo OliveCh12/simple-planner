@@ -66,15 +66,15 @@ function ObjectiveChip({
       title={`Objective: ${item.title}`}
       aria-current={selected ? "true" : undefined}
       className={cn(
-        "flex h-7 shrink-0 items-center gap-2 rounded-md border border-dashed px-2 text-xs transition-colors hover:bg-accent/40",
-        !color && "border-primary/50 bg-primary/10",
+        "flex h-7 shrink-0 items-center gap-2 rounded-md px-2 text-xs transition-colors hover:bg-accent/40",
+        !color && "bg-primary/10",
         completed && "opacity-60",
-        selected && "ring-2 ring-ring"
+        selected && "ring-1 ring-ring ring-offset-1 ring-offset-background"
       )}
-      style={surface}
+      style={surface ? { backgroundImage: surface.backgroundImage } : undefined}
       onClick={() => ui?.onSelect(item.id)}
     >
-      <Flag className="size-3 shrink-0 opacity-80" />
+      <Flag className="size-3 shrink-0" style={surface ? { color: surface.color } : undefined} />
       <span className={cn("max-w-48 truncate font-medium", completed && "line-through")}>{item.title}</span>
       {total > 0 && (
         <span

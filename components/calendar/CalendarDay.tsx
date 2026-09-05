@@ -103,7 +103,8 @@ export function CalendarDay({
                 <CalendarEvent
                   occurrence={occurrence}
                   time={timedLabel(occurrence)}
-                  className="h-full items-start py-1"
+                  variant="block"
+                  className="h-full"
                   highlight={occurrence.itemId === highlightId}
                 />
               </div>

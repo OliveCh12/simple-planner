@@ -66,7 +66,7 @@ export const ItemBar = memo(function ItemBar({
         "absolute cursor-pointer bg-transparent text-left text-sm leading-tight",
         labelFits ? "overflow-hidden" : "overflow-visible",
         completed && "opacity-60",
-        selected && "z-10 ring-2 ring-ring ring-offset-1"
+        selected && "z-10 ring-1 ring-ring ring-offset-1 ring-offset-background"
       )}
       onClick={() => {
         if (dragging) return;
@@ -79,17 +79,12 @@ export const ItemBar = memo(function ItemBar({
           "absolute left-0",
           milestone && "top-1/2 rotate-45 rounded-sm -translate-y-1/2",
           !milestone && "inset-y-0 rounded-md",
-          planItem.kind === "objective" && "border border-dashed",
-          planItem.kind === "event" && !milestone && "border-l-[3px]",
-          planItem.kind === "task" && variant === "allDay" && "border",
-          subtask && "border-dotted",
-          !color && variant === "allDay" && "border-primary/70 bg-primary/20",
+          !color && variant === "allDay" && "bg-primary/20",
           !color && variant === "timed" && "bg-primary"
         )}
         style={{
           width: milestone ? barWidth : barWidth,
           height: milestone ? barWidth : undefined,
-          borderColor: surface?.borderColor ?? color,
           backgroundImage: surface?.backgroundImage,
           backgroundColor: color ? "transparent" : undefined,
         }}
@@ -102,7 +97,7 @@ export const ItemBar = memo(function ItemBar({
       />
       <span
         className={cn(
-          "relative z-[1] flex h-full items-center gap-0.5 truncate px-1.5",
+          "relative z-[1] flex h-full items-center gap-1 truncate px-1.5",
           !labelFits && "rounded-r-md bg-background",
           variant === "timed" && labelFits && !color ? "text-primary-foreground" : "text-foreground",
           subtask && "text-muted-foreground"
@@ -128,9 +123,14 @@ export const ItemBar = memo(function ItemBar({
             <ChevronRight className={cn("size-3 transition-transform", expanded && "rotate-90")} />
           </button>
         )}
-        <Icon className="size-3 shrink-0 opacity-80" />
+        <Icon
+          className="size-3 shrink-0"
+          style={surface ? { color: surface.color } : undefined}
+        />
         {item.recurring && <Repeat className="size-3 shrink-0 opacity-70" />}
-        <span className="min-w-0 truncate">{planItem.title}</span>
+        <span className={cn("min-w-0 truncate", planItem.kind === "event" && "font-medium")}>
+          {planItem.title}
+        </span>
         {total > 0 && (
           <span className="shrink-0 tabular-nums text-[10px] opacity-70" aria-label={`${done} of ${total} done`}>
             {done}/{total}

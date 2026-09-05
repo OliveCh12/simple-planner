@@ -62,8 +62,8 @@ const SHORTCUTS: { title: string; description: string; keys: string[] }[] = [
     keys: ["Enter"],
   },
   {
-    title: "Cancel editing",
-    description: "Discards unsaved title and note changes.",
+    title: "Close details",
+    description: "Closes the details pane and gives the calendar its full width back. Esc also discards unsaved title and note changes while editing.",
     keys: ["Esc"],
   },
 ];

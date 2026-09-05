@@ -12,11 +12,19 @@ import { usePlannerStore } from "@/store/plannerStore";
 interface CalendarEventProps {
   occurrence: CalendarOccurrence;
   time?: string;
+  /** Compact row (month, all-day) or a filling block (week/day timed). */
+  variant?: "chip" | "block";
   className?: string;
   highlight?: boolean;
 }
 
-export function CalendarEvent({ occurrence, time, className, highlight }: CalendarEventProps) {
+export function CalendarEvent({
+  occurrence,
+  time,
+  variant = "chip",
+  className,
+  highlight,
+}: CalendarEventProps) {
   const item = usePlannerStore((s) => s.items.find((entry) => entry.id === occurrence.itemId));
   const ui = useCalendarUi();
   const { done, total } = useChildProgress(occurrence.itemId);
@@ -32,20 +40,20 @@ export function CalendarEvent({ occurrence, time, className, highlight }: Calend
   const expanded = Boolean(ui?.showSubtasks || ui?.expandedIds.has(occurrence.itemId));
   const selected = highlight || ui?.selectedId === occurrence.itemId;
   const surface = color ? categorySurface(color, surfaceTone(occurrence.kind, subtask)) : undefined;
+  const block = variant === "block";
 
   return (
     <div
       className={cn(
-        "flex w-full min-w-0 items-stretch overflow-hidden rounded-md border text-xs leading-tight",
-        occurrence.kind === "event" && "border-l-[3px] font-medium",
-        occurrence.kind === "objective" && "border-dashed",
-        subtask && "border-dotted text-muted-foreground",
+        "flex w-full min-w-0 overflow-hidden rounded-md text-xs leading-tight",
+        occurrence.kind === "event" && "font-medium",
+        subtask && "text-muted-foreground",
         occurrence.status === "completed" && "opacity-50",
-        !color && "border-primary/40 bg-primary/15",
-        selected && "ring-2 ring-ring",
+        !color && "bg-primary/15",
+        selected && "ring-1 ring-ring ring-offset-1 ring-offset-background",
         className
       )}
-      style={surface}
+      style={surface ? { backgroundImage: surface.backgroundImage } : undefined}
       onClick={(event) => event.stopPropagation()}
     >
       {foldable && (
@@ -70,7 +78,8 @@ export function CalendarEvent({ occurrence, time, className, highlight }: Calend
         aria-label={`${subtask ? "Subtask" : kind.label}: ${occurrence.title}`}
         aria-current={selected ? "true" : undefined}
         className={cn(
-          "flex min-w-0 flex-1 items-start gap-1 px-1.5 py-0.5 text-left",
+          "flex min-w-0 flex-1 gap-1.5 px-1.5 text-left",
+          block ? "h-full items-start py-1" : "items-center py-0.5",
           occurrence.status === "completed" && "line-through"
         )}
         onClick={(event) => {
@@ -78,11 +87,16 @@ export function CalendarEvent({ occurrence, time, className, highlight }: Calend
           ui?.onSelect(occurrence.itemId, item.recurrence ? occurrence.start : undefined);
         }}
       >
-        <Icon className="size-3 shrink-0 opacity-80" />
-        {label && <span className="shrink-0 tabular-nums text-muted-foreground">{label}</span>}
-        <span className="min-w-0 flex-1 truncate">{occurrence.title}</span>
+        <Icon
+          className={cn("size-3 shrink-0", block && "mt-px")}
+          style={surface ? { color: surface.color } : undefined}
+        />
+        {label && (
+          <span className="shrink-0 text-[10px] leading-4 tabular-nums text-muted-foreground">{label}</span>
+        )}
+        <span className="min-w-0 flex-1 truncate leading-4">{occurrence.title}</span>
         {total > 0 && (
-          <span className="shrink-0 tabular-nums text-[10px] text-muted-foreground" aria-label={`${done} of ${total} done`}>
+          <span className="shrink-0 text-[10px] leading-4 tabular-nums text-muted-foreground" aria-label={`${done} of ${total} done`}>
             {done}/{total}
           </span>
         )}

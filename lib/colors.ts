@@ -24,11 +24,11 @@ const SURFACE_MIX: Record<SurfaceTone, { top: number; bottom: number }> = {
 export function categorySurface(
   hex: string,
   tone: SurfaceTone
-): { backgroundImage: string; borderColor: string } {
+): { backgroundImage: string; color: string } {
   const color = normalizeHex(hex);
   const mix = SURFACE_MIX[tone];
   return {
-    borderColor: color,
+    color,
     backgroundImage: `linear-gradient(180deg, color-mix(in oklab, ${color} ${mix.top}%, var(--background)) 0%, color-mix(in oklab, ${color} ${mix.bottom}%, var(--background)) 100%)`,
   };
 }

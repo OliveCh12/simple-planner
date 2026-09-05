@@ -5,8 +5,9 @@ import { Bot, CalendarDays, ChevronLeft, ChevronRight, SlidersHorizontal } from 
 import { CalendarUiProvider } from "@/components/calendar/calendar-ui";
 import { CalendarBoard } from "@/components/calendar/CalendarBoard";
 import { CalendarCreateButton } from "@/components/calendar/CalendarCreateButton";
-import { DetailsSidebar } from "@/components/item/DetailsSidebar";
+import { ItemEditor } from "@/components/item/ItemEditor";
 import { OccurrenceEditDialog } from "@/components/item/OccurrenceEditDialog";
+import { CalendarWorkspace } from "@/components/layout/CalendarWorkspace";
 import { QuickAdd } from "@/components/item/QuickAdd";
 import { LaneGroup } from "@/components/timeline/LaneGroup";
 import { LaneLayer } from "@/components/timeline/LaneLayer";
@@ -680,7 +681,18 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
         </div>
       </div>
 
-      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+      <CalendarWorkspace
+        right={
+          selectedItem ? (
+            <ItemEditor
+              key={selectedItem.id}
+              item={selectedItem}
+              occurrenceStart={selectedOccurrenceStart}
+              onClose={onCloseDetails}
+            />
+          ) : null
+        }
+      >
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {!gantt ? (
           <div ref={setCalendarEl} className="flex h-full min-h-0 flex-1 flex-col">
@@ -814,12 +826,7 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
           }}
         />
         </div>
-        <DetailsSidebar
-          item={selectedItem}
-          occurrenceStart={selectedOccurrenceStart}
-          onClose={onCloseDetails}
-        />
-      </div>
+      </CalendarWorkspace>
     </div>
     </CalendarUiProvider>
   );
