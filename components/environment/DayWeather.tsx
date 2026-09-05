@@ -60,7 +60,7 @@ export function DayWeather({
       title={tooltip}
       aria-label={tooltip}
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 text-[11px] leading-none tabular-nums text-muted-foreground",
+        "inline-flex shrink-0 items-center gap-1 text-[11.5px] leading-none font-medium tabular-nums text-foreground/65",
         horizon === "outlook" && "opacity-60",
         className
       )}

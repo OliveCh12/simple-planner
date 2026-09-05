@@ -28,7 +28,7 @@ export function ObjectiveStrip({ objectives, categories, highlightId }: Objectiv
         "scroll-thin flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-cal-line-strong"
       )}
     >
-      <span className="mr-1 shrink-0 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+      <span className="mr-1 shrink-0 text-[11.5px] font-semibold uppercase tracking-wider text-foreground/55">
         Goals
       </span>
       {objectives.map((objective) => (

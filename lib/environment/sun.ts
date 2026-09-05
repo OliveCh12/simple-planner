@@ -14,6 +14,7 @@ const OBLIQUITY = 23.4397 * RAD;
 /** Apparent elevation of the sun's upper limb at rise/set, refraction included. */
 const HORIZON_DEG = -0.833;
 const CIVIL_TWILIGHT_DEG = -6;
+const NAUTICAL_TWILIGHT_DEG = -12;
 
 export interface CivilDate {
   year: number;
@@ -58,15 +59,19 @@ export function sunTimes(lat: number, lon: number, civil: CivilDate): SunTimes {
     return midday > Math.sin(HORIZON_DEG * RAD) ? { kind: "polarDay" } : { kind: "polarNight" };
   }
   const twilight = hourAngle(CIVIL_TWILIGHT_DEG, latRad, declination) ?? rise;
+  // At high latitudes in summer the sun never gets 12° below: night stays a long twilight.
+  const nautical = hourAngle(NAUTICAL_TWILIGHT_DEG, latRad, declination) ?? Math.max(twilight, 180 - 0.001);
 
   const sunrise = fromJulian(jTransit - rise / 360);
   const sunset = fromJulian(jTransit + rise / 360);
   return {
     kind: "normal",
+    nightEnd: fromJulian(jTransit - nautical / 360),
     dawn: fromJulian(jTransit - twilight / 360),
     sunrise,
     sunset,
     dusk: fromJulian(jTransit + twilight / 360),
+    nightStart: fromJulian(jTransit + nautical / 360),
     daylightMinutes: Math.round((sunset.getTime() - sunrise.getTime()) / 60_000),
   };
 }

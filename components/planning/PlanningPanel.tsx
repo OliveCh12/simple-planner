@@ -85,7 +85,7 @@ export function PlanningPanel({ range, scale }: PlanningPanelProps) {
 
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="mb-1 px-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+    <p className="mb-1 px-2 text-[11.5px] font-semibold uppercase tracking-wider text-foreground/55">
       {children}
     </p>
   );

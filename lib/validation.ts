@@ -51,6 +51,7 @@ export const appSettingsSchema = z.object({
   firstDayOfWeek: z.union([z.literal(0), z.literal(1)]),
   dateFormat: z.string(),
   showWeekNumbers: z.boolean(),
+  hoverPreview: z.boolean().default(true),
   environment: environmentSettingsSchema.default(DEFAULT_ENVIRONMENT),
 });
 

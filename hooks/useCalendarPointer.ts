@@ -11,11 +11,15 @@ import {
   snapMinutes,
   type GridHit,
 } from "@/lib/calendar-snap";
+import { captureRectOf, gsap, prefersReducedMotion } from "@/lib/motion";
 import { formatLocalDate, parseLocal } from "@/lib/time/local";
 import type { ItemKind } from "@/types";
 
 const DRAG_THRESHOLD = 5;
 const CLICK_GUARD_MS = 400;
+const LIFT_SCALE = 1.02;
+
+export type GhostMode = "move" | "resize" | "create" | "hover";
 
 export interface CalendarDragPreview {
   itemId: string;
@@ -29,7 +33,7 @@ export interface CalendarDragPreview {
   color?: string;
   title?: string;
   kind?: ItemKind;
-  mode: "move" | "resize" | "create";
+  mode: GhostMode;
 }
 
 export interface CalendarCommit {
@@ -86,6 +90,7 @@ function hitTest(grid: HTMLElement, clientX: number, clientY: number): GridHit |
   const scrollTop = timed?.scrollTop ?? 0;
   const top = (timed ?? area).getBoundingClientRect().top;
   const y = clientY - top + scrollTop;
+  if (!timed || clientY < timed.getBoundingClientRect().top) return null;
   const minutes = snapMinutes((y / HOUR_PX) * 60);
   return { zone: "timed", day, minutes };
 }
@@ -110,7 +115,7 @@ function previewFrom(
   occurrenceId: string,
   start: string,
   end: string | undefined,
-  mode: CalendarDragPreview["mode"],
+  mode: GhostMode,
   meta: CardMeta = {}
 ): CalendarDragPreview {
   const allDay = !start.includes("T");
@@ -121,19 +126,56 @@ function previewFrom(
     end,
     allDay,
     label: scheduleLabel(start, end),
-    creating: mode === "create",
+    creating: mode === "create" || mode === "hover",
     mode,
     ...meta,
   };
 }
 
+function samePreview(a: CalendarDragPreview | null, b: CalendarDragPreview | null): boolean {
+  if (!a || !b) return a === b;
+  return a.start === b.start && a.end === b.end && a.mode === b.mode;
+}
+
+function minutesOf(value: string): number {
+  const date = parseLocal(value);
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+/** Lift a card off the grid while it is dragged. */
+function lift(card: HTMLElement) {
+  card.dataset.lifted = "true";
+  document.body.classList.add("cal-dragging");
+  if (!prefersReducedMotion()) gsap.to(card, { scale: LIFT_SCALE, duration: 0.12, ease: "power2.out" });
+}
+
+/** Put a card back: either it settles elsewhere through FLIP, or it glides home. */
+function drop(card: HTMLElement, home: boolean) {
+  delete card.dataset.lifted;
+  document.body.classList.remove("cal-dragging");
+  gsap.killTweensOf(card);
+  if (home && !prefersReducedMotion()) {
+    gsap.to(card, { x: 0, y: 0, scale: 1, duration: 0.2, ease: "power2.out", clearProps: "transform" });
+    return;
+  }
+  gsap.set(card, { clearProps: "transform" });
+}
+
+export interface PointerOptions {
+  /** Show a placement ghost under the mouse over empty time. */
+  hoverPreview?: boolean;
+}
+
 export function useCalendarPointer(
   gridEl: HTMLElement | null,
   onCommit: (commit: CalendarCommit) => void,
-  onCreate?: (start: string, end: string) => void
-): { preview: CalendarDragPreview | null; draggingId: string | null } {
+  onCreate?: (start: string, end: string) => void,
+  options: PointerOptions = {}
+): { preview: CalendarDragPreview | null; draggingId: string | null; hover: CalendarDragPreview | null } {
   const [preview, setPreview] = useState<CalendarDragPreview | null>(null);
+  const [hover, setHover] = useState<CalendarDragPreview | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const hoverPreview = options.hoverPreview ?? true;
 
   useEffect(() => {
     if (!gridEl) return;
@@ -153,6 +195,12 @@ export function useCalendarPointer(
     let meta: CardMeta = {};
     let startHit: GridHit | null = null;
     let current: CalendarDragPreview | null = null;
+    let card: HTMLElement | null = null;
+    let slot: HTMLElement | null = null;
+    let slotTop = "";
+    let slotHeight = "";
+    let hoverCurrent: CalendarDragPreview | null = null;
+    let hoverFrame = 0;
     // Where inside the card the pointer grabbed it, so a move keeps that
     // point under the pointer instead of snapping the start to it.
     let grabDayOffset = 0;
@@ -176,6 +224,21 @@ export function useCalendarPointer(
       return previewFrom(itemId, occurrenceId, next.start, next.end, mode === "move" ? "move" : "resize", meta);
     };
 
+    /** Live geometry for a resize that stays on its own day: the card itself grows. */
+    const applyLiveResize = (next: CalendarDragPreview) => {
+      if (!slot || originAllDay || !next.end) return;
+      const sameDay = next.start.slice(0, 10) === originStart.slice(0, 10) && next.end.slice(0, 10) === originStart.slice(0, 10);
+      if (!sameDay) {
+        slot.style.top = slotTop;
+        slot.style.height = slotHeight;
+        return;
+      }
+      const startMin = minutesOf(next.start);
+      const endMin = minutesOf(next.end);
+      slot.style.top = `${(startMin / 60) * HOUR_PX}px`;
+      slot.style.height = `${Math.max(20, ((endMin - startMin) / 60) * HOUR_PX)}px`;
+    };
+
     const reset = () => {
       pointerId = null;
       pointerType = "";
@@ -184,8 +247,16 @@ export function useCalendarPointer(
       startHit = null;
       current = null;
       meta = {};
+      card = null;
+      slot = null;
       setPreview(null);
       setDraggingId(null);
+    };
+
+    const setHoverIfChanged = (next: CalendarDragPreview | null) => {
+      if (samePreview(hoverCurrent, next)) return;
+      hoverCurrent = next;
+      setHover(next);
     };
 
     const onDown = (event: PointerEvent) => {
@@ -194,27 +265,33 @@ export function useCalendarPointer(
       if (!(target instanceof Element)) return;
       if (target.closest("[data-expand], input, textarea, button[aria-label^='Subtask']")) return;
       const handle = target.closest("[data-cal-resize]");
-      const card = target.closest<HTMLElement>("[data-cal-item]");
+      const found = target.closest<HTMLElement>("[data-cal-item]");
       pointerId = event.pointerId;
       pointerType = event.pointerType;
       startClientX = event.clientX;
       startClientY = event.clientY;
       moved = false;
       current = null;
-      if (card) {
-        itemId = card.getAttribute("data-item-id") || "";
-        occurrenceId = card.getAttribute("data-cal-item") || "";
-        occurrenceStart = card.getAttribute("data-occurrence-start") || "";
-        originStart = card.getAttribute("data-start") || occurrenceStart;
-        originEnd = card.getAttribute("data-end") || undefined;
-        originAllDay = card.getAttribute("data-all-day") === "true";
+      setHoverIfChanged(null);
+      if (found) {
+        card = found;
+        slot = found.closest<HTMLElement>("[data-cal-slot]");
+        slotTop = slot?.style.top ?? "";
+        slotHeight = slot?.style.height ?? "";
+        itemId = found.getAttribute("data-item-id") || "";
+        occurrenceId = found.getAttribute("data-cal-item") || "";
+        occurrenceStart = found.getAttribute("data-occurrence-start") || "";
+        originStart = found.getAttribute("data-start") || occurrenceStart;
+        originEnd = found.getAttribute("data-end") || undefined;
+        originAllDay = found.getAttribute("data-all-day") === "true";
         meta = {
-          color: card.getAttribute("data-cat") || undefined,
-          title: card.getAttribute("data-title") || undefined,
-          kind: (card.getAttribute("data-kind") as ItemKind | null) ?? undefined,
+          color: found.getAttribute("data-cat") || undefined,
+          title: found.getAttribute("data-title") || undefined,
+          kind: (found.getAttribute("data-kind") as ItemKind | null) ?? undefined,
         };
         if (!itemId || !originStart) {
           pointerId = null;
+          card = null;
           return;
         }
         mode = handle
@@ -262,6 +339,7 @@ export function useCalendarPointer(
         moved = true;
         if (mode === "create" && pointerType !== "mouse") return;
         if (mode !== "create") setDraggingId(itemId);
+        if (card) lift(card);
         try {
           gridEl.setPointerCapture(event.pointerId);
         } catch {
@@ -269,12 +347,14 @@ export function useCalendarPointer(
         }
       }
       if (mode === "create" && pointerType !== "mouse") return;
+      if (mode === "move" && card) gsap.set(card, { x: dx, y: dy });
       const hit = hitTest(gridEl, event.clientX, event.clientY);
       if (!hit) return;
       if (mode === "create" && startHit && hit.zone !== startHit.zone) return;
       const next = applyHit(hit);
       if (current && current.start === next.start && current.end === next.end) return;
       current = next;
+      if (mode === "resize-start" || mode === "resize-end") applyLiveResize(next);
       setPreview(current);
     };
 
@@ -290,20 +370,38 @@ export function useCalendarPointer(
       const commitOccurrence = occurrenceStart;
       const commitOriginStart = originStart;
       const commitOriginEnd = originEnd;
+      const draggedCard = card;
+      const draggedSlot = slot;
+      const restoreTop = slotTop;
+      const restoreHeight = slotHeight;
       reset();
       if (creating) {
         if (!onCreate || !origin) return;
         if (didMove && type !== "mouse") return;
         suppressNextClick();
-        const slot = didMove && next ? { start: next.start, end: next.end ?? next.start } : slotFromClick(origin);
-        onCreate(slot.start, slot.end);
+        const slotRange = didMove && next ? { start: next.start, end: next.end ?? next.start } : slotFromClick(origin);
+        onCreate(slotRange.start, slotRange.end);
         return;
+      }
+      const changed = Boolean(didMove && next && (next.start !== commitOriginStart || next.end !== commitOriginEnd));
+      if (draggedCard) {
+        if (changed) {
+          // Remember the lifted position: the settle animation starts from here.
+          captureRectOf(commitOccurrenceId, draggedCard.getBoundingClientRect());
+          drop(draggedCard, false);
+        } else {
+          drop(draggedCard, true);
+        }
+      }
+      if (draggedSlot && !changed) {
+        draggedSlot.style.top = restoreTop;
+        draggedSlot.style.height = restoreHeight;
       }
       if (didMove && next) {
         event.preventDefault();
         event.stopPropagation();
         suppressNextClick();
-        if (next.start !== commitOriginStart || next.end !== commitOriginEnd) {
+        if (changed) {
           onCommit({
             itemId: commitItemId,
             occurrenceId: commitOccurrenceId,
@@ -315,26 +413,69 @@ export function useCalendarPointer(
       }
     };
 
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || !mode) return;
+    const cancel = () => {
+      if (card) drop(card, true);
+      if (slot) {
+        slot.style.top = slotTop;
+        slot.style.height = slotHeight;
+      }
       reset();
     };
 
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || !mode) return;
+      cancel();
+    };
+
+    const onHover = (event: PointerEvent) => {
+      if (!hoverPreview || !onCreate || mode || event.pointerType !== "mouse") return;
+      if (hoverFrame) return;
+      hoverFrame = window.requestAnimationFrame(() => {
+        hoverFrame = 0;
+        const target = event.target;
+        if (!(target instanceof Element) || target.closest("[data-cal-item], [data-cal-ghost=landing]")) {
+          setHoverIfChanged(null);
+          return;
+        }
+        const hit = hitTest(gridEl, event.clientX, event.clientY);
+        if (!hit || hit.zone !== "timed") {
+          setHoverIfChanged(null);
+          return;
+        }
+        const next = slotFromClick(hit);
+        setHoverIfChanged(previewFrom("", "", next.start, next.end, "hover"));
+      });
+    };
+
+    const onLeave = () => {
+      if (hoverFrame) {
+        window.cancelAnimationFrame(hoverFrame);
+        hoverFrame = 0;
+      }
+      setHoverIfChanged(null);
+    };
+
     gridEl.addEventListener("pointerdown", onDown);
+    gridEl.addEventListener("pointermove", onHover);
+    gridEl.addEventListener("pointerleave", onLeave);
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", finish);
     window.addEventListener("pointercancel", finish);
     window.addEventListener("keydown", onKey);
     return () => {
+      if (hoverFrame) window.cancelAnimationFrame(hoverFrame);
+      document.body.classList.remove("cal-dragging");
       gridEl.removeEventListener("pointerdown", onDown);
+      gridEl.removeEventListener("pointermove", onHover);
+      gridEl.removeEventListener("pointerleave", onLeave);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", finish);
       window.removeEventListener("pointercancel", finish);
       window.removeEventListener("keydown", onKey);
     };
-  }, [gridEl, onCommit, onCreate]);
+  }, [gridEl, hoverPreview, onCommit, onCreate]);
 
-  return { preview, draggingId };
+  return { preview, draggingId, hover };
 }
 
 export function dayFromOrigin(origin: Date, index: number): string {

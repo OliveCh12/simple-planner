@@ -170,6 +170,8 @@ export interface AppSettings {
   firstDayOfWeek: 0 | 1; // 0 = Sunday, 1 = Monday
   dateFormat: string;
   showWeekNumbers: boolean;
+  /** Placement ghost under the mouse over empty time in week and day views. */
+  hoverPreview: boolean;
   /** Weather, default place and daylight. Off unless the user opts in. */
   environment: EnvironmentSettings;
 }

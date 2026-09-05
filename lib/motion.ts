@@ -30,6 +30,11 @@ export function captureRect(occurrenceId: string): void {
   pendingRects.set(occurrenceId, el.getBoundingClientRect());
 }
 
+/** Same, from a rect already measured (a lifted card, a ghost about to become a draft). */
+export function captureRectOf(key: string, rect: DOMRect): void {
+  pendingRects.set(key, rect);
+}
+
 /** FLIP, step two: after layout, play from the remembered rect to the current one. */
 export function playFlip(occurrenceId: string, el: HTMLElement | null): void {
   const from = pendingRects.get(occurrenceId);

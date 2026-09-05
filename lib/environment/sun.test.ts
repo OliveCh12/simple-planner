@@ -18,6 +18,8 @@ describe("sunTimes", () => {
     expect(within(utcHm(sun.sunset), 19 * 60 + 58, 4)).toBe(true);
     expect(sun.dawn < sun.sunrise).toBe(true);
     expect(sun.dusk > sun.sunset).toBe(true);
+    expect(sun.nightEnd < sun.dawn).toBe(true);
+    expect(sun.nightStart > sun.dusk).toBe(true);
     expect(sun.daylightMinutes).toBeGreaterThan(16 * 60);
   });
 

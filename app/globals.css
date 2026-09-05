@@ -46,8 +46,13 @@
   --cal-past: oklch(0.141 0.005 285.823 / 3%);
   --cal-today: oklch(0.62 0.21 25 / 3.5%);
   --cal-selected: oklch(0.141 0.005 285.823 / 4%);
-  /* Night wash for the daylight layer: cool, barely there. */
-  --cal-night: oklch(0.3 0.03 275 / 6%);
+  /* Daylight layer: night wash, cool dawn and warm dusk, all barely there. */
+  --cal-night: oklch(0.28 0.04 275 / 7%);
+  --cal-dawn: oklch(0.62 0.09 250 / 5%);
+  --cal-dusk: oklch(0.7 0.13 55 / 6%);
+  /* Glass for interactive cards: a light base so tints stay legible over the grid. */
+  --glass-base: rgb(255 255 255 / 0.55);
+  --glass-edge: rgb(255 255 255 / 0.55);
 }
 
 .dark {
@@ -90,7 +95,11 @@
   --cal-past: oklch(1 0 0 / 3%);
   --cal-today: oklch(0.71 0.19 25 / 4%);
   --cal-selected: oklch(1 0 0 / 5%);
-  --cal-night: oklch(0 0 0 / 28%);
+  --cal-night: oklch(0 0 0 / 30%);
+  --cal-dawn: oklch(0.55 0.1 260 / 11%);
+  --cal-dusk: oklch(0.6 0.13 45 / 11%);
+  --glass-base: rgb(24 24 28 / 0.5);
+  --glass-edge: rgb(255 255 255 / 0.08);
 }
 
 @theme inline {
@@ -102,6 +111,11 @@
   --color-cal-today: var(--cal-today);
   --color-cal-selected: var(--cal-selected);
   --color-cal-night: var(--cal-night);
+  --color-cal-dawn: var(--cal-dawn);
+  --color-cal-dusk: var(--cal-dusk);
+  /* One notch up for the smallest text: calendar chips, rows and labels read at 12.5px. */
+  --text-xs: 0.78125rem;
+  --text-xs--line-height: 1rem;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -214,4 +228,71 @@
   cursor: text;
   user-select: text;
   -webkit-user-select: text;
+}
+
+/* Calendar cards: quiet at rest, glass when touched, lifted while dragged. */
+.cal-card {
+  transition:
+    box-shadow 150ms ease,
+    background-color 150ms ease,
+    opacity 150ms ease;
+}
+.cal-card[data-tinted="true"]:hover,
+.cal-card[data-tinted="true"][data-selected="true"],
+.cal-card[data-tinted="true"][data-expanded="true"],
+.cal-card[data-tinted="true"][data-lifted="true"] {
+  background-image: none;
+  background-color: color-mix(in oklab, var(--cat, var(--primary)) 22%, var(--glass-base));
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-edge),
+    0 1px 2px rgb(0 0 0 / 0.06),
+    0 0 0 1px color-mix(in oklab, var(--cat, var(--primary)) 28%, transparent);
+}
+@supports (backdrop-filter: blur(1px)) {
+  .cal-card[data-tinted="true"]:hover,
+  .cal-card[data-tinted="true"][data-selected="true"],
+  .cal-card[data-tinted="true"][data-expanded="true"],
+  .cal-card[data-tinted="true"][data-lifted="true"] {
+    backdrop-filter: blur(8px) saturate(1.25);
+  }
+}
+.cal-card[data-selected="true"] {
+  z-index: 10;
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-edge),
+    0 1px 2px rgb(0 0 0 / 0.06),
+    0 0 0 2px var(--ring);
+}
+.cal-card[data-expanded="true"] {
+  z-index: 30;
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-edge),
+    0 10px 24px -12px rgb(0 0 0 / 0.35),
+    0 0 0 1px color-mix(in oklab, var(--cat, var(--primary)) 35%, transparent);
+}
+.cal-card[data-lifted="true"] {
+  z-index: 40;
+  opacity: 0.97;
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-edge),
+    0 14px 30px -10px rgb(0 0 0 / 0.35),
+    0 0 0 1px color-mix(in oklab, var(--cat, var(--primary)) 45%, transparent),
+    0 0 28px -6px color-mix(in oklab, var(--cat, var(--primary)) 40%, transparent);
+}
+.dark .cal-card[data-lifted="true"] {
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-edge),
+    0 16px 34px -10px rgb(0 0 0 / 0.7),
+    0 0 0 1px color-mix(in oklab, var(--cat, var(--primary)) 55%, transparent),
+    0 0 36px -4px color-mix(in oklab, var(--cat, var(--primary)) 60%, transparent);
+}
+.dark .cal-card[data-expanded="true"] {
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-edge),
+    0 12px 28px -12px rgb(0 0 0 / 0.7),
+    0 0 0 1px color-mix(in oklab, var(--cat, var(--primary)) 45%, transparent);
+}
+body.cal-dragging,
+body.cal-dragging * {
+  cursor: grabbing !important;
 }

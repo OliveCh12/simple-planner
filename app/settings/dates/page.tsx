@@ -26,7 +26,7 @@ export default function DatesSettingsPage() {
   const updateSettings = useUIStore((s) => s.updateSettings);
 
   return (
-    <SettingsSection title="Dates" description="How dates and weeks are displayed.">
+    <SettingsSection title="Dates & grid" description="How dates, weeks and the hour grid behave.">
       <FieldGroup>
         <Field orientation="responsive">
           <FieldContent>
@@ -55,6 +55,20 @@ export default function DatesSettingsPage() {
             id="week-numbers"
             checked={settings.showWeekNumbers}
             onCheckedChange={(checked) => updateSettings({ showWeekNumbers: checked })}
+          />
+        </Field>
+
+        <Field orientation="horizontal">
+          <FieldContent>
+            <FieldLabel htmlFor="hover-preview">Placement preview</FieldLabel>
+            <FieldDescription>
+              In week and day views, a faint slot follows the mouse over empty time to show where a click creates an event.
+            </FieldDescription>
+          </FieldContent>
+          <Switch
+            id="hover-preview"
+            checked={settings.hoverPreview}
+            onCheckedChange={(checked) => updateSettings({ hoverPreview: checked })}
           />
         </Field>
 

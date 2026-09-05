@@ -220,7 +220,6 @@ export function TimelineBoard({ plan, focusItemId }: TimelineBoardProps) {
         });
         return;
       }
-      captureRect(commit.occurrenceId);
       void saveItem(moveItem(item, commit.start, commit.end));
     },
     [items, saveItem]

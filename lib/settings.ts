@@ -24,6 +24,7 @@ export function getDefaultSettings(): AppSettings {
     firstDayOfWeek: 1,
     dateFormat: "MMM d, yyyy",
     showWeekNumbers: false,
+    hoverPreview: true,
     environment: getDefaultEnvironment(),
   };
 }

@@ -416,6 +416,10 @@
         "showWeekNumbers": {
           "type": "boolean"
         },
+        "hoverPreview": {
+          "default": true,
+          "type": "boolean"
+        },
         "environment": {
           "default": {
             "weather": false,
@@ -504,6 +508,7 @@
         "firstDayOfWeek",
         "dateFormat",
         "showWeekNumbers",
+        "hoverPreview",
         "environment"
       ],
       "additionalProperties": false

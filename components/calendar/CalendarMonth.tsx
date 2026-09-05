@@ -34,7 +34,7 @@ function WeekdayHeaders({ weekStartsOn, gutter }: { weekStartsOn: 0 | 1; gutter:
       {days.map((day) => (
         <div
           key={day.toISOString()}
-          className="px-2 py-1.5 text-right text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+          className="px-2 py-1.5 text-right text-[11.5px] font-semibold uppercase tracking-wide text-foreground/60"
         >
           <span className="sm:hidden">{format(day, "EEEEE")}</span>
           <span className="hidden sm:inline">{format(day, "EEE")}</span>

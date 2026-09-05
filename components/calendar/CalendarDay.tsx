@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Sunrise } from "lucide-react";
 import { addDays, isSameDay } from "date-fns";
 import { useCalendarUi } from "@/components/calendar/calendar-ui";
@@ -12,6 +12,7 @@ import { DaylightLayer } from "@/components/environment/DaylightLayer";
 import { HOUR_PX, HourGutter, initialScrollTop } from "@/components/calendar/CalendarWeek";
 import { occurrenceInterval, packInRange, timedLabel, type CalendarOccurrence } from "@/lib/calendar";
 import { useCalendarPointer } from "@/hooks/useCalendarPointer";
+import { useUIStore } from "@/store/uiStore";
 import { useNowCoarse } from "@/hooks/useNow";
 import { useDailyWeather, useEnvironmentSettings } from "@/hooks/useWeather";
 import { sunTimesCached } from "@/lib/environment/sun";
@@ -78,7 +79,9 @@ export function CalendarDay({
     [onMoveItem]
   );
   const onCreate = ui?.canCreate ? ui.onCreateSlot : undefined;
-  const { preview, draggingId } = useCalendarPointer(gridEl, onCommit, onCreate);
+  const hoverPreview = useUIStore((s) => s.settings.hoverPreview);
+  const pointerOptions = useMemo(() => ({ hoverPreview }), [hoverPreview]);
+  const { preview, hover } = useCalendarPointer(gridEl, onCommit, onCreate, pointerOptions);
 
   useEffect(() => {
     const scroller = scrollerRef.current;
@@ -121,7 +124,7 @@ export function CalendarDay({
         className="grid shrink-0 border-b border-cal-line-strong"
         style={{ gridTemplateColumns: columns, paddingRight: scrollbar }}
       >
-        <p className="self-center pr-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <p className="self-center pr-2 text-right text-[10.5px] font-semibold uppercase tracking-wider text-foreground/55">
           All day
         </p>
         <div className={cn("flex min-h-8 flex-wrap gap-1 border-l border-cal-line px-1 py-1", today && "bg-cal-today")}>
@@ -129,12 +132,11 @@ export function CalendarDay({
             <p className="self-center px-1 text-[11px] text-muted-foreground/80">Nothing all day</p>
           )}
           {allDay.map((occurrence) => (
-            <div key={occurrence.id} className="max-w-xs min-w-32 flex-1">
+            <div key={occurrence.id} data-cal-slot className="max-w-xs min-w-32 flex-1">
               <CalendarEvent
                 occurrence={occurrence}
                 highlight={occurrence.itemId === highlightId}
                 draggable
-                dimmed={draggingId === occurrence.itemId}
                 elapsed={anchorNow && isElapsedOccurrence(occurrence, now)}
               />
             </div>
@@ -179,13 +181,15 @@ export function CalendarDay({
                 const occurrence = byId.get(span.id);
                 if (!occurrence) return null;
                 const colWidth = 100 / laneCount;
+                const slotHeight = Math.max(20, (span.endFrac - span.startFrac) * 24 * HOUR_PX);
                 return (
                   <div
                     key={span.id}
+                    data-cal-slot
                     className="pointer-events-auto absolute px-0.5 py-px"
                     style={{
                       top: span.startFrac * 24 * HOUR_PX,
-                      height: Math.max(20, (span.endFrac - span.startFrac) * 24 * HOUR_PX),
+                      height: slotHeight,
                       left: `${span.lane * colWidth}%`,
                       width: `${colWidth}%`,
                     }}
@@ -194,9 +198,9 @@ export function CalendarDay({
                       occurrence={occurrence}
                       time={timedLabel(occurrence)}
                       variant="block"
+                      height={slotHeight - 2}
                       highlight={occurrence.itemId === highlightId}
                       draggable
-                      dimmed={draggingId === occurrence.itemId}
                       elapsed={anchorNow && isElapsedOccurrence(occurrence, now)}
                     />
                   </div>
@@ -213,6 +217,7 @@ export function CalendarDay({
           {preview && !preview.allDay && (
             <TimedGhost preview={preview} origin={start} days={1} gutter={GUTTER} />
           )}
+          {!preview && hover && <TimedGhost preview={hover} origin={start} days={1} gutter={GUTTER} />}
         </div>
       </div>
     </div>

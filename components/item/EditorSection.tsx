@@ -16,7 +16,7 @@ export function EditorSection({ title, action, children, className }: EditorSect
   return (
     <section className={cn("flex flex-col gap-1.5", className)}>
       <div className="flex h-5 items-center justify-between gap-2">
-        <h2 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{title}</h2>
+        <h2 className="text-[11.5px] font-semibold uppercase tracking-wider text-foreground/55">{title}</h2>
         {action}
       </div>
       {children}

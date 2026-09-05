@@ -39,12 +39,16 @@ export interface HourlyWeather {
 export type SunTimes =
   | {
       kind: "normal";
+      /** End of the darkest night (sun 12° below the horizon); twilight begins. */
+      nightEnd: Date;
       /** Civil dawn (sun 6° below the horizon). */
       dawn: Date;
       sunrise: Date;
       sunset: Date;
       /** Civil dusk. */
       dusk: Date;
+      /** Full night again (sun 12° below). */
+      nightStart: Date;
       daylightMinutes: number;
     }
   | { kind: "polarDay" }

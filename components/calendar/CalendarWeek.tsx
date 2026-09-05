@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, eachDayOfInterval, format, isSameDay, startOfWeek } from "date-fns";
 import { useCalendarUi } from "@/components/calendar/calendar-ui";
 import { CalendarEvent } from "@/components/calendar/CalendarEvent";
@@ -17,6 +17,7 @@ import {
 } from "@/lib/calendar";
 import { HOUR_PX, nowLineOffset, pad2 } from "@/lib/calendar-snap";
 import { useCalendarPointer } from "@/hooks/useCalendarPointer";
+import { useUIStore } from "@/store/uiStore";
 import { useNowCoarse } from "@/hooks/useNow";
 import { useDailyWeather, useEnvironmentSettings } from "@/hooks/useWeather";
 import { sunTimesCached } from "@/lib/environment/sun";
@@ -52,7 +53,7 @@ export function HourGutter() {
         return (
           <span
             key={hour}
-            className="absolute right-2 -translate-y-1/2 text-[11px] leading-none tabular-nums text-muted-foreground"
+            className="absolute right-2 -translate-y-1/2 text-[11.5px] leading-none font-medium tabular-nums text-foreground/55"
             style={{ top: hour * HOUR_PX }}
           >
             {pad2(hour)}:00
@@ -130,7 +131,9 @@ export function CalendarWeek({
     [onMoveItem]
   );
   const onCreate = ui?.canCreate ? ui.onCreateSlot : undefined;
-  const { preview, draggingId } = useCalendarPointer(gridEl, onCommit, onCreate);
+  const hoverPreview = useUIStore((s) => s.settings.hoverPreview);
+  const pointerOptions = useMemo(() => ({ hoverPreview }), [hoverPreview]);
+  const { preview, hover } = useCalendarPointer(gridEl, onCommit, onCreate, pointerOptions);
 
   useEffect(() => {
     const scroller = scrollerRef.current;
@@ -179,8 +182,8 @@ export function CalendarWeek({
             >
               <span
                 className={cn(
-                  "text-[11px] font-medium uppercase tracking-wide",
-                  current ? "text-now" : "text-muted-foreground"
+                  "text-[11.5px] font-semibold uppercase tracking-wide",
+                  current ? "text-now" : "text-foreground/60"
                 )}
               >
                 <span className="@min-[5.5rem]:hidden">{format(day, "EEEEE")}</span>
@@ -214,7 +217,7 @@ export function CalendarWeek({
 
       <div className="shrink-0 border-b border-cal-line-strong">
         <div className="grid" style={rowStyle}>
-          <p className="self-center pr-2 text-right text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <p className="self-center pr-2 text-right text-[10.5px] font-semibold uppercase tracking-wider text-foreground/55">
             All day
           </p>
           <div
@@ -239,6 +242,7 @@ export function CalendarWeek({
               return (
                 <div
                   key={span.id}
+                  data-cal-slot
                   className="absolute px-0.5 pt-[3px]"
                   style={{
                     left: `${span.startFrac * 100}%`,
@@ -250,7 +254,6 @@ export function CalendarWeek({
                     occurrence={occurrence}
                     highlight={occurrence.itemId === highlightId}
                     draggable
-                    dimmed={draggingId === occurrence.itemId}
                     elapsed={anchorNow && isElapsedOccurrence(occurrence, now)}
                   />
                 </div>
@@ -300,13 +303,15 @@ export function CalendarWeek({
                   const occurrence = byId.get(span.id);
                   if (!occurrence) return null;
                   const colWidth = 100 / laneCount;
+                  const slotHeight = Math.max(20, (span.endFrac - span.startFrac) * 24 * HOUR_PX);
                   return (
                     <div
                       key={span.id}
+                      data-cal-slot
                       className="absolute px-0.5 py-px"
                       style={{
                         top: span.startFrac * 24 * HOUR_PX,
-                        height: Math.max(20, (span.endFrac - span.startFrac) * 24 * HOUR_PX),
+                        height: slotHeight,
                         left: `${span.lane * colWidth}%`,
                         width: `${colWidth}%`,
                       }}
@@ -316,9 +321,9 @@ export function CalendarWeek({
                         occurrence={occurrence}
                         time={timedLabel(occurrence)}
                         variant="block"
+                        height={slotHeight - 2}
                         highlight={occurrence.itemId === highlightId}
                         draggable
-                        dimmed={draggingId === occurrence.itemId}
                         elapsed={anchorNow && isElapsedOccurrence(occurrence, now)}
                       />
                     </div>
@@ -336,6 +341,7 @@ export function CalendarWeek({
           {preview && !preview.allDay && (
             <TimedGhost preview={preview} origin={weekStart} days={7} gutter={GUTTER} />
           )}
+          {!preview && hover && <TimedGhost preview={hover} origin={weekStart} days={7} gutter={GUTTER} />}
         </div>
       </div>
     </div>

@@ -1,10 +1,12 @@
 "use client";
 
+import { useLayoutEffect, useRef } from "react";
 import { Check } from "lucide-react";
 import { useCalendarUi } from "@/components/calendar/calendar-ui";
 import { useNestedChildren } from "@/hooks/useItemTree";
 import { useSaveItem } from "@/hooks/useSaveItem";
 import { applyStatus } from "@/lib/domain/items";
+import { gsap, prefersReducedMotion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import type { PlanItem } from "@/types";
 
@@ -17,18 +19,30 @@ interface SubtaskTreeProps {
 
 export function SubtaskTree({ parentId, compact = false, depth = 0 }: SubtaskTreeProps) {
   const children = useNestedChildren(parentId);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  // Unfold from the parent instead of popping in; the height settles, then clears.
+  useLayoutEffect(() => {
+    const el = listRef.current;
+    if (!el || depth > 0 || prefersReducedMotion()) return;
+    gsap.from(el, { height: 0, opacity: 0, duration: 0.18, ease: "power2.out", clearProps: "height,opacity" });
+    return () => {
+      gsap.killTweensOf(el);
+    };
+  }, [depth]);
+
   if (children.length === 0) return null;
   const limit = compact ? 3 : 8;
   const visible = children.slice(0, limit);
   const extra = children.length - visible.length;
 
   return (
-    <ul className={cn(depth === 0 && "border-t border-current/15 py-0.5")}>
+    <ul ref={listRef} className={cn("overflow-hidden", depth === 0 && "border-t border-current/15 py-0.5")}>
       {visible.map((child) => (
         <SubtaskRow key={child.id} item={child} compact={compact} depth={depth} />
       ))}
       {extra > 0 && (
-        <li className="px-2 py-0.5 pl-3 text-[11px] opacity-70">{extra} more</li>
+        <li className="px-2 py-0.5 pl-3 text-[11.5px] opacity-70">{extra} more</li>
       )}
     </ul>
   );
@@ -45,7 +59,7 @@ function SubtaskRow({ item, compact, depth }: { item: PlanItem; compact: boolean
     <li>
       <div
         className={cn(
-          "flex min-w-0 items-center gap-1.5 py-px pr-1.5 pl-2 text-[11px] leading-4",
+          "flex min-w-0 items-center gap-1.5 py-px pr-1.5 pl-2 text-[11.5px] leading-4",
           done && "opacity-60",
           selected && "bg-foreground/[0.06]"
         )}
